@@ -3,13 +3,13 @@
   max-height: calc(100dvh - 2rem);
   padding: 0;
   color: var(--bs-body-color);
-  background: var(--bs-body-bg);
+  background: var(--ff-surface);
   border: 1px solid var(--ff-line);
-  border-radius: 0.5rem;
-  box-shadow: 0 16px 70px #172e3629;
+  border-radius: 0.875rem;
+  box-shadow: 0 16px 70px rgb(21 43 67 / 16%);
 }
 .ff-dialog::backdrop {
-  background: #172e3680;
+  background: rgb(21 43 67 / 50%);
 }
 .dialog-heading {
   display: flex;

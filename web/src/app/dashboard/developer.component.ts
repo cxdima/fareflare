@@ -30,6 +30,9 @@ export class DeveloperComponent implements OnInit {
   readonly keys = signal<ApiKey[]>([]);
   readonly secret = signal('');
   readonly revoking = signal<ApiKey | null>(null);
+  readonly connection = signal<'mcp' | 'api'>('mcp');
+  readonly copied = signal<'url' | 'request' | ''>('');
+  readonly copyError = signal('');
   readonly model = signal({ name: '' });
   readonly keyForm = form(this.model, (path) => {
     required(path.name);
@@ -42,6 +45,21 @@ export class DeveloperComponent implements OnInit {
   readonly curl = `curl '${location.origin}/v1/monitors' \\\n  -H 'Authorization: Bearer YOUR_API_KEY'`;
   ngOnInit(): void {
     void this.action.run(() => this.load());
+  }
+  selectConnection(method: 'mcp' | 'api'): void {
+    this.connection.set(method);
+    this.copied.set('');
+    this.copyError.set('');
+  }
+  async copy(value: string, kind: 'url' | 'request'): Promise<void> {
+    this.copied.set('');
+    this.copyError.set('');
+    try {
+      await navigator.clipboard.writeText(value);
+      this.copied.set(kind);
+    } catch {
+      this.copyError.set('Copy is unavailable. Select the text and copy it manually.');
+    }
   }
   status(key: ApiKey): string {
     return key.revoked ? 'Revoked' : key.expires_at * 1000 < Date.now() ? 'Expired' : 'Active';

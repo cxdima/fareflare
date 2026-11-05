@@ -1,6 +1,5 @@
 <div class="page-heading">
   <div>
-    <p class="overline">Notifications</p>
     <h1>Alert activity</h1>
     <p>Price changes and what happened to their notifications.</p>
   </div>
@@ -40,7 +39,9 @@
               <td>
                 <span [class]="'status status-' + item.status">{{ statusLabel(item.status) }}</span
                 ><span class="table-subtext"
-                  >{{ item.webhook_id ? 'Webhook' : 'Account destination' }} · {{ item.attempts }}
+                  >{{ item.webhook_id ? 'Webhook' : 'Account notification' }}<br />{{
+                    item.attempts
+                  }}
                   {{ item.attempts === 1 ? 'attempt' : 'attempts' }}</span
                 >
               </td>

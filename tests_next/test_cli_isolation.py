@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -30,7 +29,7 @@ def test_configuration_cannot_enable_live_mode(tmp_path):
         load_local_config(config)
 
 
-def test_synthetic_demo_is_explicit_and_does_not_use_stable_settings(monkeypatch, capsys):
+def test_synthetic_demo_is_explicit_and_does_not_use_external_credentials(monkeypatch, capsys):
     monkeypatch.setenv("S3_BUCKET", "production-do-not-use")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "production-do-not-use")
     result = demo(ROOT / "examples" / "next-demo.json")
@@ -43,25 +42,6 @@ def test_inspection_works_without_configuration(flight_url, tmp_path, capsys):
     main(["--config", str(tmp_path / "missing.json"), "inspect", flight_url])
     data = json.loads(capsys.readouterr().out)
     assert data["segments"][0]["legs"][0]["number"] == "414"
-
-
-def test_legacy_deploy_is_blocked_before_any_external_tool(tmp_path):
-    environment = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}
-    result = subprocess.run(["/bin/bash", str(ROOT / "scripts" / "deploy.sh")],
-                            env=environment, capture_output=True, text=True)
-    assert result.returncode == 64
-    assert "Stable deployment is disabled" in result.stdout
-    assert "Loading" not in result.stdout
-    assert not (tmp_path / ".env").exists()
-
-
-def test_legacy_secret_restore_and_browser_harness_are_blocked(tmp_path):
-    import sys
-    for command in (["/bin/bash", str(ROOT / "scripts/restore_env.sh")],
-                    [sys.executable, str(ROOT / "scripts/run_local.py")]):
-        result = subprocess.run(command, env={"PATH": "/usr/bin:/bin"}, capture_output=True, text=True)
-        assert result.returncode != 0
-        assert "disabled" in result.stdout + result.stderr
 
 
 def test_cli_serve_and_mcp_only_use_next_configuration(tmp_path, monkeypatch):

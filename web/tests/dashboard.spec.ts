@@ -185,12 +185,15 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
   await page.getByLabel('Password', { exact: true }).fill('a-long-private-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toBeVisible();
-  await expect(page.getByText('Free during development')).toBeVisible();
+  await expect(
+    page.getByText(/Free during development|Development preview|family commands/i),
+  ).toHaveCount(0);
   await expect(page.getByText(/upgrade|payment method|subscribe now/i)).toHaveCount(0);
   await page.getByRole('button', { name: 'Watch your first flight' }).click();
   await page.getByLabel('Google Flights link').fill(flightUrl);
   await page.getByRole('button', { name: 'Start watching' }).click();
   await expect(page.getByText('Awaiting first check')).toBeVisible();
+  await expect(page.getByText(/check delayed|checks delayed/)).toHaveCount(0);
   const create = calls.find((item) => item.path === '/v1/monitors' && item.method === 'POST')!;
   expect(create.csrf).toBe('csrf-test');
   expect(create.key).toBeTruthy();
@@ -203,7 +206,7 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
 test('history shows actual totals and supports pause, resume and stop', async ({ page }) => {
   await mock(page);
   await page.goto('/app');
-  await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.getByText('Waiting for an updated price')).toBeVisible();
   await expect(page.locator('[style]')).toHaveCount(0);
   await expect(page.getByText('$245.00', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Price history' }).click();
@@ -215,6 +218,7 @@ test('history shows actual totals and supports pause, resume and stop', async ({
   await expect(page.getByRole('button', { name: 'Price history' })).toBeFocused();
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.getByText('Paused', { exact: true })).toBeVisible();
+  await expect(page.getByText(/check delayed|checks delayed/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByRole('article').getByText('Watching', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -275,7 +279,7 @@ test('registration keeps OAuth authorization pending until explicit consent', as
 test('dashboard, dialog, login, and mobile layout pass accessibility checks', async ({ page }) => {
   await mock(page);
   await page.goto('/app');
-  await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.getByText('Waiting for an updated price')).toBeVisible();
   expect(
     (
       await new AxeBuilder({ page })
@@ -295,13 +299,21 @@ test('dashboard, dialog, login, and mobile layout pass accessibility checks', as
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.reload();
-  await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.getByText('Waiting for an updated price')).toBeVisible();
   await page.screenshot({ path: 'artifacts/dashboard-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.reload();
-  await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.getByText('Waiting for an updated price')).toBeVisible();
   await expect(page.locator('ff-dashboard')).toHaveCount(1);
   await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toHaveCount(1);
+  const mobileLinks = page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link');
+  await expect(mobileLinks).toHaveCount(5);
+  for (const link of await mobileLinks.all()) {
+    const bounds = await link.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/dashboard-mobile-viewport.png' });
   await page.screenshot({ path: 'artifacts/dashboard-mobile.png', fullPage: true });
@@ -498,4 +510,77 @@ test('route-search capability displays the actual matching flight and offer link
   await page.getByText('Supported flights and searches', { exact: true }).click();
   await expect(page.getByText(/Route searches: exact airports and date/)).toBeVisible();
   await expect(page.getByText(/economy excluding Basic/)).toBeVisible();
+});
+
+test('connection setup copies complete URLs and requests without clipping on mobile', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await mock(page);
+  await page.goto('/app#developer');
+  await page.getByRole('button', { name: 'Copy URL', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    'http://127.0.0.1:8007/mcp',
+  );
+  await page.screenshot({ path: 'artifacts/developer-mcp-desktop.png', fullPage: true });
+  await page
+    .getByRole('button', { name: 'HTTP API Use your own application', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Make your first API request' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy request', exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    "curl 'http://127.0.0.1:8007/v1/monitors'",
+  );
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    'Authorization: Bearer YOUR_API_KEY',
+  );
+  await page.screenshot({ path: 'artifacts/developer-api-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.reload();
+  await expect(page.getByLabel('Remote MCP server')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/developer-mcp-mobile.png', fullPage: true });
+  await page
+    .getByRole('button', { name: 'HTTP API Use your own application', exact: true })
+    .click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/developer-api-mobile.png', fullPage: true });
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, 'writeText', {
+      value: () => Promise.reject(new Error('denied')),
+      configurable: true,
+    });
+  });
+  await page.getByRole('button', { name: 'Copy request', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'Copy is unavailable. Select the text and copy it manually.',
+  );
+});
+
+test('airline identity has readable fallbacks for missing artwork and unknown carriers', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route('**/assets/airlines/UA.png', (route) => route.abort());
+  await page.goto('/app');
+  await expect(page.getByText('United Airlines', { exact: true })).toBeVisible();
+  await expect(page.locator('ff-airline img')).toHaveCount(0);
+  const unknown = structuredClone(monitor);
+  unknown.target.segments[0].legs[0].airline = 'ZZ';
+  await page.route('**/v1/monitors?limit=100', (route) =>
+    route.fulfill({ json: { items: [unknown] } }),
+  );
+  await page.reload();
+  await expect(page.locator('ff-airline').getByText('ZZ', { exact: true }).last()).toBeVisible();
+  await expect(page.locator('ff-airline img')).toHaveCount(0);
+  await expect(page.getByText('ZZ 414', { exact: true })).toBeVisible();
 });

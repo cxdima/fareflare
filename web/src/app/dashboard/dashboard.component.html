@@ -13,14 +13,15 @@
           alt=""
         />Fareflare</a
       >
-      <p class="sidebar-label">Your workspace</p>
       <nav aria-label="Main navigation">
         @for (item of navigation; track item.id) {
           <a
             [href]="'/app#' + item.id"
             [attr.aria-current]="!authorization && view() === item.id ? 'page' : null"
             (click)="select($event, item.id)"
-            ><i [class]="'bi ' + item.icon" aria-hidden="true"></i><span>{{ item.label }}</span>
+            ><i [class]="'bi ' + item.icon" aria-hidden="true"></i
+            ><span class="nav-label">{{ item.label }}</span
+            ><span class="nav-label-short" aria-hidden="true">{{ item.shortLabel }}</span>
             @if (item.id === 'monitors') {
               <span class="nav-count" aria-hidden="true">{{ workspace.active().length }}</span>
             }
@@ -30,12 +31,10 @@
       <div class="sidebar-bottom">
         <a
           class="sidebar-source"
-          href="https://github.com/cxdima/google-flights-price-tracker"
+          href="https://github.com/cxdima/fareflare"
           target="_blank"
           rel="noreferrer"
-          ><i class="bi bi-github" aria-hidden="true"></i> Source on GitHub<span
-            class="visually-hidden"
-          >
+          ><i class="bi bi-github" aria-hidden="true"></i> GitHub<span class="visually-hidden">
             (opens a new tab)</span
           ></a
         >
@@ -44,13 +43,12 @@
             account.username.slice(0, 1).toUpperCase()
           }}</span>
           <div>
-            <strong>{{ account.username }}</strong
-            ><span>Development account</span>
+            <strong>{{ account.username }}</strong>
           </div>
         </div>
         <button
           type="button"
-          class="btn btn-link signout"
+          class="btn btn-quiet signout"
           [disabled]="logoutAction.busy()"
           (click)="logout()"
         >
@@ -63,19 +61,17 @@
     </aside>
     <div class="workspace-body">
       <header class="workspace-topbar">
-        <span>Workspace <span class="breadcrumb-divider">/</span> {{ pageName() }}</span>
+        <span class="current-page">{{ pageName() }}</span>
         <div class="topbar-actions">
-          @if (!session.config()?.billing_enabled) {
-            <span class="development-label">Free during development</span>
-          }
           <button
             type="button"
-            class="btn btn-link icon-button"
+            class="btn btn-quiet refresh-button"
             aria-label="Refresh dashboard"
             [disabled]="workspace.refreshing()"
             (click)="workspace.refresh()"
           >
-            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
+            ><span>{{ workspace.refreshing() ? 'Refreshing…' : 'Refresh' }}</span>
           </button>
         </div>
       </header>
@@ -118,10 +114,8 @@
         }
       </main>
       <footer class="workspace-footer">
-        <span>Fareflare · Development preview</span
-        ><a href="/guides"
-          >Guides &amp; documentation <i class="bi bi-arrow-up-right" aria-hidden="true"></i
-        ></a>
+        <a href="/guides">Help &amp; guides</a>
+        <div class="footer-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
       </footer>
     </div>
   </div>

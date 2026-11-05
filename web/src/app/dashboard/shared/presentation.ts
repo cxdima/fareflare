@@ -11,7 +11,7 @@ export function flightNumbers(segments: Segment[]): string {
     .flatMap((segment) => segment.legs)
     .filter((leg) => leg.airline && leg.number)
     .map((leg) => `${leg.airline} ${leg.number}`)
-    .join(' · ');
+    .join(', ');
 }
 export function statusLabel(value: string): string {
   return (

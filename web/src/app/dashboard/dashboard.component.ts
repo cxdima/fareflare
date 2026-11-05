@@ -24,11 +24,11 @@ import { SettingsComponent } from './settings.component';
 import { ConsentComponent } from './consent.component';
 
 const navigation = [
-  { id: 'monitors', label: 'Flight monitors', icon: 'bi-airplane' },
-  { id: 'alerts', label: 'Alert activity', icon: 'bi-bell' },
-  { id: 'webhooks', label: 'Webhooks', icon: 'bi-link-45deg' },
-  { id: 'developer', label: 'API & MCP', icon: 'bi-terminal' },
-  { id: 'settings', label: 'Account settings', icon: 'bi-person' },
+  { id: 'monitors', label: 'Flight monitors', shortLabel: 'Flights', icon: 'bi-airplane' },
+  { id: 'alerts', label: 'Alert activity', shortLabel: 'Alerts', icon: 'bi-bell' },
+  { id: 'webhooks', label: 'Webhooks', shortLabel: 'Webhooks', icon: 'bi-link-45deg' },
+  { id: 'developer', label: 'API & MCP', shortLabel: 'API & MCP', icon: 'bi-terminal' },
+  { id: 'settings', label: 'Account settings', shortLabel: 'Account', icon: 'bi-person' },
 ];
 function currentView(): string {
   const fragment = location.hash.slice(1).split('?')[0];

@@ -79,14 +79,8 @@ class MonitoringService:
 
     def create_monitor(self, tenant: str, url: str, request_key: str,
                        policy: AlertPolicy | None = None, interval_seconds: int = 900, *,
-                       baseline: dict | None = None, initially_paused: bool = False,
                        webhook_id: str | None = None) -> dict:
         self._tenant(tenant)
-        if baseline is not None and (set(baseline) != {"price_minor", "low_minor", "last_alert_minor"}
-                or any(type(v) is not int or not 0 < v <= 100_000_000 for v in baseline.values())
-                or baseline["low_minor"] > baseline["price_minor"]
-                or baseline["low_minor"] > baseline["last_alert_minor"]):
-            raise ValueError("Invalid migration price baseline")
         if not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}", request_key):
             raise ValueError("Provide an 8–128 character idempotency key")
         if type(interval_seconds) is not int or not self.min_interval_seconds <= interval_seconds <= 86400:
@@ -97,7 +91,8 @@ class MonitoringService:
         if self._departure_day_elapsed(target):
             raise ValueError("The selected itinerary has already departed")
         policy = policy or AlertPolicy()
-        request_payload = [target["id"], asdict(policy), interval_seconds, baseline, initially_paused]
+        # Preserve the v1 request fingerprint layout for retries across releases.
+        request_payload = [target["id"], asdict(policy), interval_seconds, None, False]
         if webhook_id is not None:
             request_payload.append(webhook_id)
         payload_hash = _digest(json.dumps(request_payload, sort_keys=True))
@@ -124,8 +119,8 @@ class MonitoringService:
                        "interval_seconds": min(interval_seconds, current.get("interval_seconds", interval_seconds))}
             monitor = {"id": monitor_id, "tenant": tenant, "target_id": target["id"],
                        "policy": asdict(policy), "interval_seconds": interval_seconds,
-                       "status": "paused" if initially_paused else "pending", "created_at": self._now(),
-                       "last_sequence": current["sequence"], "rule_state": baseline or {},
+                       "status": "pending", "created_at": self._now(),
+                       "last_sequence": current["sequence"], "rule_state": {},
                        "webhook_id": webhook_id}
             writes = [
                 target_doc.update(current, partition="targets", due=min(target_doc.due, self._now())),

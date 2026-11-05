@@ -1,6 +1,3 @@
-# Only requirements.txt and src/gfpt are copied into the image —
-# keep everything heavy or secret out of the build context.
+# The browser base uses no repository files. Application Dockerfiles define
+# their own narrow contexts for the worker and API packages.
 *
-!requirements.txt
-!src/gfpt
-src/gfpt/**/__pycache__

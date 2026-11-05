@@ -14,7 +14,7 @@ from gfpt_next.store import DynamoStore, SQLiteStore
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Fareflare development release tools")
+    parser = argparse.ArgumentParser(description="Fareflare account and server tools")
     parser.add_argument("--database", type=Path, default=Path(".next/product.sqlite3"))
     parser.add_argument("--public-url", default=os.environ.get("GFPT_NEXT_PUBLIC_URL", "http://127.0.0.1:8001"))
     sub = parser.add_subparsers(dest="command", required=True)

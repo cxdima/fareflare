@@ -25,7 +25,7 @@ def build_application():
                                 monitor_limit=config.monitor_limit, min_interval_seconds=config.min_interval_seconds,
                                 global_target_limit=config.global_target_limit)
     accounts = Accounts(store, config)
-    telegram = build_telegram(store, accounts, config.public_url, allow_legacy=True)
+    telegram = build_telegram(store, accounts, config.public_url)
     return create_portal(service, config, accounts, static_dir=Path(os.environ.get("LAMBDA_TASK_ROOT", ".")) / "web",
                          telegram=telegram.connections if telegram else None,
                          telegram_webhook_secret=telegram.webhook_secret if telegram else None)

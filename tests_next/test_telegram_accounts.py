@@ -9,7 +9,7 @@ import pytest
 from gfpt_next.accounts import Accounts
 from gfpt_next.delivery import TelegramSink
 from gfpt_next.product_config import ProductConfig
-from gfpt_next.store import Conflict
+from gfpt_next.store import Conflict, Document
 from gfpt_next.telegram_accounts import TelegramConnections
 
 PASSWORD = "a long development passphrase"
@@ -20,7 +20,7 @@ BOT_TOKEN = "123456:" + "x" * 30
 def telegram(store, clock):
     accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
     user = accounts.register("traveler", PASSWORD)
-    sent, forwarded = [], []
+    sent = []
 
     def transport(request):
         assert request.url.host == "api.telegram.org"
@@ -28,9 +28,8 @@ def telegram(store, clock):
         return httpx.Response(200, json={"ok": True})
 
     connections = TelegramConnections(store, accounts, BOT_TOKEN, "fareflare_bot", "https://fareflare.test",
-        legacy_forward=lambda update: forwarded.append(update) is None,
-        legacy_chat_ids=[999], transport=httpx.MockTransport(transport), clock=lambda: clock[0])
-    return connections, accounts, user, sent, forwarded
+        transport=httpx.MockTransport(transport), clock=lambda: clock[0])
+    return connections, accounts, user, sent
 
 
 def start(connections, tenant):
@@ -57,7 +56,7 @@ def delivery(tenant, epoch=1):
 
 
 def test_private_one_use_link_hashes_credentials_and_routes_delivery(telegram, store, clock):
-    connections, _, user, sent, forwarded = telegram
+    connections, _, user, sent = telegram
     tenant = user["account"]["id"]
     assert connections.status(tenant) == {"enabled": True, "connected": False, "bot_username": "fareflare_bot"}
     payload = bind(connections, tenant)
@@ -66,7 +65,6 @@ def test_private_one_use_link_hashes_credentials_and_routes_delivery(telegram, s
     assert challenge.data["used"] and challenge.data["expires_at"] == clock[0] + 600
     assert payload[3:] not in json.dumps(challenge.data)
     assert connections.status(tenant)["connected"]
-    assert not forwarded
     assert sent[0]["chat_id"] == "123"
     assert connections.send(delivery(tenant))
     assert "USD 120.00" in sent[-1]["text"]
@@ -75,19 +73,19 @@ def test_private_one_use_link_hashes_credentials_and_routes_delivery(telegram, s
     assert store.get("telegram-account:" + tenant).data["chat_id"] == "123"
 
 
-def test_duplicate_updates_do_not_reply_or_forward_twice(telegram):
-    connections, _, user, sent, forwarded = telegram
+def test_duplicate_updates_do_not_reply_twice(telegram):
+    connections, _, user, sent = telegram
     payload = bind(connections, user["account"]["id"])
     assert connections.handle_update(update("/start " + payload))
     assert len(sent) == 1
-    family = update("/status", chat=999, identifier=2)
-    assert connections.handle_update(family)
-    assert connections.handle_update(family)
-    assert forwarded == [family]
+    help_update = update("/help", identifier=2)
+    assert connections.handle_update(help_update)
+    assert connections.handle_update(help_update)
+    assert len(sent) == 2
 
 
 def test_only_private_matching_human_sender_can_bind(telegram):
-    connections, _, user, sent, forwarded = telegram
+    connections, _, user, sent = telegram
     tenant = user["account"]["id"]
     payload = start(connections, tenant)
     candidates = [update("/start " + payload, sender=456),
@@ -101,11 +99,11 @@ def test_only_private_matching_human_sender_can_bind(telegram):
         candidate["update_id"] = identifier
         assert connections.handle_update(candidate)
     assert not connections.status(tenant)["connected"]
-    assert not sent and not forwarded
+    assert not sent
 
 
 def test_expired_replaced_and_disconnected_links_cannot_bind(telegram, clock):
-    connections, _, user, _, _ = telegram
+    connections, _, user, _ = telegram
     tenant = user["account"]["id"]
     old = start(connections, tenant)
     current = start(connections, tenant)
@@ -121,7 +119,7 @@ def test_expired_replaced_and_disconnected_links_cannot_bind(telegram, clock):
 
 
 def test_rebinding_requires_disconnect_and_chat_cannot_take_another_account(telegram, store):
-    connections, accounts, user, _, _ = telegram
+    connections, accounts, user, _ = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
     with pytest.raises(ValueError, match="Disconnect"):
@@ -137,22 +135,19 @@ def test_rebinding_requires_disconnect_and_chat_cannot_take_another_account(tele
     assert store.get("telegram-chat:123").data["tenant"] == other
 
 
-def test_family_commands_are_forwarded_even_when_family_has_product_binding(telegram):
-    connections, _, user, sent, forwarded = telegram
+@pytest.mark.parametrize("chat", [123, 999])
+def test_every_chat_has_the_same_connection_message_and_stop_behavior(telegram, chat):
+    connections, _, user, sent = telegram
     tenant = user["account"]["id"]
-    bind(connections, tenant, chat=999)
-    assert "Fareflare Account settings" in sent[-1]["text"]
-    assert "/stop" not in sent[-1]["text"]
-    for identifier, command in enumerate(["/stop", "/help", "/status"], start=2):
-        item = update(command, chat=999, identifier=identifier)
-        assert connections.handle_update(item)
-        assert forwarded[-1] == item
-    assert connections.status(tenant)["connected"]
-    assert len(sent) == 1
+    bind(connections, tenant, chat=chat)
+    assert sent[-1]["text"] == "Fareflare is connected. Price alerts will arrive here. Use /stop to disconnect."
+    assert connections.handle_update(update("/stop", chat=chat, identifier=2))
+    assert not connections.status(tenant)["connected"]
+    assert "flights and alert history remain" in sent[-1]["text"]
 
 
 def test_consumer_help_and_stop_preserve_dashboard_and_invalidate_old_alerts(telegram, store):
-    connections, _, user, sent, forwarded = telegram
+    connections, _, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
     assert connections.handle_update(update("/help@fareflare_bot", identifier=2))
@@ -161,7 +156,6 @@ def test_consumer_help_and_stop_preserve_dashboard_and_invalidate_old_alerts(tel
     assert not connections.status(tenant)["connected"]
     assert store.get("tenant:" + tenant).data["notification_epoch"] == 2
     assert connections.handle_update(update("/stop", identifier=3))
-    assert not forwarded
     before = len(sent)
     assert connections.send(delivery(tenant, epoch=1))
     assert len(sent) == before
@@ -173,22 +167,39 @@ def test_consumer_help_and_stop_preserve_dashboard_and_invalidate_old_alerts(tel
     assert sent[-1]["chat_id"] == "456"
 
 
-def test_unknown_updates_do_not_reply_or_leak_connection_tokens_to_legacy(telegram):
-    connections, _, _, sent, forwarded = telegram
-    item = update("/help")
-    assert connections.handle_update(item)
-    assert forwarded == [item]
+@pytest.mark.parametrize("command", ["/start", "/help", "/help@fareflare_bot"])
+def test_unconnected_chat_gets_connection_instructions(telegram, command):
+    connections, _, _, sent = telegram
+    assert connections.handle_update(update(command))
+    assert len(sent) == 1
+    assert "Connect Telegram" in sent[0]["text"]
+    assert "https://fareflare.test/app#settings" in sent[0]["text"]
+
+
+def test_stop_for_unconnected_chat_is_explicit_and_idempotent(telegram):
+    connections, _, _, sent = telegram
+    assert connections.handle_update(update("/stop"))
+    assert sent[-1]["text"] == "This chat is not connected to Fareflare."
+    assert connections.handle_update(update("/stop"))
+    assert len(sent) == 1
+
+
+def test_unknown_updates_and_invalid_connection_tokens_do_not_reply(telegram):
+    connections, _, _, sent = telegram
     cases = [update("/start ff_broken", identifier=2),
              {"update_id": 3, "edited_message": {"text": "/start ff_secret"}},
-             {"update_id": 4, "callback_query": {"data": "ff_secret"}}]
+             {"update_id": 4, "callback_query": {"data": "ff_secret"}},
+             update("/status", identifier=5),
+             update("/help@another_bot", identifier=6),
+             update("/help", sender=456, identifier=7),
+             update("/help", chat=-123, kind="group", identifier=8)]
     for item in cases:
         assert connections.handle_update(item)
-    assert len(forwarded) == 1
     assert not sent
 
 
 def test_recovery_fences_links_bindings_and_reconnecting_fences_pending_delivery(telegram, store):
-    connections, accounts, user, sent, _ = telegram
+    connections, accounts, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
     accounts.recover("traveler", user["recovery_code"], "another long password phrase")
@@ -206,7 +217,7 @@ def test_recovery_fences_links_bindings_and_reconnecting_fences_pending_delivery
 
 
 def test_recovery_cancels_unredeemed_connection_link(telegram):
-    connections, accounts, user, _, _ = telegram
+    connections, accounts, user, _ = telegram
     tenant = user["account"]["id"]
     payload = start(connections, tenant)
     accounts.recover("traveler", user["recovery_code"], "another long password phrase")
@@ -215,21 +226,21 @@ def test_recovery_cancels_unredeemed_connection_link(telegram):
 
 
 def test_account_deletion_stops_telegram_without_pre_delete_side_effects(telegram, store):
-    connections, accounts, user, sent, _ = telegram
+    connections, accounts, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
     accounts.delete_account(tenant, PASSWORD)
     before = len(sent)
     assert connections.send(delivery(tenant))
     assert len(sent) == before
-    assert not connections.send({**delivery(tenant), "tenant": "family"})
+    assert not connections.send({**delivery(tenant), "tenant": "non_account"})
     assert not connections.send({**delivery(tenant), "webhook_id": "abc"})
     assert store.get("telegram-account:" + tenant).data == {"connected": False}
     assert store.get("telegram-chat:123").data == {"connected": False}
 
 
 def test_deletion_cleanup_preserves_chat_rebound_to_another_account(telegram, store, monkeypatch):
-    connections, accounts, user, _, _ = telegram
+    connections, accounts, user, _ = telegram
     tenant = user["account"]["id"]
     other = accounts.register("traveler-two", PASSWORD)["account"]["id"]
     bind(connections, tenant)
@@ -252,7 +263,7 @@ def test_deletion_cleanup_preserves_chat_rebound_to_another_account(telegram, st
 
 
 def test_network_failure_is_retriable_for_alert_but_connection_confirmation_optional(telegram):
-    connections, _, user, _, _ = telegram
+    connections, _, user, _ = telegram
     tenant = user["account"]["id"]
 
     def fail(request):
@@ -265,7 +276,7 @@ def test_network_failure_is_retriable_for_alert_but_connection_confirmation_opti
 
 
 def test_httpx_logging_redacts_telegram_bot_credential(telegram, caplog):
-    connections, _, user, _, _ = telegram
+    connections, _, user, _ = telegram
     tenant = user["account"]["id"]
     with caplog.at_level(logging.INFO, logger="httpx"):
         bind(connections, tenant)
@@ -276,36 +287,29 @@ def test_httpx_logging_redacts_telegram_bot_credential(telegram, caplog):
 
 def test_standalone_telegram_sink_also_redacts_url_credential(caplog, monkeypatch):
     monkeypatch.setattr(logging.getLogger("httpx"), "filters", [])
-    sink = TelegramSink(BOT_TOKEN, {"family": "999"},
+    sink = TelegramSink(BOT_TOKEN, {"non_account": "999"},
                         transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True})))
     with caplog.at_level(logging.INFO, logger="httpx"):
-        assert sink.send(delivery("family"))
+        assert sink.send(delivery("non_account"))
     assert "api.telegram.org/bot[REDACTED]/sendMessage" in caplog.text
     assert BOT_TOKEN not in caplog.text
 
 
-def test_legacy_failure_retries_after_lease_without_dropping_family_update(telegram, clock):
-    connections, _, _, _, forwarded = telegram
-    attempts = []
-
-    def forward(item):
-        attempts.append(item)
-        return len(attempts) > 1
-
-    connections._forward = forward
-    item = update("/status", chat=999)
+def test_unfinished_update_can_be_reclaimed_after_lease_expiry(telegram, store, clock):
+    connections, _, _, sent = telegram
+    store.commit([Document("telegram-update:1", "telegram-updates", {"done": False, "lease": "worker"},
+                           due=clock[0] + 30, expires_at=clock[0] + 86400)])
+    item = update("/help")
     assert not connections.handle_update(item)
-    assert not connections.handle_update(item)
-    assert len(attempts) == 1
+    assert not sent
     clock[0] += 30
     assert connections.handle_update(item)
     assert connections.handle_update(item)
-    assert len(attempts) == 2
-    assert not forwarded
+    assert len(sent) == 1
 
 
 def test_concurrent_recovery_cannot_install_binding_with_old_epoch(telegram, store, monkeypatch):
-    connections, _, user, _, _ = telegram
+    connections, _, user, _ = telegram
     tenant = user["account"]["id"]
     payload = start(connections, tenant)
     commit = store.commit
@@ -325,7 +329,7 @@ def test_concurrent_recovery_cannot_install_binding_with_old_epoch(telegram, sto
 
 
 def test_concurrent_disconnect_retries_and_always_invalidates_pending(telegram, store, monkeypatch):
-    connections, _, user, _, _ = telegram
+    connections, _, user, _ = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
     commit = store.commit

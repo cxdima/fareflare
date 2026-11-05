@@ -11,8 +11,8 @@ Use Node 24 and the repository's Python environment:
 ```sh
 npm --prefix web ci
 npm --prefix web run build
-make product-invite
-make product-serve
+make invite
+make serve
 ```
 
 Open `http://127.0.0.1:8001`; the dashboard is `/app`. The local signup URL is in

@@ -1,4 +1,4 @@
-"""Explicit development product flags and collection-cost limits."""
+"""Product feature flags and collection-cost limits."""
 from __future__ import annotations
 
 import os
@@ -63,7 +63,7 @@ class ProductConfig:
                 search_enabled=search == "true",
             )
         except (TypeError, ValueError) as exc:
-            raise ValueError("Invalid development product configuration") from exc
+            raise ValueError("Invalid product configuration") from exc
 
     def public(self) -> dict:
         return {"product_name": self.product_name, "billing_enabled": self.billing_enabled,

@@ -1,54 +1,57 @@
 # Fareflare design system
 
-Fareflare is a practical flight-price notebook with a personal origin: a father
-and son wanted to notice fares before a nightly email arrived. Public pages should
-feel like an independent travel publication. The application should make prices,
-observation times, and the next action easy to find.
+Fareflare helps travelers act on recorded flight price changes. The interface
+should answer three questions quickly: which flight, what price, and when was it
+checked? Connection settings should explain the next action without unrelated
+product history.
 
-## Visual rules
+## Visual language
 
 | Role | Decision |
 | --- | --- |
-| Background | Warm paper `#f7f4ed`; surfaces `#fffefa` |
-| Text | Ink `#172e36`; secondary text `#5b686c` |
-| Accent | Burnt orange `#b94724`; use for orientation, focus, and selected actions |
-| Borders | `#d8d9d2`; group related content with spacing and rules |
-| Type | Locally served DM Sans for controls/body; Newsreader for editorial headings |
-| Icons | Bootstrap Icons; decorative icons are hidden from assistive technology |
-| Spacing | Multiples of 4px; generous public sections, tighter application rows |
-| Corners | 4–8px for controls/panels; no pill-shaped containers by default |
-| Motion | Brief state feedback; respect reduced-motion preferences |
+| Background | Cool white `#f4f7fa`; white content surfaces |
+| Text | Navy `#152b43`; secondary slate `#53657b` |
+| Action | Orange `#b44223` for primary actions; blue `#234f80` for links/focus |
+| State | Green `#16765f` for observed savings; amber for delayed collection |
+| Borders | `#d7e0e8`, used to group information rather than decorate it |
+| Type | Self-hosted Plus Jakarta Sans; upright text throughout |
+| Icons | Bootstrap Icons, with labels for actions and hidden decorative icons |
+| Shape | 8–9px controls, 12–16px panels, circular airline marks |
 
-Use imagery where it explains the travel context. Do not add imagery to routine
-account operations. Generated imagery is illustrative, never evidence of a real
-fare or customer. Label all example prices. No fabricated reviews, live counters,
-customer logos, or promises of detecting every market change.
+Public pages lead with what the tracker does and a clearly labeled example.
+Flight rows align route details with their price, keep airline identity visible,
+and show collection state once. A pending first check is not a failure. API and
+MCP setup show the selected connection method, a complete endpoint, and a copy
+action. Credentials remain distinct from ordinary configuration.
 
-## Implementation boundaries
+Use sentence-case headings and direct action labels. Avoid decorative overlines,
+italic slogans, numbered sections without a real sequence, and repeated status
+badges. Development and billing state belong in relevant account/access details,
+not persistent page chrome. Never publish personal origin stories.
 
-- Angular standalone component classes use OnPush, signals, and dependency injection.
-  Templates and SCSS live in separate files. Use semantic classes and Bootstrap
-  layout/form primitives. Do not add `style` attributes or Angular style bindings.
-- `ApiService` owns same-origin requests, CSRF, and error translation.
-  `SessionFacade` owns account state; `WorkspaceFacade` owns dashboard refreshes.
-  Components express user actions and rendering rather than duplicating transport.
-- `MonitorPresenter` applies the GoF **Strategy** pattern to selected itineraries
-  and route searches. Both return one presentation contract; the route strategy
-  chooses the actual observed offer, while the selected strategy retains the
-  selected itinerary. Templates do not branch on provider internals.
-- The Python content registry supplies public article content and metadata to
-  both initial crawlable HTML and Angular. Structured data must describe visible
-  content. Account routes and credential-bearing URLs are not indexed.
-- Component style elements use a fresh server-issued CSP nonce. Application code
-  does not use inline CSS, `unsafe-inline`, remote fonts, or CDN scripts.
+## Implementation
 
-## Review a change
+Angular standalone classes use OnPush, signals, and dependency injection.
+Templates and SCSS live in separate files; Bootstrap provides form and layout
+primitives. Theme custom buttons centrally and name classes by purpose. No inline
+style attributes, remote font requests, or CDN scripts.
 
-Check desktop and 375px mobile screenshots, keyboard focus, labels, errors, empty
-states, long routes, and real account flows. Run the browser suite against the
-Python portal so CSP and session behavior are exercised. Use axe as an automated
-check alongside visual and keyboard review. Confirm that CSS classes describe
-reusable states instead of encoding arbitrary one-off values.
+`ApiService` owns HTTP/CSRF, `SessionFacade` owns account state, and
+`WorkspaceFacade` owns refreshes. `MonitorPresenter` uses the GoF Strategy pattern
+for selected itineraries and route searches, both returning one display contract.
+Airline identity is a separate reusable component with a text fallback.
 
-See [research and sources](docs/DESIGN_RESEARCH.md) for the reasoning and
-[asset provenance](docs/BRAND_ASSETS.md) for generated artwork.
+The Python public-content registry supplies crawlable HTML, article content, and
+metadata. Structured data must match visible facts. Private pages and credentials
+stay out of search indexing.
+
+## Review
+
+Review desktop and narrow mobile renders, keyboard focus, long names, missing
+logos, pending/error/empty states, and actual account flows. Test against the
+Python portal so CSP, sessions, and server metadata are included. Automated axe
+checks complement visual review. All example fares must be labeled; never imply
+market-wide coverage or guaranteed detection of every price change.
+
+See [design research](docs/DESIGN_RESEARCH.md) and
+[asset provenance](docs/BRAND_ASSETS.md).

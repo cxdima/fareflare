@@ -1,5 +1,5 @@
-# Build the stable Dockerfile as gfpt-browser-base first; this image is separate.
-ARG BROWSER_BASE=gfpt-browser-base
+# Build Dockerfile as fareflare-browser-base before packaging the worker.
+ARG BROWSER_BASE=fareflare-browser-base
 FROM ${BROWSER_BASE}
 COPY requirements-next.lock .
 RUN pip install --no-cache-dir --require-hashes -r requirements-next.lock

@@ -6,6 +6,7 @@ import { flightNumbers } from './shared/presentation';
 export interface MonitorPresentation {
   description: string;
   match: string;
+  airlines: string[];
   bookingUrl: string | undefined;
   bookingLabel: string;
 }
@@ -19,6 +20,14 @@ class SelectedItineraryPresentation implements MonitorPresentationStrategy {
     return {
       description: flightNumbers(monitor.target.segments) || 'Selected itinerary',
       match: '',
+      airlines: [
+        ...new Set(
+          monitor.target.segments
+            .flatMap((segment) => segment.legs)
+            .map((leg) => leg.airline)
+            .filter((code): code is string => !!code),
+        ),
+      ],
       bookingUrl: safeFlightUrl(monitor.target.url),
       bookingLabel: 'View flight',
     };
@@ -31,6 +40,14 @@ class RouteSearchPresentation implements MonitorPresentationStrategy {
     return {
       description: 'Cheapest matching route',
       match: offer ? flightNumbers(offer.segments) : '',
+      airlines: [
+        ...new Set(
+          (offer?.segments ?? [])
+            .flatMap((segment) => segment.legs)
+            .map((leg) => leg.airline)
+            .filter((code): code is string => !!code),
+        ),
+      ],
       bookingUrl: safeFlightUrl(offer?.url ?? monitor.target.url),
       bookingLabel: offer ? 'View flight' : 'View search',
     };

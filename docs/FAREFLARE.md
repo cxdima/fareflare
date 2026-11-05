@@ -1,10 +1,10 @@
-# Fareflare development release
+# Fareflare setup
 
 Fareflare watches Google Flights itineraries and supported route searches, recording
 the lowest eligible price it actually observes. It cannot promise the lowest fare
 across the entire market or detect a price that appears and disappears between checks.
 
-The [hosted development release](https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com)
+The [hosted service](https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com)
 is free and invite-only, with billing disabled and route searches enabled. Current
 collection supports:
 
@@ -26,10 +26,10 @@ The frontend uses Angular, Bootstrap, and external SCSS. Install the pinned Pyth
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/python -m pip install --require-hashes -r requirements-next-dev.lock
-make product-build
-make product-invite
-make product-serve
+make install
+make build
+make invite
+make serve
 ```
 
 Open the invitation URL in `.next/invitation.json`. The file contains a single-use
@@ -73,7 +73,7 @@ Self-hosted installations keep route searches off by default. To enable them loc
 start the API and worker in separate terminals with the same flag:
 
 ```bash
-GFPT_NEXT_SEARCH_ENABLED=true make product-serve
+GFPT_NEXT_SEARCH_ENABLED=true make serve
 # Separate worker terminal:
 GFPT_NEXT_SEARCH_ENABLED=true PYTHONPATH=src \
   .venv/bin/python -m gfpt_next.product_cli worker --limit 5
@@ -92,7 +92,7 @@ reuse the same value after a network failure. Prices use integer minor units.
 
 The remote MCP URL is the application origin followed by `/mcp`. It supports OAuth
 authorization with explicit consent and PKCE, or a bearer API key for clients that
-accept custom headers. The local stdio adapter remains available with `make next-mcp`.
+accept custom headers. The local stdio adapter is available with `make next-mcp` when configured with an API URL and key.
 OAuth access is scoped to MCP; customer API keys work with both interfaces.
 
 Connect Telegram from the dashboard and start the bot using the generated link.
@@ -100,32 +100,33 @@ Without a connection, default alerts remain in the dashboard. An explicitly sele
 webhook receives alerts only at that endpoint. Register and verify ownership before
 selecting it. See [webhook setup](NEXT.md#customer-webhooks) for signatures, retries,
 and receiver verification. Delivery is at least once; deduplicate using the event ID.
-Verify a real customer Telegram price alert separately during rollout: dashboard
-checks and authenticated webhook forwarding do not establish successful alert delivery.
+Use `/help` in Telegram for connection status and `/stop` to disconnect.
+Verify a real Telegram price alert separately during rollout; a working connection
+flow alone does not establish successful alert delivery.
 
 ## Deploy your own instance
 
 `infra-next/` provisions a DynamoDB document store, an ARM64 browser worker, a separate
 API Lambda, an HTTP API, a schedule, scoped IAM permissions, and CloudWatch alarms.
-Build the original `Dockerfile` as `gfpt-browser-base`, then build `Dockerfile.next`
+Build the browser-base `Dockerfile` as `fareflare-browser-base`, then build `Dockerfile.next`
 for collection. Build the dashboard before `Dockerfile.api`. Push both images to your
 own ECR repositories and supply immutable digest URIs to Terraform.
 Follow the [release procedure](OPERATIONS.md#release-api-and-worker-images) to keep
 API and worker images, collection flags, and rollback records consistent.
 
-The checked-in backend settings identify this project's existing state location.
-For your own deployment, override `bucket`, `key`, and `region` with
-`terraform init -backend-config=...`; set `expected_account_id`, `name`, and `region`
-to your account. Start with empty image URIs to provision repositories and obtain
-`application_url`, then apply the pinned images. Keep `billing_enabled=false` and
-`registration_mode=invite`. Never reuse the original family's state key.
+Supply your own private S3 state backend with `terraform init -backend-config=...`;
+set `expected_account_id`, `name`, and `region` to your installation. Start with
+empty image URIs to provision repositories and obtain `application_url`, then apply
+the pinned images. Keep `billing_enabled=false` and `registration_mode=invite`.
+The [operations runbook](OPERATIONS.md#configure-your-installation) contains the
+configuration templates and release sequence.
 
 Issue a deployed invite explicitly:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli \
   --public-url https://YOUR-HTTP-API.execute-api.REGION.amazonaws.com \
-  invite .next/invitation.json --table gfpt-next-YOUR-NAME \
+  invite .next/invitation.json --table fareflare-YOUR-NAME \
   --aws-account YOUR_ACCOUNT_ID --region REGION
 ```
 
@@ -136,12 +137,12 @@ attach an operator notification destination for unattended operation.
 
 ## Contribute
 
-Run `make next-check`, `npm --prefix web run build`, and the dashboard browser tests
+Run `make check`, `npm --prefix web run build`, and the dashboard browser tests
 before submitting a change. Add behavioral tests around tenant isolation, money
 units, delivery ordering, and provider evidence. Keep provider adapters, application
 use cases, persistence, and delivery separate. A new collection capability needs a
 real redacted fixture and explicit identity/party/price validation.
 
-See [Repository Guidelines](../AGENTS.md). Do not use the stable family service as
-a test fixture. The [MIT license](../LICENSE) covers project code; dependencies
-retain their own licenses.
+Read [CONTRIBUTING.md](../CONTRIBUTING.md) for test setup and pull request guidance.
+The [MIT license](../LICENSE) covers project code; dependencies retain their own
+licenses. Use synthetic accounts and data for tests.

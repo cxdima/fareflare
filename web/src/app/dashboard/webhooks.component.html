@@ -1,6 +1,5 @@
 <div class="page-heading">
   <div>
-    <p class="overline">Integrations</p>
     <h1>Webhooks</h1>
     <p>Send signed price alerts to a receiver you control.</p>
   </div>
@@ -56,7 +55,7 @@
       }}</span>
     </div>
     <p class="small text-body-secondary">
-      Added {{ timestamp(item.created_at) }} · <code>{{ item.id }}</code>
+      Added {{ timestamp(item.created_at) }}<br /><code>{{ item.id }}</code>
     </p>
     @if (item.status === 'pending' || item.status === 'disabled') {
       <p class="small">
@@ -101,7 +100,7 @@
       }
       <button
         type="button"
-        class="btn btn-link"
+        class="btn btn-quiet-danger"
         (click)="confirmation.set({ item, kind: 'delete' })"
       >
         Delete receiver

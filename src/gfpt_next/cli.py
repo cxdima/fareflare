@@ -1,4 +1,4 @@
-"""Explicit local entry points. Never reads .env or the stable GFPT settings."""
+"""Local command-line tools using explicit configuration."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +18,7 @@ from gfpt_next.store import SQLiteStore
 def load_local_config(path: Path) -> dict:
     config = json.loads(path.read_text())
     if config.get("mode") != "local":
-        raise ValueError("Only isolated local mode is enabled in this prototype")
+        raise ValueError("This command requires a local configuration")
     return config
 
 
@@ -68,9 +68,6 @@ def main(argv: list[str] | None = None) -> None:
     worker.add_argument("--deliver-webhooks", action="store_true",
                         help="Send queued alerts to customer-verified HTTPS webhooks")
     sub.add_parser("deliver-webhooks", help="Deliver queued webhook alerts without collecting prices")
-    migration = sub.add_parser("migrate", help="Review or import an explicitly verified family export")
-    migration.add_argument("export", type=Path)
-    migration.add_argument("--apply", action="store_true", help="Create paused monitors in the configured local database")
     issue = sub.add_parser("key-create", help="Create a revocable credential in a private output file")
     issue.add_argument("tenant")
     issue.add_argument("output", type=Path)
@@ -115,17 +112,8 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(2) from None
         print(json.dumps({"ok": True, "observation": asdict(reading)}))
         return
-    if args.command == "migrate" and not args.apply:
-        from gfpt_next.migration import plan_migration
-        print(json.dumps(plan_migration(json.loads(args.export.read_text())), indent=2))
-        return
     config = load_local_config(args.config)
     service = MonitoringService(SQLiteStore(config["database"]))
-    if args.command == "migrate":
-        from gfpt_next.migration import apply_migration
-        result = apply_migration(service, json.loads(args.export.read_text()))
-        print(json.dumps({"created_paused_monitors": [item["id"] for item in result]}))
-        return
     if args.command in ("key-create", "key-revoke"):
         from gfpt_next.credentials import Credentials
         credentials = Credentials(service.store)

@@ -1,0 +1,30 @@
+:host {
+  display: inline-flex;
+  min-width: 0;
+}
+.airline-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.airline-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ff-line);
+  border-radius: 0.5rem;
+  background: #fff;
+  overflow: hidden;
+}
+img {
+  object-fit: contain;
+}
+.airline-code {
+  color: var(--ff-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}

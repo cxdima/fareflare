@@ -1,5 +1,3 @@
-import io
-import json
 from unittest.mock import Mock
 
 import pytest
@@ -8,37 +6,16 @@ from fastapi.testclient import TestClient
 from gfpt_next.accounts import Accounts
 from gfpt_next.portal import create_portal
 from gfpt_next.product_config import ProductConfig
-from gfpt_next.product_telegram import InboxSink, LegacyBotForwarder
+from gfpt_next.product_telegram import InboxSink
 
 
-def test_legacy_forwarding_can_only_enter_authenticated_http_handler():
-    client = Mock()
-    payload = io.BytesIO(b'{"statusCode":200,"body":"ok"}')
-    client.invoke.return_value = {"Payload": payload}
-    forward = LegacyBotForwarder(client, "arn:aws:lambda:us-east-1:111111111111:function:family", "secret-value")
-    update = {"update_id": 123, "message": {"text": "/status", "chat": {"id": 111}}}
-    assert forward(update)
-    args = client.invoke.call_args.kwargs
-    assert args["InvocationType"] == "RequestResponse"
-    forwarded = json.loads(args["Payload"])
-    assert forwarded["requestContext"]["http"]["method"] == "POST"
-    assert forwarded["headers"] == {"x-telegram-bot-api-secret-token": "secret-value"}
-    assert json.loads(forwarded["body"]) == update
-    assert "source" not in forwarded
-    assert payload.closed
-    client.invoke.return_value = {"Payload": io.BytesIO(b'{"statusCode":403}')}
-    assert not forward(update)
-    client.invoke.return_value = {"Payload": io.BytesIO(b'{"statusCode":200}'), "FunctionError": "Unhandled"}
-    assert not forward(update)
-
-
-def test_customer_inbox_never_claims_explicit_webhook_or_family_delivery(store):
+def test_customer_inbox_never_claims_explicit_webhook_or_unknown_account_delivery(store):
     accounts = Accounts(store)
     account = accounts.register("alice", "a long secure test password", accounts.create_invite()["token"])["account"]
     sink = InboxSink(accounts)
     assert sink.send({"tenant": account["id"]})
     assert not sink.send({"tenant": account["id"], "webhook_id": "a" * 32})
-    assert not sink.send({"tenant": "family"})
+    assert not sink.send({"tenant": "non_account"})
     accounts.delete_account(account["id"], "a long secure test password")
     assert not sink.send({"tenant": account["id"]})
 

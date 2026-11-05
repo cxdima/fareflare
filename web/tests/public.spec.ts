@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const origin = 'http://127.0.0.1:8007';
-const github = 'https://github.com/cxdima/google-flights-price-tracker';
+const github = 'https://github.com/cxdima/fareflare';
 
 test('landing page has accessible navigation, loaded artwork, and a usable mobile layout', async ({
   page,
@@ -13,7 +13,9 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
     if (/Content Security Policy|Refused to/.test(entry.text())) errors.push(entry.text());
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Good fares');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'Know when your flight price drops',
+  );
   await expect(page.locator(`a[href="${github}"]`).first()).toBeVisible();
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('[style]')).toHaveCount(0);
@@ -30,7 +32,7 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
     'aria-pressed',
     'true',
   );
-  await expect(page.getByText('Your flight is below $220.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your flight is below $220', { exact: true })).toBeVisible();
   expect(
     (
       await new AxeBuilder({ page })
@@ -39,7 +41,7 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
     ).violations,
   ).toEqual([]);
   await page.getByRole('button', { name: 'A new low', exact: true }).click();
-  await expect(page.getByText('A new low worth a look.', { exact: true })).toBeVisible();
+  await expect(page.getByText('New low recorded at $191', { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: 'artifacts/landing-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });
@@ -52,7 +54,7 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
     ).violations,
   ).toEqual([]);
   await page.screenshot({ path: 'artifacts/landing-mobile.png', fullPage: true });
-  await page.getByRole('link', { name: 'Field notes', exact: true }).first().click();
+  await page.getByRole('link', { name: 'Guides', exact: true }).first().click();
   await expect(page).toHaveURL(origin + '/guides');
   await page.locator('a[href="/guides/reading-flight-price-alerts"]').first().click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
@@ -100,7 +102,9 @@ test('public content is readable without JavaScript and uses canonical structure
   const page = await context.newPage();
   try {
     await page.goto(origin);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Good fares');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Know when your flight price drops',
+    );
     const titles = new Set<string>();
     for (const url of articles) {
       const response = await page.goto(url);

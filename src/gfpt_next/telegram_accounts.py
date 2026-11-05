@@ -1,4 +1,4 @@
-"""Customer Telegram bindings alongside the existing family bot.
+"""Private Telegram connections for Fareflare accounts.
 
 The HTTP adapter verifies Telegram's webhook secret before calling this module.
 Connection links are single use; no Telegram identity is trusted from the web UI.
@@ -6,11 +6,10 @@ Connection links are single use; no Telegram identity is trusted from the web UI
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import secrets
 import time
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 
 import httpx
 
@@ -29,8 +28,7 @@ def _digest(value: str) -> str:
 
 class TelegramConnections:
     def __init__(self, store: Store, accounts: Accounts, bot_token: str, bot_username: str,
-                 public_url: str, legacy_forward: Callable[[dict], bool] | None = None,
-                 *, legacy_chat_ids: Collection[str | int] = (), transport=None,
+                 public_url: str, *, transport=None,
                  client: httpx.Client | None = None, clock: Callable[[], float] = time.time):
         if not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", bot_token):
             raise ValueError("Invalid Telegram bot credential")
@@ -40,8 +38,7 @@ class TelegramConnections:
         install_telegram_log_redaction()
         self.store, self.accounts, self.clock = store, accounts, clock
         self._token, self.bot_username = bot_token, bot_username
-        self.public_url, self._forward = public_url.rstrip("/"), legacy_forward
-        self._legacy_chats = {str(value) for value in legacy_chat_ids}
+        self.public_url = public_url.rstrip("/")
         self._transport, self._client = transport, client
         self._limit = RateLimiter(store, clock, per_minute=5)
 
@@ -150,9 +147,6 @@ class TelegramConnections:
                 writes.append(old_chat.update({"connected": False}, expires_at=self._now()))
             try:
                 self.store.commit(writes)
-                if chat_id in self._legacy_chats:
-                    return ("Fareflare is connected. Manage this connection in Fareflare Account settings. "
-                            "Your existing family commands are unchanged.")
                 return "Fareflare is connected. Price alerts will arrive here. Use /stop to disconnect."
             except Conflict:
                 continue
@@ -215,28 +209,30 @@ class TelegramConnections:
         text = text.strip() if isinstance(text, str) else ""
         private_chat = self._private_chat(message)
         reply = None
-        # Never pass connection credentials to the legacy application, even malformed ones.
-        if "ff_" in json.dumps(update):
-            match = _START.fullmatch(text)
-            if private_chat and match and (not match[1] or match[1].lower() == self.bot_username.lower()):
-                reply = self._consume(match[2], private_chat)
-        else:
+        match = _START.fullmatch(text)
+        if private_chat and match and (not match[1] or match[1].lower() == self.bot_username.lower()):
+            reply = self._consume(match[2], private_chat)
+        elif private_chat:
             command = _COMMAND.fullmatch(text)
-            chat = self.store.get("telegram-chat:" + private_chat) if private_chat else None
+            chat = self.store.get("telegram-chat:" + private_chat)
             tenant = chat.data.get("tenant") if chat and chat.data.get("connected") else None
             bound = (chat is not None and isinstance(tenant, str)
                      and self.accounts.validate_account_active(tenant, chat.data["auth_epoch"])
                      and self._binding(tenant, chat.data["auth_epoch"]) is not None)
-            if (private_chat not in self._legacy_chats and isinstance(tenant, str) and bound and command
-                    and (not command[2] or command[2].lower() == self.bot_username.lower())):
+            if command and (not command[2] or command[2].lower() == self.bot_username.lower()):
                 if command[1] == "stop":
-                    self.disconnect(tenant)
-                    reply = "Fareflare Telegram alerts are disconnected. Your dashboard still keeps alert history."
+                    if bound and isinstance(tenant, str):
+                        self.disconnect(tenant)
+                        reply = "Telegram alerts are disconnected. Your flights and alert history remain in Fareflare."
+                    else:
+                        reply = "This chat is not connected to Fareflare."
+                elif bound:
+                    reply = ("Your Fareflare alerts are connected. Manage flights and alert preferences in your account. "
+                             "Use /stop to disconnect Telegram.\n" + self.public_url + "/app")
                 else:
-                    reply = ("Fareflare tracks your selected flights and alerts you to observed price changes. "
-                             "Manage monitors in your dashboard. Use /stop to disconnect Telegram.\n" + self.public_url)
-            elif self._forward is not None and not self._forward(update):
-                return False
+                    reply = ("Fareflare sends alerts when it observes a flight price change. "
+                             "Sign in, open Account settings, and choose Connect Telegram to link this chat.\n"
+                             + self.public_url + "/app#settings")
         self.store.commit([claim.update({"done": True})])
         if private_chat and reply:
             self._reply(private_chat, reply)

@@ -137,8 +137,8 @@ def create_portal(service: MonitoringService, config: ProductConfig,
                 "</head><body><a class='skip-link' href='#main-content'>Skip to content</a><header class='site-header'>"
                 "<div class='public-container site-header-inner'><a class='brand' href='/'>" + escape(config.product_name) +
                 "</a><nav class='site-nav' aria-label='Main navigation'><a href='/developers'>Developers</a>"
-                "<a href='/guides'>Field notes</a><a href='/app'>Dashboard</a></nav></div></header>"
-                "<main id='main-content' class='public-container public-article'><p class='eyebrow'>Developer reference</p><h1>" + escape(config.product_name) +
+                "<a href='/guides'>Guides</a><a href='/app'>Dashboard</a></nav></div></header>"
+                "<main id='main-content' class='public-container public-article'><h1>" + escape(config.product_name) +
                 " API reference</h1><p>Create a revocable API key in the dashboard and send it as "
                 "<code>Authorization: Bearer YOUR_KEY</code>. Creating monitors and webhooks also requires a unique "
                 "<code>Idempotency-Key</code> header (8–128 characters); reuse it when retrying the same request.</p>"
@@ -149,8 +149,8 @@ def create_portal(service: MonitoringService, config: ProductConfig,
                 "<div class='table-responsive'><table class='table table-striped align-middle'><caption>Available endpoints</caption>"
                 "<thead><tr><th scope='col'>Method</th><th scope='col'>Path</th><th scope='col'>Purpose</th>"
                 "</tr></thead><tbody>" + routes + "</tbody></table></div><p><a href='/app'>Open the dashboard</a></p></main>"
-                "<footer class='public-footer'><div class='public-container'><a href='/privacy'>Privacy</a> · "
-                "<a href='/terms'>Preview terms</a></div></footer></body></html>")
+                "<footer class='public-footer'><div class='public-container'><nav class='footer-links' aria-label='Footer'><a href='/privacy'>Privacy</a>"
+                "<a href='/terms'>Terms</a></nav></div></footer></body></html>")
 
     @app.exception_handler(AuthenticationFailed)
     async def authentication_failed(request, exc):

@@ -14,31 +14,21 @@
   </header>
   <main class="auth-content container" id="main-content">
     <section class="auth-context">
-      <p class="overline">Your next trip, in view</p>
-      <h1>Less checking.<br />More going.</h1>
+      <h1>Your next flight starts here</h1>
       <p>
-        Keep the flight you want in sight. Fareflare records prices and lets you know when your
-        alert conditions are met.
+        Track a Google Flights link, follow its price, and get an alert when it meets your target.
       </p>
-      <div class="auth-detail">
-        <span>01</span>
-        <p>Bring a Google Flights link.</p>
-      </div>
-      <div class="auth-detail">
-        <span>02</span>
-        <p>Choose when to hear from us.</p>
-      </div>
-      <div class="auth-detail">
-        <span>03</span>
-        <p>See what changed. Decide when to book.</p>
-      </div>
-      <p class="auth-note">No Google account connection. No payment card.</p>
+      <img
+        class="auth-photo"
+        src="/assets/window-seat.jpg"
+        width="1280"
+        height="853"
+        alt="Sunrise above the mountains from an aircraft window"
+      />
+      <p class="auth-note">Fareflare never needs access to your Google account.</p>
     </section>
     <section class="auth-form-area" aria-labelledby="auth-title">
       @if (session.config(); as config) {
-        <p class="overline">
-          {{ config.billing_enabled ? 'Your account' : 'Free development access' }}
-        </p>
         <h2 id="auth-title">
           {{
             mode() === 'register'
@@ -127,7 +117,6 @@
                   ? 'Reset password'
                   : 'Sign in'
             }}
-            <i class="bi bi-arrow-right" aria-hidden="true"></i>
           </button>
         </form>
         <div class="auth-links">
@@ -150,8 +139,8 @@
           }
         </div>
         <p class="auth-note">
-          Development access includes {{ config.limits.monitors }} flight monitors. Keep your
-          recovery code: there is no email password reset.
+          Your account includes {{ config.limits.monitors }} flight monitors. Keep your recovery
+          code: there is no email password reset.
         </p>
       } @else if (session.error()) {
         <h2 id="auth-title">Sign-in is unavailable</h2>

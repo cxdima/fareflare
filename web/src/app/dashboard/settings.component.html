@@ -1,6 +1,5 @@
 <div class="page-heading">
   <div>
-    <p class="overline">Your workspace</p>
     <h1>Account settings</h1>
     <p>
       Signed in as <strong>{{ session.account()?.username }}</strong
@@ -18,7 +17,7 @@
     }
   </div>
   <p class="text-body-secondary">
-    Receive alerts from monitors without an explicit webhook destination.
+    Get flight price alerts in Telegram. Monitors with a webhook send their alerts there instead.
   </p>
   @if (telegramAction.error()) {
     <div class="alert alert-danger" role="alert">{{ telegramAction.error() }}</div>

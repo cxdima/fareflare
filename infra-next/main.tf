@@ -1,11 +1,7 @@
-# Additive resources in the current AWS account. The family tracker is untouched.
-# Separate key in the existing private, versioned production state bucket.
+# Fareflare resources. Supply the S3 state bucket/key with a private backend config.
 terraform {
   required_version = ">= 1.10.0"
   backend "s3" {
-    bucket       = "gfpricetracker-terraform-state"
-    key          = "gfpt-next-production/terraform.tfstate"
-    region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
   }
@@ -19,10 +15,10 @@ terraform {
 
 variable "name" {
   type    = string
-  default = "gfpt-next-production"
+  default = "fareflare-production"
   validation {
-    condition     = can(regex("^gfpt-next-[a-z0-9-]{3,50}$", var.name))
-    error_message = "New resources must use a gfpt-next- prefix."
+    condition     = can(regex("^(fareflare|gfpt-next)-[a-z0-9-]{3,50}$", var.name))
+    error_message = "Resource names must use a fareflare- or gfpt-next- prefix."
   }
 }
 
@@ -34,7 +30,6 @@ variable "region" {
 variable "expected_account_id" {
   description = "Refuse to apply into a different account when local AWS profiles change."
   type        = string
-  default     = "851725466918"
   validation {
     condition     = can(regex("^[0-9]{12}$", var.expected_account_id))
     error_message = "Set the intended 12-digit AWS account ID."

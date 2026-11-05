@@ -10,9 +10,9 @@ text in the interface so the product name remains accessible and sharp.
 | Wing-shaped F mark | `web/public/assets/fareflare-mark.png` | Navigation and favicon |
 | Window-seat editorial image | `web/public/assets/window-seat.jpg` | Landing page and social preview |
 
-The final logo intentionally uses a paper background. Transparent experiments
-produced unwanted effects and were not selected. Original generation files remain
-outside the repository; the website uses the optimized assets above.
+The final logo has a transparent background. It was refined from the original
+flat mark using a background-extraction edit, then resized to 192px. Original
+generation files remain outside the repository; the website uses optimized assets.
 
 ## Final logo prompt
 
@@ -23,6 +23,12 @@ outside the repository; the website uses the optimized assets above.
 > symbol, equal empty margins. Only the small symbol on plain off-white. No effects,
 > lighting, shadows, glow, black, texture, gradients, words, presentation mockup,
 > or dimensionality.
+
+## Transparent logo edit
+
+> Remove the off-white background and preserve the two orange swept wing shapes.
+> Keep crisp solid edges, the original arrangement, and a transparent background.
+> No glow, shadow, outline, texture, text, or additional elements.
 
 ## Window image prompt
 
@@ -36,3 +42,25 @@ outside the repository; the website uses the optimized assets above.
 > believable geometry, understated rather than spectacular. No people, no airline
 > branding, no logos, no words, no interface, no graphic overlays, no oversaturated
 > sunset.
+
+## Airline identification
+
+The dashboard bundles 70px airline identification images from Google's public
+Flights asset collection. Files are served locally; opening a flight list does
+not send a request to a third-party logo service.
+
+Source pattern: `https://www.gstatic.com/flights/airline_logos/70px/{IATA}.png`.
+Retrieved November 5, 2026: United (UA), American (AA), Delta (DL), Frontier (F9),
+Southwest (WN), JetBlue (B6), Alaska (AS), and Spirit (NK). Files live in
+`web/public/assets/airlines/` without altering the artwork. Carrier names and
+flight numbers remain visible; unknown or unavailable artwork falls back to text.
+
+These are third-party airline marks used to identify carriers, not Fareflare
+artwork. Their ownership is not covered by this repository's MIT license and their
+appearance does not imply endorsement or affiliation.
+
+## Typography
+
+Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans`
+under the SIL Open Font License. See the package's `LICENSE` and
+[Fontsource's provenance](https://fontsource.org/fonts/plus-jakarta-sans/about).

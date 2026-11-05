@@ -1,10 +1,8 @@
 :where(ff-dashboard, ff-auth) {
   .overline {
     display: block;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 0.8rem;
+    font-weight: 550;
     line-height: 1.6;
     color: var(--ff-muted);
   }
@@ -15,7 +13,7 @@
   .panel {
     padding: 1.5rem;
     border: 1px solid var(--ff-line);
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     background: var(--ff-surface);
   }
   .panel h2 {
@@ -30,23 +28,26 @@
   }
   .page-heading {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1.5rem;
     margin-bottom: 1.5rem;
   }
   .page-heading h1 {
-    font-size: clamp(2rem, 3vw, 2.7rem);
-    font-weight: 500;
-    letter-spacing: -0.045em;
-    margin: 0.4rem 0 0.6rem;
+    font-size: clamp(1.8rem, 2.4vw, 2.3rem);
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    margin: 0 0 0.55rem;
   }
   .page-heading p:last-child {
     color: var(--ff-muted);
     margin-bottom: 0;
+    font-size: 0.9rem;
+    max-width: 65ch;
   }
   .page-heading > .btn {
     flex-shrink: 0;
+    margin-top: 0.1rem;
   }
   .section-heading {
     display: flex;
@@ -100,16 +101,19 @@
     line-height: 1.4;
     color: var(--ff-muted);
     background: var(--ff-soft);
-    border-radius: 0.2rem;
-    padding: 0.25rem 0.5rem;
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.55rem;
   }
   .status-active,
   .status-sent {
-    color: #245a43;
-    background: #eaf2e8;
+    color: #17624f;
+    background: #e7f4ee;
+  }
+  .status-pending {
+    color: var(--ff-muted);
+    background: var(--ff-soft);
   }
   .status-stale,
-  .status-pending,
   .status-degraded {
     color: #754a12;
     background: #fbefd6;
@@ -148,6 +152,21 @@
   .quiet-link {
     font-size: 0.9rem;
     color: var(--ff-muted);
+  }
+  .btn-quiet {
+    --bs-btn-color: var(--ff-ink);
+    --bs-btn-hover-color: var(--ff-ink);
+    --bs-btn-active-color: var(--ff-ink);
+    --bs-btn-hover-bg: var(--ff-soft);
+    --bs-btn-active-bg: var(--ff-line);
+    --bs-btn-disabled-color: var(--ff-muted);
+  }
+  .btn-quiet-danger {
+    --bs-btn-color: #a52d29;
+    --bs-btn-hover-color: #8a211e;
+    --bs-btn-active-color: #8a211e;
+    --bs-btn-hover-bg: #fbeeea;
+    --bs-btn-active-bg: #f7e0db;
   }
   @media (max-width: 575px) {
     .page-heading {

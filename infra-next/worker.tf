@@ -52,13 +52,7 @@ variable "product_delivery_enabled" {
 }
 
 variable "customer_telegram_secret_arn" {
-  description = "Optional shared bot configuration for customer connections."
-  type        = string
-  default     = ""
-}
-
-variable "legacy_bot_function_arn" {
-  description = "Existing family handler to receive authenticated family commands."
+  description = "Optional Telegram bot credentials for account connections and alerts."
   type        = string
   default     = ""
 }

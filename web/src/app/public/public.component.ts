@@ -25,7 +25,7 @@ export class PublicComponent implements OnInit {
   );
   readonly error = signal(false);
   readonly alertMode = signal<'new_low' | 'below_price'>('new_low');
-  readonly github = 'https://github.com/cxdima/google-flights-price-tracker';
+  readonly github = 'https://github.com/cxdima/fareflare';
   readonly apiExample =
     'curl /v1/monitors \\\n  -H "Authorization: Bearer YOUR_KEY" \\\n  -H "Idempotency-Key: my-first-flight" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"url":"YOUR_GOOGLE_FLIGHTS_LINK"}\'';
   async ngOnInit(): Promise<void> {

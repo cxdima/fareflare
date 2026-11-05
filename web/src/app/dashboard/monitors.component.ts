@@ -9,11 +9,12 @@ import { DialogComponent } from './shared/dialog.component';
 import { MonitorEditorComponent } from './monitor-editor.component';
 import { PriceHistoryComponent } from './price-history.component';
 import { MonitorPresenter } from './monitor-presentation';
+import { AirlineComponent } from './shared/airline.component';
 
 @Component({
   selector: 'ff-monitors',
   standalone: true,
-  imports: [DialogComponent, MonitorEditorComponent, PriceHistoryComponent],
+  imports: [DialogComponent, MonitorEditorComponent, PriceHistoryComponent, AirlineComponent],
   templateUrl: './monitors.component.html',
   styleUrl: './monitors.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,13 +35,25 @@ export class MonitorsComponent {
   readonly stopping = signal<Monitor | null>(null);
   readonly observed = computed(() => this.workspace.active().filter((item) => item.latest).length);
   readonly delayed = computed(
-    () => this.workspace.active().filter((item) => item.stale || item.status === 'degraded').length,
+    () =>
+      this.workspace
+        .active()
+        .filter(
+          (item) =>
+            item.status !== 'paused' && ((item.latest && item.stale) || item.status === 'degraded'),
+        ).length,
   );
   current(item: Monitor): boolean {
     return !['cancelled', 'expired'].includes(item.status);
   }
   dates(item: Monitor): string {
-    return item.target.segments.map((segment) => tripDate(segment.date)).join(' · ');
+    return item.target.segments.map((segment) => tripDate(segment.date)).join(' – ');
+  }
+  collectionMessage(item: Monitor): string {
+    if (item.collection_status === 'blocked') return 'Use Retry collection to try again.';
+    if (item.status === 'paused') return 'Resume this monitor when you want to check again.';
+    if (!this.current(item)) return 'This monitor is no longer checking prices.';
+    return 'We will try again at the next scheduled check.';
   }
   async change(item: Monitor, status: string): Promise<void> {
     await this.action.run(async () => {

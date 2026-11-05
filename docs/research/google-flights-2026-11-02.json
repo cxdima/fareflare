@@ -88,7 +88,6 @@
       "case": "signed_out_tracking",
       "path": "/travel/flights/saves",
       "sign_in_required": true,
-      "legacy_authentication_check_returned": false,
       "conclusion": "Signed-out page can remain at saves path; URL alone does not establish authentication."
     },
     {
@@ -126,21 +125,6 @@
         "event-2"
       ],
       "initial_clock": 1793653200
-    },
-    "legacy_failed_dispatch": {
-      "fault_injection": true,
-      "watermark_after_failure": 400,
-      "reported_updates": 1,
-      "events_on_unchanged_retry": 0
-    },
-    "legacy_price_heuristic": {
-      "synthetic_payload": true,
-      "candidate_numbers": [
-        120,
-        309
-      ],
-      "returned_price": 120,
-      "qualification": "Demonstrates parser ambiguity; not evidence that Google currently uses this exact response shape."
     }
   },
   "unverified_areas": [

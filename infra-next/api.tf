@@ -78,8 +78,6 @@ resource "aws_iam_role_policy" "api" {
       Resource = ["${aws_cloudwatch_log_group.api.arn}:*"] }
       ], var.customer_telegram_secret_arn == "" ? [] : [{
         Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [var.customer_telegram_secret_arn]
-        }], var.legacy_bot_function_arn == "" ? [] : [{
-        Effect = "Allow", Action = ["lambda:InvokeFunction"], Resource = [var.legacy_bot_function_arn]
     }])
   })
 }
@@ -109,7 +107,6 @@ resource "aws_lambda_function" "api" {
       GFPT_NEXT_MIN_INTERVAL                 = "900"
       GFPT_NEXT_GLOBAL_TARGET_LIMIT          = "20"
       GFPT_NEXT_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
-      GFPT_NEXT_LEGACY_BOT_FUNCTION_ARN      = var.legacy_bot_function_arn
     }
   }
   depends_on = [aws_iam_role_policy.api, aws_cloudwatch_log_group.api]

@@ -1,211 +1,194 @@
-# Fareflare Operations
+# Fareflare operations
 
-This is the operator runbook for the free, invite-only development release. It
-describes implemented controls and deployment procedures; it is not evidence that
-a particular image, bot cutover, or recovery has been verified in production. Keep
-the tested image digests and actual Terraform inputs in a dated deployment record.
-The older [shadow verification](PRODUCTION_VERIFICATION.md) documents that earlier
-release, not the current customer application.
+This runbook covers self-hosted deployments and release maintenance. Keep actual
+account IDs, backend settings, secrets, tested image digests, and rollback records
+in private operator storage. Published verification records describe checks that
+were performed; they are not a substitute for testing your deployment.
 
-## Accounts, invitations, and development limits
+## Configure your installation
 
-The dashboard, REST API, and hosted MCP share the same accounts and monitors.
-Default limits are three monitors per account, a 900-second minimum requested
-interval, and 20 distinct shared collection targets. Dispatcher frequency, browser
-failures, and queueing can extend observation gaps. A price low means the lowest
-price observed since monitoring began; there is no guarantee of observing every
-market change. Cancellation, departure, and account deletion release monitor
-capacity; shared targets remain reserved while another subscriber needs them.
-
-Keep `registration_mode="invite"` and `billing_enabled=false`. Billing is disabled
-on the server and in Terraform; enabling the flag fails rather than starting
-unimplemented payments. Free customer access does not eliminate AWS charges.
-Review CloudWatch usage and AWS costs before raising limits.
-
-Create a seven-day, single-use invitation for the deployed table:
+Use Python 3.12, Node.js 24, Docker with ARM64 build support, AWS CLI v2, and
+Terraform 1.10 or newer. Authenticate to the intended AWS account and provision a
+private, encrypted, versioned S3 bucket for Terraform state.
 
 ```bash
 umask 077
 mkdir -p .next
-PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli \
-  --public-url https://YOUR-API.execute-api.us-east-1.amazonaws.com \
-  invite .next/invitation-UNIQUE.json --table gfpt-next-production \
-  --aws-account 851725466918 --region us-east-1
+cp infra-next/backend.hcl.example .next/backend.hcl
+cp infra-next/terraform.tfvars.example infra-next/production.auto.tfvars
 ```
 
-The command verifies the AWS account and creates the output exclusively with
-mode `0600`; it will not replace an existing invitation file. Share its URL only
-with the intended person. Local `make product-invite` uses SQLite, so it cannot
-onboard a deployed account. Invitation files, API keys, recovery codes, and session
-cookies belong outside Git.
-
-Customers download one recovery code during signup. Recovery replaces that code,
-changes the password, and invalidates existing sessions, keys, OAuth grants, and
-Telegram bindings. No email reset provider or operator password-reset backdoor is
-configured. Account deletion requires the password, stops future collection and
-delivery for that account, and removes its Telegram association; it does not erase
-shared price observations belonging to other subscribers.
-
-OAuth dynamic registration admits public PKCE clients and has a permanent global
-cap of **1,000 registered clients**. The count is not automatically reclaimed.
-Per-IP registration limits also apply. Plan client cleanup or a revised admission
-policy before reaching this cap; increasing it blindly removes a storage bound.
-
-## Release API and worker images
-
-Use only `infra-next/` for Fareflare. Its current backend is
-`s3://gfpricetracker-terraform-state/gfpt-next-production/terraform.tfstate`.
-The family stack uses a different key. Terraform's `expected_account_id` guard
-defaults to `851725466918`; the resource prefix must start with `gfpt-next-`.
-For another installation, explicitly override the backend bucket/key/region and
-account ID. Never point this module at the family state.
-
-1. Confirm `aws sts get-caller-identity` and restore the **latest** recorded inputs
-   into ignored `infra-next/production.auto.tfvars.json`. Preserve both image URIs
-   and all delivery/schedule settings. Empty image defaults request resource
-   removal on an existing deployment, which lifecycle protection rejects.
-2. Run `make next-check`, `npm --prefix web ci`, `npm --prefix web run build`, and
-   `npm --prefix web test`. Build the dashboard before packaging the API.
-3. Build ARM64 images with fresh immutable ECR tags. Set `BROWSER_BASE` to the
-   previously verified immutable browser image URI; the worker extends that image.
+Edit the copied files. Set your state bucket, a unique state key, region,
+`expected_account_id`, and a resource name such as `fareflare-production`.
+The AWS provider rejects a different authenticated account. Never share state
+between installations. Backend files and variable files stay out of Git.
 
 ```bash
-docker buildx build --platform linux/arm64 --provenance=false --load \
-  -f Dockerfile.api -t "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE" .
-docker buildx build --platform linux/arm64 --provenance=false --load \
-  --build-arg BROWSER_BASE="$FAREFLARE_BROWSER_BASE_DIGEST" \
-  -f Dockerfile.next -t "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE" .
-docker push "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE"
-docker push "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE"
-```
-
-Authenticate Docker to the intended ECR registry first. Obtain each pushed
-`imageDigest` with ECR `describe-images`. Set `api_image_uri` and `image_uri` to
-`REPOSITORY@sha256:DIGEST`, not mutable tags. Record the source revision, browser
-base digest, both new digests, and previous digests for rollback.
-
-```bash
-terraform -chdir=infra-next init
+terraform -chdir=infra-next init -backend-config=../.next/backend.hcl
 terraform -chdir=infra-next plan -out=../.next/fareflare.tfplan
 terraform -chdir=infra-next apply ../.next/fareflare.tfplan
 ```
 
-Review the saved plan before applying: changes must belong to the intended
-Fareflare resources. For first deployment, start with scheduling disabled. Test
-the application health, invitation login, account isolation, API key revocation,
-and OAuth/MCP flow before admitting users. Enable `product_delivery_enabled=true`
-for dashboard/Telegram and verified webhook delivery. Then choose
-`worker_max_targets`, `worker_schedule_minutes`, and `schedule_enabled=true` from
-measured collection time and cost. The default worker batch is one target and the
-default wake-up interval is five minutes. Terraform does not switch the bot URL.
+Review the saved plan before applying. On the **first** deployment, empty image
+URIs create storage and ECR repositories without running application code.
+Afterward, always preserve both deployed image URIs in your recorded inputs.
+Empty image values on an existing deployment request removal, which lifecycle
+protection rejects. Keep scheduling and delivery disabled until validation passes.
 
-## Shared Telegram configuration and routing
+## Release API and worker images
 
-Store this JSON shape in the configured Secrets Manager secret:
+Run backend and browser checks, then build both images. The API image packages
+`web/dist`, so build the dashboard first. Build `Dockerfile` once as the Chromium
+base; reuse a verified immutable base digest for subsequent worker releases.
+
+```bash
+make check
+npm --prefix web ci
+npm --prefix web run format:check
+npm --prefix web run build
+npm --prefix web test
+
+docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
+  -f Dockerfile -t fareflare-browser-base .
+docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
+  -f Dockerfile.api -t "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE" .
+docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
+  --build-arg BROWSER_BASE=fareflare-browser-base \
+  -f Dockerfile.next -t "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE" .
+```
+
+Set `FAREFLARE_API_REPOSITORY`, `FAREFLARE_WORKER_REPOSITORY`, and
+`FAREFLARE_RELEASE` to your ECR repository URLs and a new release tag. Authenticate
+Docker to that registry, push both images, and retrieve their ECR image digests.
+Set `api_image_uri` and `image_uri` to `REPOSITORY@sha256:DIGEST`. Record the source
+revision, browser base, new digests, and previous digests privately.
+
+```bash
+docker push "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE"
+docker push "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE"
+terraform -chdir=infra-next plan -out=../.next/fareflare.tfplan
+terraform -chdir=infra-next apply ../.next/fareflare.tfplan
+```
+
+Validate health, account registration, tenant isolation, API key revocation, and
+OAuth/MCP before inviting users. `product_delivery_enabled=true` activates the
+customer inbox, Telegram, and verified webhook delivery paths. Measure collection
+time and resource use before choosing `worker_max_targets`,
+`worker_schedule_minutes`, and `schedule_enabled=true`. The default batch is one
+target and the default dispatch interval is five minutes. Dispatch frequency is
+not a guarantee of price freshness.
+
+## Accounts, invitations, and capacity
+
+Keep `registration_mode="invite"` and `billing_enabled=false` during development.
+Enabling billing fails startup until a payment integration exists. Free access
+does not eliminate AWS charges. Default limits are three monitors per account,
+a 900-second minimum requested interval, and 20 distinct shared targets.
+Equivalent targets share collection; account preferences remain private.
+
+Issue a deployed invitation with an explicit account guard:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli \
+  --public-url https://YOUR-API.execute-api.REGION.amazonaws.com \
+  invite .next/invitation-UNIQUE.json --table fareflare-production \
+  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION
+```
+
+Invitations expire after seven days and can be used once. The command creates the
+output with private permissions and refuses to overwrite a file. Share the signup
+URL only with its intended recipient. `make invite` uses local SQLite and
+cannot invite someone to a deployed instance.
+
+Recovery codes replace email resets. Recovery changes the password and invalidates
+sessions, API keys, OAuth grants, and Telegram bindings. Account deletion requires
+the password and stops future work for that account. Shared observations may remain
+available to other subscribers.
+
+OAuth dynamic registration admits public PKCE clients, applies per-IP limits, and
+has a permanent cap of 1,000 clients. Review retention before raising that cap.
+
+## Telegram configuration
+
+Create a Telegram bot and store the following JSON in AWS Secrets Manager:
 
 ```json
 {
-  "bot_token": "REDACTED",
-  "bot_username": "gfpricetrackerbot",
-  "legacy_chat_ids": [111111111, 222222222],
-  "webhook_secret": "EXACT_EXISTING_WEBHOOK_SECRET"
+  "bot_token": "YOUR_BOT_TOKEN",
+  "bot_username": "YOUR_BOT_USERNAME",
+  "webhook_secret": "YOUR_RANDOM_WEBHOOK_SECRET"
 }
 ```
 
-Set `customer_telegram_secret_arn` and `legacy_bot_function_arn` in the private
-Terraform inputs. API IAM permits reading only that secret and invoking only the
-specified family Lambda. The worker reads the bot secret without invoking the
-family handler. The existing family handler derives its webhook secret from
-`sha256("gfpt-webhook:" + bot_token)[:40]`; retain that exact configured value for
-forwarding and rollback. `getWebhookInfo` does not disclose the secret.
+Use a strong random webhook secret and set `customer_telegram_secret_arn` in private
+Terraform inputs. The API and worker read only that configured secret. Connect an
+account from **Account settings** using its one-use link; links expire in ten
+minutes and require a private chat whose sender matches the chat owner.
+`/help` shows connection guidance and `/stop` disconnects Telegram. Disconnecting
+does not cancel flight monitors or remove their history.
 
-Fareflare validates the incoming webhook credential. Explicit `ff_` connection
-payloads stay in Fareflare, require a private chat matching the sender, expire in
-ten minutes, and can be used once. Family commands are forwarded to the unchanged
-legacy HTTP handler with its expected secret; no tracker event is constructed.
-Family `/mute` preferences continue to govern legacy alerts. Manage Fareflare
-preferences and family-account Telegram connections in the dashboard during the
-transition. Other connected customers can use `/help` and `/stop`.
-
-After live API checks, switch the single shared bot using a new snapshot filename:
+Register the webhook after the API is reachable:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
-  --aws-account 851725466918 --region us-east-1 \
-  --url https://YOUR-API.execute-api.us-east-1.amazonaws.com/telegram/webhook \
+  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
+  --url https://YOUR-API.execute-api.REGION.amazonaws.com/telegram/webhook \
   --snapshot .next/telegram-before-UNIQUE.json
 ```
 
-The script verifies AWS identity, restricts the secret to that account/region,
-reads the existing route, and durably writes a new `0600` snapshot **before**
-changing it. It preserves allowed update types, uses four webhook connections,
-keeps pending updates, reuses the configured secret, and checks the resulting
-route. It prints no bot credentials. It refuses custom-certificate webhooks
-because their certificate cannot be recovered from Telegram's readback.
-It does not rename the bot or register bot commands.
+The script verifies AWS identity, saves a new private snapshot before changing
+routing, preserves pending updates, and reads the route back. It refuses custom
+certificate routes that cannot be restored from Telegram's API. It does not print
+bot credentials or configure the bot's public description and command menu.
+Test connection, help, disconnection, and an actual price notification.
 
-Validate a normal family command and a customer connection after switching.
-Rollback the routing with the same secret and private snapshot:
+Restore the saved route when rolling back:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
-  --aws-account 851725466918 --region us-east-1 \
+  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
   --restore .next/telegram-before-UNIQUE.json
 ```
 
-Rollback restores the saved URL, update types, and connection limit. It rejects
-a different bot, changed secret, public snapshot permissions, or an unrelated
-newer route. Repeating an already completed rollback is a read-only operation.
-DNS is resolved normally; the observed previous IP address is not pinned.
-Preserve the snapshot if a request or readback fails. Restoring the webhook only
-changes inbound command routing: outbound worker notifications are separate.
-Pause onboarding while customer connection commands are routed to the legacy bot.
-See the [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook) for the
-underlying webhook fields.
+The restore checks the bot identity, secret, snapshot permissions, and current
+route. Webhook routing controls incoming commands; outbound worker delivery is
+separate. See the [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook)
+for webhook behavior.
 
-## Health, incidents, and restoration
+## Monitoring and incidents
 
-`GET /health` returns `last_worker_at`; HTTP 200 alone does not establish collection
-freshness. Inspect the DynamoDB `health:worker` document, monitor freshness and
-`last_error`, and CloudWatch logs at `/aws/lambda/gfpt-next-production` and
-`/aws/lambda/gfpt-next-production-api`. Worker `GFPTNext` metrics include collection
-failures, skipped targets, browser starts/reuses, delivery counts, and runtime.
-Allow for the configured dispatch interval and the 180-second invocation limit.
+HTTP 200 from `/health` does not prove that collection is fresh. Inspect
+`last_worker_at`, the DynamoDB `health:worker` record, monitor freshness and
+`last_error`, and the API/worker CloudWatch logs. `GFPTNext` metrics include browser
+starts/reuses, collection failures, skipped targets, delivery counts, and runtime.
+Monitor Lambda throttles and dead-letter deliveries as well as exceptions.
 
-Terraform defines `gfpt-next-production-errors`,
-`gfpt-next-production-api-errors`, and `gfpt-next-production-collection-failures`.
-They evaluate five-minute windows; handled provider failures need their separate
-collection alarm. These alarms have no notification destination configured. Add
-an operator destination before relying on unattended incident reporting. Also
-watch throttles, stale heartbeats, and dead-letter deliveries; not every operational
-failure becomes a Lambda exception.
+Terraform provisions Lambda and collection-failure alarms. Attach an operator
+notification destination before relying on unattended alerts. Handled provider
+failures require their collection metric; they do not always become Lambda errors.
 
-To halt Fareflare collection and outbound delivery immediately:
+To halt new scheduled work:
 
 ```bash
-aws events disable-rule --name gfpt-next-production-schedule --region us-east-1
+aws events disable-rule --name "$FAREFLARE_SCHEDULE_NAME" --region "$FAREFLARE_REGION"
 ```
 
-An invocation already running may finish. Set `schedule_enabled=false` in the
-recorded inputs and apply a reviewed plan to keep Terraform consistent. This
-leaves the family schedule running. Roll back application code by restoring the
-previous API/worker digest pair in those inputs and applying another reviewed
-plan; do not delete resources or downgrade incompatible data without review.
+A running invocation may finish. Also record `schedule_enabled=false` in Terraform
+inputs and apply a reviewed plan. Roll back application code by restoring the prior
+API/worker digest pair. Retain current data unless a reviewed migration requires a
+change; an older image may not understand a newer data format.
 
-On a new workstation, restore the repository, locked dependencies, latest
-nonsecret deployment manifest, AWS authentication, and isolated backend inputs.
-Secrets remain in Secrets Manager; do not recreate production credentials from
-test examples. `scripts/restore_env.sh` and `make deploy` target the legacy stack
-and are intentionally blocked in this checkout.
+## Data recovery
 
-DynamoDB has point-in-time recovery, encryption, deletion protection, and TTL.
-For data loss, first stop the Fareflare schedule and prevent new account writes;
-restore a selected point to a **new** table and validate it before choosing a
-cutover. The current module has no automatic restored-table swap: prepare and
-review the table/configuration migration so API and worker use the same restored
-data. Keep the original table and versioned Terraform state for diagnosis.
-Restoring old account state can resurrect credentials previously revoked; review
-authentication epochs and customer sessions before reopening access. Validate
-freshness, delivery routing, and account isolation before resuming the schedule.
+DynamoDB uses encryption, deletion protection, point-in-time recovery, and TTL.
+For data loss, stop scheduling and prevent account writes, restore to a **new**
+table, and validate it before cutover. The module does not automate a restored-table
+swap: review the configuration so API and worker use the same recovered data.
+Keep the original table and versioned state for diagnosis.
+
+Restoring account data can resurrect revoked credentials. Review authentication
+epochs and sessions before reopening access, then validate tenant isolation,
+collection freshness, and delivery. Rehearse restoration for your own installation;
+a successful image rollback does not prove database recovery.

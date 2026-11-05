@@ -1,11 +1,11 @@
 [project]
-name = "gfpt"
+name = "fareflare"
 version = "2.0.0"
-description = "Google Flights Price Tracker — Lambda-based saved-flights price monitor with Telegram alerts"
-requires-python = ">=3.11"
+description = "Open-source flight price monitoring with Telegram alerts, webhooks, an HTTP API, and MCP"
+requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "tests_next"]
+testpaths = ["tests_next"]
 pythonpath = ["src"]
 addopts = "-q"
 timeout = 60
@@ -13,15 +13,11 @@ timeout = 60
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src", "tests"]
+src = ["src", "tests_next"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["E501"]
-
-[tool.ruff.lint.per-file-ignores]
-# Imports must follow the sys.path/.env bootstrap in the local harness
-"scripts/run_local.py" = ["E402"]
 
 [tool.pyright]
 include = ["src/gfpt_next"]

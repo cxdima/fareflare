@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible problem in Fareflare.
+body:
+  - type: markdown
+    attributes:
+      value: "For security issues, use the private report linked in SECURITY.md. Remove tokens, invitation URLs, cookies, and private travel details."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include the screen or endpoint and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use synthetic or redacted examples where possible.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Hosted or self-hosted, commit/version, browser, and operating system.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs
+      description: Remove credentials and personal information before attaching.

@@ -1,12 +1,12 @@
 .workspace-layout {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 238px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
 }
 .workspace-sidebar {
-  padding: 2rem 1.25rem 1.25rem;
+  padding: 1.75rem 1rem 1.25rem;
   border-right: 1px solid var(--ff-line);
-  background: var(--ff-soft);
+  background: var(--ff-surface);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -14,41 +14,51 @@
   height: 100dvh;
 }
 .workspace-sidebar > .brand {
-  margin-left: 0.75rem;
-}
-.sidebar-label {
-  font-size: 0.65rem;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--ff-muted);
-  margin: 3rem 0.75rem 1rem;
+  margin-left: 0.5rem;
 }
 .workspace-sidebar nav {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  margin-top: 2.5rem;
 }
 .workspace-sidebar nav a {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  min-height: 44px;
-  padding: 0.7rem 0.75rem;
-  font-size: 0.85rem;
+  min-height: 46px;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.83rem;
+  font-weight: 550;
   color: var(--ff-muted);
   text-decoration: none;
-  border-radius: 0.25rem;
+  border-radius: 0.6rem;
+}
+.workspace-sidebar nav .bi {
+  font-size: 1rem;
 }
 .workspace-sidebar nav a[aria-current] {
-  background: var(--ff-ink);
-  color: var(--ff-surface);
+  background: var(--ff-soft);
+  color: var(--ff-ink);
+  box-shadow: inset 3px 0 var(--ff-accent);
+}
+.workspace-sidebar nav a[aria-current] .bi {
+  color: var(--ff-accent);
 }
 .workspace-sidebar nav a:hover:not([aria-current]) {
-  background: #e4e4da;
+  background: var(--ff-paper);
   color: var(--ff-ink);
 }
 .nav-count {
   margin-left: auto;
-  font-size: 0.75rem;
+  min-width: 1.4rem;
+  text-align: center;
+  border-radius: 0.3rem;
+  background: var(--ff-surface);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+.nav-label-short {
+  display: none;
 }
 .sidebar-bottom {
   margin-top: auto;
@@ -63,33 +73,35 @@
   color: var(--ff-muted);
   text-decoration: none;
 }
+.sidebar-source:hover {
+  color: var(--ff-ink);
+}
 .profile {
   border-top: 1px solid var(--ff-line);
   display: flex;
   gap: 0.7rem;
   align-items: center;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   padding: 1.25rem 0.75rem 0.5rem;
 }
 .profile-initial {
   display: grid;
   place-items: center;
+  flex-shrink: 0;
   width: 34px;
   height: 34px;
-  background: #dfddd1;
-  border-radius: 0.25rem;
+  background: var(--ff-soft);
+  color: var(--ff-ink);
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 .profile strong {
   display: block;
-  max-width: 135px;
+  max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.8rem;
-}
-.profile div > span {
-  display: block;
-  color: var(--ff-muted);
-  font-size: 0.68rem;
 }
 .signout {
   font-size: 0.8rem;
@@ -105,27 +117,22 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 78px;
-  padding: 1rem 2.5rem;
+  min-height: 68px;
+  padding: 0.65rem 2.5rem;
   border-bottom: 1px solid var(--ff-line);
+  background: var(--ff-surface);
   font-size: 0.8rem;
 }
-.breadcrumb-divider {
-  padding: 0 0.6rem;
-  color: #a5aaa7;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.development-label {
-  font-size: 0.7rem;
+.current-page {
   color: var(--ff-muted);
+  font-weight: 550;
+}
+.refresh-button {
+  font-size: 0.78rem;
 }
 .workspace-main {
   padding: 2.5rem;
-  width: min(100%, 1250px);
+  width: min(100%, 1200px);
   margin-inline: auto;
   flex-grow: 1;
   min-width: 0;
@@ -134,14 +141,25 @@
 .workspace-footer {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
-  padding: 1.5rem 2.5rem;
-  border-top: 1px solid var(--ff-line);
-  font-size: 0.72rem;
+  padding: 1rem 2.5rem;
+  font-size: 0.75rem;
   color: var(--ff-muted);
 }
 .workspace-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: inherit;
+  text-decoration: none;
+}
+.workspace-footer a:hover {
+  text-decoration: underline;
+}
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
 }
 .workspace-loading {
   display: grid;
@@ -179,9 +197,8 @@
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--ff-line);
-    padding: 1.1rem 1rem 0.65rem;
+    padding: 1rem 1rem 0.65rem;
   }
-  .sidebar-label,
   .sidebar-source,
   .profile {
     display: none;
@@ -190,24 +207,42 @@
     margin-left: 0;
   }
   .workspace-sidebar nav {
-    display: flex;
-    overflow-x: auto;
-    gap: 0.3rem;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.2rem;
     margin-top: 0.85rem;
     padding-bottom: 0.2rem;
   }
   .workspace-sidebar nav a {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
     white-space: nowrap;
-    padding: 0.5rem 0.7rem;
-    min-height: 44px;
+    padding: 0.5rem 0.15rem;
+    min-height: 60px;
+    font-size: 0.7rem;
   }
-  .workspace-sidebar nav a .bi,
+  .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .nav-label-short {
+    display: inline;
+  }
   .nav-count {
     display: none;
   }
+  .workspace-sidebar nav a[aria-current] {
+    box-shadow: inset 0 -2px var(--ff-accent);
+  }
   .sidebar-bottom {
     position: absolute;
-    top: 1rem;
+    top: 0.95rem;
     right: 1rem;
     padding-top: 0;
     margin: 0;
@@ -219,19 +254,10 @@
     padding: 1.5rem 1rem;
   }
   .workspace-topbar {
-    min-height: 60px;
-    padding: 0.5rem 1rem;
-  }
-  .workspace-topbar > span {
-    display: none;
-  }
-  .topbar-actions {
-    width: 100%;
-    justify-content: space-between;
+    min-height: 54px;
+    padding: 0.25rem 1rem;
   }
   .workspace-footer {
-    padding: 1rem;
-    flex-direction: column;
-    gap: 0.5rem;
+    padding: 0.5rem 1rem 1rem;
   }
 }

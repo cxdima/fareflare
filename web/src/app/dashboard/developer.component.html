@@ -1,56 +1,100 @@
 <div class="page-heading">
   <div>
-    <p class="overline">Developer tools</p>
     <h1>API &amp; MCP</h1>
-    <p>Your monitors, available to the tools you use.</p>
+    <p>Connect an assistant or build with your flight data.</p>
   </div>
   <a class="btn btn-outline-primary" href="/docs" target="_blank" rel="noreferrer"
-    >API reference <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+    >API reference<i class="bi bi-box-arrow-up-right" aria-hidden="true"></i
     ><span class="visually-hidden"> (opens a new tab)</span></a
   >
 </div>
-<div class="row g-4 mb-4">
-  <div class="col-lg-6">
-    <section class="panel h-100">
-      <i class="bi bi-terminal panel-icon" aria-hidden="true"></i>
+<section class="connection-setup" aria-label="Connection setup">
+  <div class="connection-options" role="group" aria-label="Connection method">
+    <button
+      type="button"
+      [attr.aria-pressed]="connection() === 'mcp'"
+      (click)="selectConnection('mcp')"
+    >
+      <strong>MCP client</strong><span>Connect your AI assistant</span>
+    </button>
+    <button
+      type="button"
+      [attr.aria-pressed]="connection() === 'api'"
+      (click)="selectConnection('api')"
+    >
+      <strong>HTTP API</strong><span>Use your own application</span>
+    </button>
+  </div>
+  <div class="connection-content">
+    @if (connection() === 'mcp') {
       <h2>Connect an MCP client</h2>
       <p>
-        Add this URL to a client that supports Streamable HTTP and OAuth. Follow its sign-in flow
-        and review the requested access.
+        Add this server URL in your client’s connection settings. Choose Streamable HTTP, then sign
+        in to Fareflare to approve access.
       </p>
-      <label class="form-label" for="mcp-url">Remote MCP server</label
-      ><input
+      <div class="endpoint-heading">
+        <label for="mcp-url">Remote MCP server</label>
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="copy(mcp(), 'url')">
+          <i [class]="'bi ' + (copied() === 'url' ? 'bi-check2' : 'bi-copy')" aria-hidden="true"></i
+          >{{ copied() === 'url' ? 'Copied' : 'Copy URL' }}
+        </button>
+      </div>
+      <textarea
         id="mcp-url"
-        class="form-control font-monospace"
+        class="endpoint-field"
+        rows="2"
         readonly
+        spellcheck="false"
         [value]="mcp()"
         #mcpField
         (focus)="mcpField.select()"
-      />
-      <p class="form-text">
-        For clients with custom headers, create an API key below and use
-        <code>Authorization: Bearer YOUR_API_KEY</code>. Never put a key in the URL.
+      ></textarea>
+      <details class="connection-details">
+        <summary>My client uses an API key</summary>
+        <p>
+          Create a key below and add this request header in your client. Keep the key out of the
+          server URL.
+        </p>
+        <code>Authorization: Bearer YOUR_API_KEY</code>
+      </details>
+    } @else {
+      <h2>Make your first API request</h2>
+      <p>
+        Create an API key below, replace <code>YOUR_API_KEY</code>, and run this command to list
+        your monitors.
       </p>
-    </section>
-  </div>
-  <div class="col-lg-6">
-    <section class="panel h-100">
-      <i class="bi bi-code-slash panel-icon" aria-hidden="true"></i>
-      <h2>Use the HTTP API</h2>
-      <p>Read prices, manage monitors, and configure delivery from your own application.</p>
-      <pre><code>{{ curl }}</code></pre>
-      <p class="form-text">
-        Store keys on your server or in your client’s secret store. Keys can access your account’s
+      <div class="code-example">
+        <div class="code-heading">
+          <span>List flight monitors</span>
+          <button type="button" class="btn btn-sm btn-code" (click)="copy(curl, 'request')">
+            <i
+              [class]="'bi ' + (copied() === 'request' ? 'bi-check2' : 'bi-copy')"
+              aria-hidden="true"
+            ></i
+            >{{ copied() === 'request' ? 'Copied' : 'Copy request' }}
+          </button>
+        </div>
+        <pre><code>{{ curl }}</code></pre>
+      </div>
+      <p class="connection-note">
+        Keep API keys on your server or in a secret store. A key can access your account’s
         resources.
       </p>
-    </section>
+    }
+    @if (copyError()) {
+      <p class="text-danger small mt-3" role="alert">{{ copyError() }}</p>
+    }
+    <span class="visually-hidden" role="status">{{ copied() ? 'Copied to clipboard.' : '' }}</span>
   </div>
-</div>
+</section>
 @if (secret()) {
   <ff-secret title="Your API key" [value]="secret()" (dismissed)="secret.set('')" />
 }
-<section class="panel mb-4">
+<section class="panel key-create mb-4">
   <h2>Create an API key</h2>
+  <p class="text-body-secondary">
+    Give each application its own key so you can revoke access independently.
+  </p>
   @if (action.error()) {
     <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
   }
@@ -93,10 +137,19 @@
                 ><span class="table-subtext key-id">{{ key.id }}</span>
               </td>
               <td>{{ timestamp(key.expires_at) }}</td>
-              <td>{{ status(key) }}</td>
+              <td>
+                <span
+                  [class]="'status status-' + (status(key) === 'Active' ? 'active' : 'paused')"
+                  >{{ status(key) }}</span
+                >
+              </td>
               <td>
                 @if (!key.revoked) {
-                  <button type="button" class="btn btn-sm btn-link" (click)="revoking.set(key)">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-quiet-danger"
+                    (click)="revoking.set(key)"
+                  >
                     Revoke<span class="visually-hidden"> {{ key.name || key.id }}</span>
                   </button>
                 }
@@ -107,8 +160,12 @@
       </table>
     </div>
   } @else {
-    <p class="text-body-secondary">
-      No API keys yet. Create one when you’re ready to connect an application.
+    <p class="text-body-secondary" role="status">
+      {{
+        action.busy()
+          ? 'Loading API keys…'
+          : 'No API keys yet. Create one when you’re ready to connect an application.'
+      }}
     </p>
   }
 </section>

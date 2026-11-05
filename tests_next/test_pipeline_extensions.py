@@ -12,7 +12,6 @@ from gfpt_next.delivery import TelegramSink
 from gfpt_next.domain import AlertPolicy, evaluate
 from gfpt_next.link_resolver import GoogleLinkResolver
 from gfpt_next.links import InvalidLink, import_link
-from gfpt_next.migration import apply_migration, plan_migration
 from gfpt_next.service import Reading
 from gfpt_next.store import Document
 from gfpt_next.worker import Worker
@@ -128,7 +127,7 @@ def test_rebounds_are_opt_in_and_damped_until_a_new_low():
     assert state['last_alert_minor'] == 39000
 
 
-def test_family_preferences_suppress_queues_without_stopping_collection(service, clock, flight_url):
+def test_account_preferences_suppress_queues_without_stopping_collection(service, clock, flight_url):
     monitor = service.create_monitor('alice', flight_url, 'prefs-regression')
     service.record(Reading(monitor['target_id'], 40000, 'USD', clock[0], 'fixture'), 'one')
     service.process_events()
@@ -143,41 +142,6 @@ def test_family_preferences_suppress_queues_without_stopping_collection(service,
     service.process_events()
     assert len(service.list_deliveries('alice')) == 1
     assert service.get_monitor('alice', monitor['id'])['status'] == 'active'
-
-
-def export_fixture(url):
-    return {'schema_version': 1, 'currency_units_verified': True, 'currency': 'USD', 'unit': 'major',
-            'owners': {'111': 'dad', '222': 'me'},
-            'preferences': {'111': {'threshold': 10, 'rise_alerts': True, 'muted_routes': ['DEN-DFW']}},
-            'manifest': {'legacy-flight': {'search_url': url, 'price': 500, 'low_price': 400}}}
-
-
-def test_migration_preserves_preferences_and_baseline_without_fake_observations(service, clock, flight_url):
-    export = export_fixture(flight_url)
-    plan = plan_migration(export)
-    assert plan['monitors'][0]['baseline']['low_minor'] == 40000
-    assert plan['monitors'][0]['policy']['min_drop_minor'] == 1000
-    results = apply_migration(service, export)
-    assert apply_migration(service, export) == results
-    assert len(service.store.query('targets')) == 1
-    assert all(m['status'] == 'paused' and m['latest'] is None for m in results)
-    assert service.preferences('dad')['muted_routes'] == ['DEN-DFW']
-    me = next(m for m in results if m['tenant'] == 'me')
-    service.set_status('me', me['id'], 'active')
-    service.record(Reading(me['target_id'], 45000, 'USD', clock[0], 'fixture'), 'after-migration')
-    service.process_events()
-    assert not service.list_deliveries('me')  # Above the preserved historical low.
-    clock[0] += 900
-    service.record(Reading(me['target_id'], 35000, 'USD', clock[0], 'fixture'), 'new-low')
-    service.process_events()
-    assert service.list_deliveries('me')[0]['reason'] == 'new_low'
-
-
-@pytest.mark.parametrize('change', [{'currency_units_verified': False}, {'currency': 'EUR'}, {'unit': 'unknown'}])
-def test_invalid_migration_writes_nothing(service, flight_url, change):
-    with pytest.raises(ValueError):
-        apply_migration(service, {**export_fixture(flight_url), **change})
-    assert service.store.query('targets') == []
 
 
 def test_worker_restart_queues_and_shadow_suppresses_without_external_delivery(service, clock, flight_url):

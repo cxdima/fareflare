@@ -1,4 +1,4 @@
-"""Next-generation tests never load .env or make external requests."""
+"""Fareflare tests use isolated stores and do not load local credentials."""
 import json
 from pathlib import Path
 
