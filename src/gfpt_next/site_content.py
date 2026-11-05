@@ -215,7 +215,7 @@ def structured_data(page: Page, config: ProductConfig) -> dict:
     canonical = origin + page.path
     organization = {"@type": "Organization", "@id": origin + "/#organization", "name": config.product_name,
                     "url": origin + "/", "sameAs": [GITHUB_URL],
-                    "logo": origin + "/assets/fareflare-mark.png"}
+                    "logo": origin + "/assets/fareflare-mark.png?v=2"}
     graph: list[dict] = [organization,
         {"@type": "WebSite", "@id": origin + "/#website", "name": config.product_name,
          "url": origin + "/", "publisher": {"@id": organization["@id"]}, "inLanguage": "en-US"},

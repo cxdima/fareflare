@@ -224,6 +224,28 @@ test('history shows actual totals and supports pause, resume and stop', async ({
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await page.getByRole('button', { name: 'Stop watching', exact: true }).click();
   await expect(page.getByText('Stopped', { exact: true })).toBeVisible();
+  await page.route('**/v1/monitors?limit=100', (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            ...structuredClone(monitor),
+            status: 'cancelled',
+            collection_status: 'blocked',
+            last_error: 'provider_blocked',
+          },
+        ],
+      },
+    }),
+  );
+  await page.reload();
+  await expect(
+    page.getByText('This monitor is no longer checking prices.', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText('Use Retry collection to try again.', { exact: false })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole('button', { name: 'Retry collection', exact: true })).toHaveCount(0);
 });
 
 test('webhook ownership verification and secrets are explicit', async ({ page }) => {

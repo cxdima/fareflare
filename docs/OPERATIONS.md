@@ -192,3 +192,11 @@ Restoring account data can resurrect revoked credentials. Review authentication
 epochs and sessions before reopening access, then validate tenant isolation,
 collection freshness, and delivery. Rehearse restoration for your own installation;
 a successful image rollback does not prove database recovery.
+
+## API request concurrency
+
+The API Lambda reserves eight concurrent executions so a browser can load its
+assets in parallel. API Gateway still limits requests to 10 per second with a
+burst of 20; authentication routes use stricter limits. The worker remains at one
+concurrent execution. Watch Lambda `Throttles` alongside API Gateway 5xx metrics: a
+rejected asset request can leave an otherwise successful page missing an image.

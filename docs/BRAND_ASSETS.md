@@ -62,5 +62,6 @@ appearance does not imply endorsement or affiliation.
 ## Typography
 
 Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans`
-under the SIL Open Font License. See the package's `LICENSE` and
+under the SIL Open Font License. The build includes its full copyright/license
+notice in the served `3rdpartylicenses.txt`. See the package's `LICENSE` and
 [Fontsource's provenance](https://fontsource.org/fonts/plus-jakarta-sans/about).

@@ -91,7 +91,7 @@ resource "aws_lambda_function" "api" {
   architectures                  = ["arm64"]
   memory_size                    = 1024
   timeout                        = 29
-  reserved_concurrent_executions = 4
+  reserved_concurrent_executions = 8
   lifecycle {
     prevent_destroy = true
   }

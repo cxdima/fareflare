@@ -50,9 +50,9 @@ export class MonitorsComponent {
     return item.target.segments.map((segment) => tripDate(segment.date)).join(' – ');
   }
   collectionMessage(item: Monitor): string {
-    if (item.collection_status === 'blocked') return 'Use Retry collection to try again.';
-    if (item.status === 'paused') return 'Resume this monitor when you want to check again.';
     if (!this.current(item)) return 'This monitor is no longer checking prices.';
+    if (item.status === 'paused') return 'Resume this monitor when you want to check again.';
+    if (item.collection_status === 'blocked') return 'Use Retry collection to try again.';
     return 'We will try again at the next scheduled check.';
   }
   async change(item: Monitor, status: string): Promise<void> {
