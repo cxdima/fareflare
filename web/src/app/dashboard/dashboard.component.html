@@ -1,0 +1,133 @@
+@if (session.account(); as account) {
+  <div class="workspace-layout">
+    <a href="#main-content" class="skip-link" (click)="$event.preventDefault(); focusMain()"
+      >Skip to main content</a
+    >
+    <aside class="workspace-sidebar">
+      <a class="brand" href="/"
+        ><img
+          class="brand-mark"
+          src="/assets/fareflare-mark.png?v=2"
+          width="62"
+          height="62"
+          alt=""
+        />Fareflare</a
+      >
+      <nav aria-label="Main navigation">
+        @for (item of navigation; track item.id) {
+          <a
+            [href]="'/app#' + item.id"
+            [attr.aria-current]="!authorization && view() === item.id ? 'page' : null"
+            (click)="select($event, item.id)"
+            ><i [class]="'bi ' + item.icon" aria-hidden="true"></i
+            ><span class="nav-label">{{ item.label }}</span
+            ><span class="nav-label-short" aria-hidden="true">{{ item.shortLabel }}</span>
+            @if (item.id === 'monitors') {
+              <span class="nav-count" aria-hidden="true">{{ workspace.active().length }}</span>
+            }
+          </a>
+        }
+      </nav>
+      <div class="sidebar-bottom">
+        <a
+          class="sidebar-source"
+          href="https://github.com/cxdima/fareflare"
+          target="_blank"
+          rel="noreferrer"
+          ><i class="bi bi-github" aria-hidden="true"></i> GitHub<span class="visually-hidden">
+            (opens a new tab)</span
+          ></a
+        >
+        <div class="profile">
+          <span class="profile-initial" aria-hidden="true">{{
+            account.username.slice(0, 1).toUpperCase()
+          }}</span>
+          <div>
+            <strong>{{ account.username }}</strong>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-quiet signout"
+          [disabled]="logoutAction.busy()"
+          (click)="logout()"
+        >
+          Sign out
+        </button>
+        @if (logoutAction.error()) {
+          <p class="text-danger small" role="alert">{{ logoutAction.error() }}</p>
+        }
+      </div>
+    </aside>
+    <div class="workspace-body">
+      <header class="workspace-topbar">
+        <span class="current-page">{{ pageName() }}</span>
+        <div class="topbar-actions">
+          <button
+            type="button"
+            class="btn btn-quiet refresh-button"
+            aria-label="Refresh dashboard"
+            [disabled]="workspace.refreshing()"
+            (click)="workspace.refresh()"
+          >
+            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
+            ><span>{{ workspace.refreshing() ? 'Refreshing…' : 'Refresh' }}</span>
+          </button>
+        </div>
+      </header>
+      <main class="workspace-main" id="main-content" tabindex="-1" #main>
+        @if (session.recovery()) {
+          <ff-secret
+            title="Your account recovery code"
+            [value]="session.recovery()"
+            (dismissed)="session.recovery.set('')"
+            >Save this code in a password manager. It is how you recover your account if you forget
+            your password, and it is shown only once.</ff-secret
+          >
+        }
+        @if (workspace.error()) {
+          <div class="alert alert-danger" role="alert">
+            {{ workspace.error() }}
+            <button type="button" class="btn btn-link" (click)="workspace.refresh()">Retry</button>
+          </div>
+        }
+        @if (authorization) {
+          <ff-consent [id]="authorization" />
+        } @else {
+          @switch (view()) {
+            @case ('alerts') {
+              <ff-alerts />
+            }
+            @case ('webhooks') {
+              <ff-webhooks />
+            }
+            @case ('developer') {
+              <ff-developer />
+            }
+            @case ('settings') {
+              <ff-settings />
+            }
+            @default {
+              <ff-monitors />
+            }
+          }
+        }
+      </main>
+      <footer class="workspace-footer">
+        <a href="/guides">Help &amp; guides</a>
+        <div class="footer-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+      </footer>
+    </div>
+  </div>
+} @else {
+  <main class="workspace-loading" id="main-content">
+    @if (session.error()) {
+      <h1>We couldn’t load your workspace</h1>
+      <p role="alert">{{ session.error() }}</p>
+      <button type="button" class="btn btn-primary" (click)="session.bootstrap()">Try again</button>
+    } @else {
+      <h1>Loading your workspace…</h1>
+      <p role="status">Checking your session.</p>
+    }
+  </main>
+}

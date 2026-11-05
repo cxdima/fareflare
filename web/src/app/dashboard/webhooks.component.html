@@ -1,0 +1,146 @@
+<div class="page-heading">
+  <div>
+    <h1>Webhooks</h1>
+    <p>Send signed price alerts to a receiver you control.</p>
+  </div>
+</div>
+@if (secret()) {
+  <ff-secret title="Webhook signing secret" [value]="secret()" (dismissed)="secret.set('')"
+    >Save this secret for {{ createdUrl() }}. Your receiver uses it to verify requests. It will not
+    be shown again.</ff-secret
+  >
+}
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+}
+@if (note()) {
+  <div class="alert alert-info" role="status">{{ note() }}</div>
+}
+<section class="panel mb-4">
+  <h2>Add a receiver</h2>
+  <p class="text-body-secondary">
+    Use a public HTTPS endpoint. Verify ownership before it can receive flight alerts.
+  </p>
+  <form class="inline-form" (submit)="create($event)">
+    <div class="flex-grow-1">
+      <label class="form-label" for="receiver-url">Receiver URL</label
+      ><input
+        id="receiver-url"
+        type="url"
+        class="form-control"
+        [formField]="receiver.url"
+        spellcheck="false"
+        placeholder="https://your-app.example/flight-alerts"
+      />
+    </div>
+    <button type="submit" class="btn btn-primary" [disabled]="action.busy() || !!secret()">
+      Add receiver
+    </button>
+  </form>
+</section>
+<div class="section-heading">
+  <h2>Your receivers</h2>
+  <span class="small text-body-secondary">{{ items().length }} registered</span>
+</div>
+@for (item of items(); track item.id) {
+  <article class="panel receiver-card mb-3">
+    <div class="section-heading">
+      <h3>{{ item.url }}</h3>
+      <span [class]="'status status-' + item.status">{{
+        item.status === 'active'
+          ? 'Verified'
+          : item.status === 'pending'
+            ? 'Awaiting verification'
+            : 'Disabled'
+      }}</span>
+    </div>
+    <p class="small text-body-secondary">
+      Added {{ timestamp(item.created_at) }}<br /><code>{{ item.id }}</code>
+    </p>
+    @if (item.status === 'pending' || item.status === 'disabled') {
+      <p class="small">
+        Send a signed challenge to your receiver, then paste <code>data.token</code> from its
+        request body.
+      </p>
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        [disabled]="action.busy()"
+        (click)="challenge(item)"
+      >
+        Send verification challenge
+      </button>
+    }
+    @if (verifying()?.id === item.id) {
+      <form class="inline-form mt-3" (submit)="verify($event)">
+        <div class="flex-grow-1">
+          <label class="form-label" [for]="'verification-' + item.id">Verification token</label
+          ><input
+            [id]="'verification-' + item.id"
+            class="form-control"
+            [formField]="verification.token"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" [disabled]="action.busy()">
+          Verify receiver
+        </button>
+      </form>
+    }
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      @if (item.status === 'active') {
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          (click)="confirmation.set({ item, kind: 'disable' })"
+        >
+          Disable receiver
+        </button>
+      }
+      <button
+        type="button"
+        class="btn btn-quiet-danger"
+        (click)="confirmation.set({ item, kind: 'delete' })"
+      >
+        Delete receiver
+      </button>
+    </div>
+  </article>
+} @empty {
+  <section class="panel empty-state">
+    <i class="bi bi-link-45deg" aria-hidden="true"></i>
+    <h2>No receivers yet</h2>
+    <p>Add an endpoint above. Verified receivers can be selected when you create a monitor.</p>
+  </section>
+}
+<details class="receiver-guide mt-4">
+  <summary>How to accept and verify a webhook</summary>
+  <p>
+    Verify the Standard Webhooks signature with your signing secret and the raw request body.
+    Headers are <code>webhook-id</code>, <code>webhook-timestamp</code>, and
+    <code>webhook-signature</code>. Reject stale requests, deduplicate the event ID, and return 2xx
+    after durable acceptance.
+  </p>
+  <p>
+    Verification requests have type <code>webhook.verification</code> and include
+    <code>data.token</code>. See the <a href="/docs">API reference</a> for schemas.
+  </p>
+</details>
+@if (confirmation(); as selected) {
+  <ff-dialog
+    [title]="(selected.kind === 'disable' ? 'Disable' : 'Delete') + ' this receiver?'"
+    (closed)="confirmation.set(null)"
+    ><p>
+      New deliveries will stop. Existing monitors keep their current destination; create a new
+      monitor to use another receiver.
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="confirmation.set(null)">
+        Cancel</button
+      ><button type="button" class="btn btn-danger" [disabled]="action.busy()" (click)="change()">
+        {{ selected.kind === 'disable' ? 'Disable receiver' : 'Delete receiver' }}
+      </button>
+    </div></ff-dialog
+  >
+}

@@ -1,6 +1,6 @@
-# Lambda container image (ARM64 Graviton).
-# Built by scripts/deploy.sh:  docker buildx build --platform linux/arm64 ...
-FROM python:3.12-slim-bookworm
+# Browser base for the Fareflare ARM64 collection worker.
+# Build with: docker buildx build --platform linux/arm64 --load -t fareflare-browser-base .
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
 
 # ── System dependencies ────────────────────────────────────────────────────────
 # Chromium is pinned: 150.0.7871.46 from current bookworm-security crashes with
@@ -9,8 +9,9 @@ FROM python:3.12-slim-bookworm
 # packages come from the same snapshot for a reproducible image.
 ARG CHROMIUM_VERSION=146.0.7680.177-1~deb12u1
 ARG DEBIAN_SNAPSHOT=20260408T000000Z
+# Prefer IPv4: the snapshot CDN can stall on an otherwise reachable IPv6 route.
 RUN set -eux; \
-  printf 'Acquire::http::Pipeline-Depth "0";\nAcquire::Retries "5";\nAcquire::http::No-Cache "true";\nAcquire::Check-Valid-Until "false";\n' \
+  printf 'Acquire::ForceIPv4 "true";\nAcquire::http::Pipeline-Depth "0";\nAcquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAcquire::http::No-Cache "true";\nAcquire::Check-Valid-Until "false";\n' \
     > /etc/apt/apt.conf.d/99fixbadproxy; \
   printf 'deb https://snapshot.debian.org/archive/debian/%s/ bookworm main\ndeb https://snapshot.debian.org/archive/debian-security/%s/ bookworm-security main\n' \
     "${DEBIAN_SNAPSHOT}" "${DEBIAN_SNAPSHOT}" > /etc/apt/sources.list.d/snapshot.list; \
@@ -49,14 +50,6 @@ ENV HOME=/tmp \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# ── Python dependencies ────────────────────────────────────────────────────────
+# Dockerfile.next installs the locked runtime dependencies and worker package.
 WORKDIR /var/task
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# ── Application package ────────────────────────────────────────────────────────
-COPY src/gfpt ./gfpt
-
-# ── Lambda runtime ─────────────────────────────────────────────────────────────
 ENTRYPOINT ["python", "-m", "awslambdaric"]
-CMD ["gfpt.handler.handler"]

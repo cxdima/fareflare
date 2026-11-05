@@ -1,0 +1,16 @@
+name                = "fareflare-production"
+region              = "us-east-1"
+expected_account_id = "YOUR_12_DIGIT_AWS_ACCOUNT_ID"
+
+# Leave empty only for the first apply that creates storage and ECR repositories.
+# Subsequent releases must preserve both immutable image references.
+image_uri     = ""
+api_image_uri = ""
+
+registration_mode        = "invite"
+billing_enabled          = false
+search_enabled           = false
+schedule_enabled         = false
+product_delivery_enabled = false
+worker_max_targets       = 1
+worker_schedule_minutes  = 5

@@ -1,0 +1,24 @@
+.history-summary {
+  display: flex;
+  gap: 3rem;
+  margin: 1.5rem 0;
+}
+.history-summary strong {
+  display: block;
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.price-chart {
+  display: block;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+.chart-axis {
+  stroke: var(--ff-line);
+}
+.chart-line {
+  fill: none;
+  stroke: var(--ff-accent);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}

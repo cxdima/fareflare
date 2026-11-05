@@ -1,0 +1,62 @@
+{
+  "verified_at": "2026-11-05T07:59:06+00:00",
+  "environment": "Local macOS ARM64; anonymous disposable Chrome; no account; no purchase or airline navigation",
+  "capability": "Cheapest matching Google Flights result, fixed-date one-way nonstop, one adult, USD, US English, Economy excluding Basic",
+  "fixture": "tests_next/fixtures/search_nonstop_oneway_usd.json",
+  "observed_result_count": 19,
+  "criteria": {
+    "origin": "DEN",
+    "destination": "DFW",
+    "date": "2027-03-14"
+  },
+  "observations": [
+    {
+      "observed_at": 1793864563,
+      "target_id": "bb3fcb9d3a4cabc1ead31300d3c81762a363fb8812de6459db2fbac042627922",
+      "amount_minor": 19100,
+      "currency": "USD",
+      "fare_name": "Economy Bundle",
+      "flight": {
+        "origin": "DEN",
+        "destination": "DFW",
+        "date": "2027-03-14",
+        "airline": "F9",
+        "number": "2550"
+      }
+    },
+    {
+      "observed_at": 1793865546,
+      "target_id": "bb3fcb9d3a4cabc1ead31300d3c81762a363fb8812de6459db2fbac042627922",
+      "amount_minor": 19100,
+      "currency": "USD",
+      "fare_name": "Economy Bundle",
+      "flight": {
+        "origin": "DEN",
+        "destination": "DFW",
+        "date": "2027-03-14",
+        "airline": "F9",
+        "number": "2550"
+      }
+    }
+  ],
+  "last_elapsed_seconds": 4.548,
+  "rejected_distractors": {
+    "different_date_suggestion_minor": 13400,
+    "ineligible_basic_fare_minor": 15900
+  },
+  "checks": [
+    "Explicit nonstop filter",
+    "Explicit price sort",
+    "All 19 result rows counted",
+    "Monotonically sorted scoped accessible prices",
+    "First result rechecked before selection",
+    "Exact selected itinerary, date, party, currency and opaque search constraints preserved",
+    "Booking summary equals eligible fare and search minimum"
+  ],
+  "limitations": [
+    "Two local successful samples are not a reliability guarantee.",
+    "AWS worker validation is separate.",
+    "Minimum is among matching Google Flights results; it is not a whole-market guarantee.",
+    "Other trip types, flexible dates, airports, parties, currencies and basic fares are not admitted by this route-search adapter."
+  ]
+}

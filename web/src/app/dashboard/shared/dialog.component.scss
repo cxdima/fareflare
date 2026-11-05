@@ -1,0 +1,34 @@
+.ff-dialog {
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  color: var(--bs-body-color);
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-line);
+  border-radius: 0.875rem;
+  box-shadow: 0 16px 70px rgb(21 43 67 / 16%);
+}
+.ff-dialog::backdrop {
+  background: rgb(21 43 67 / 50%);
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--ff-line);
+}
+.dialog-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.dialog-body {
+  padding: 1.5rem;
+}
+@media (max-width: 575px) {
+  .dialog-heading,
+  .dialog-body {
+    padding: 1rem;
+  }
+}

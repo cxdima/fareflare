@@ -1,0 +1,57 @@
+# Fareflare design system
+
+Fareflare helps travelers act on recorded flight price changes. The interface
+should answer three questions quickly: which flight, what price, and when was it
+checked? Connection settings should explain the next action without unrelated
+product history.
+
+## Visual language
+
+| Role | Decision |
+| --- | --- |
+| Background | Cool white `#f4f7fa`; white content surfaces |
+| Text | Navy `#152b43`; secondary slate `#53657b` |
+| Action | Orange `#b44223` for primary actions; blue `#234f80` for links/focus |
+| State | Green `#16765f` for observed savings; amber for delayed collection |
+| Borders | `#d7e0e8`, used to group information rather than decorate it |
+| Type | Self-hosted Plus Jakarta Sans; upright text throughout |
+| Icons | Bootstrap Icons, with labels for actions and hidden decorative icons |
+| Shape | 8–9px controls, 12–16px panels, circular airline marks |
+
+Public pages lead with what the tracker does and a clearly labeled example.
+Flight rows align route details with their price, keep airline identity visible,
+and show collection state once. A pending first check is not a failure. API and
+MCP setup show the selected connection method, a complete endpoint, and a copy
+action. Credentials remain distinct from ordinary configuration.
+
+Use sentence-case headings and direct action labels. Avoid decorative overlines,
+italic slogans, numbered sections without a real sequence, and repeated status
+badges. Development and billing state belong in relevant account/access details,
+not persistent page chrome. Never publish personal origin stories.
+
+## Implementation
+
+Angular standalone classes use OnPush, signals, and dependency injection.
+Templates and SCSS live in separate files; Bootstrap provides form and layout
+primitives. Theme custom buttons centrally and name classes by purpose. No inline
+style attributes, remote font requests, or CDN scripts.
+
+`ApiService` owns HTTP/CSRF, `SessionFacade` owns account state, and
+`WorkspaceFacade` owns refreshes. `MonitorPresenter` uses the GoF Strategy pattern
+for selected itineraries and route searches, both returning one display contract.
+Airline identity is a separate reusable component with a text fallback.
+
+The Python public-content registry supplies crawlable HTML, article content, and
+metadata. Structured data must match visible facts. Private pages and credentials
+stay out of search indexing.
+
+## Review
+
+Review desktop and narrow mobile renders, keyboard focus, long names, missing
+logos, pending/error/empty states, and actual account flows. Test against the
+Python portal so CSP, sessions, and server metadata are included. Automated axe
+checks complement visual review. All example fares must be labeled; never imply
+market-wide coverage or guaranteed detection of every price change.
+
+See [design research](docs/DESIGN_RESEARCH.md) and
+[asset provenance](docs/BRAND_ASSETS.md).

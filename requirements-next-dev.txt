@@ -1,0 +1,7 @@
+-r requirements-next.txt
+pytest==9.2.0
+pytest-timeout==2.4.0
+ruff==0.17.3
+pytest-cov==7.1.0
+pyright==1.1.414
+moto[dynamodb]==5.2.5

@@ -1,0 +1,3 @@
+bucket = "YOUR_PRIVATE_TERRAFORM_STATE_BUCKET"
+key    = "fareflare/terraform.tfstate"
+region = "us-east-1"

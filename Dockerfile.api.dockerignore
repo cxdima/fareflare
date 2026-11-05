@@ -1,0 +1,9 @@
+*
+!requirements-next.lock
+!src/
+!src/gfpt_next/
+!src/gfpt_next/**
+src/gfpt_next/**/__pycache__
+!web/
+!web/dist/
+!web/dist/**

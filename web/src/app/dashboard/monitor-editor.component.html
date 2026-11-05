@@ -1,0 +1,121 @@
+<ff-dialog [title]="monitor() ? 'Edit price alerts' : 'Watch a flight'" (closed)="closed.emit()">
+  @if (monitor(); as current) {
+    <p>
+      Choose what should trigger an alert for {{ routeName(current) }}. Amounts are totals for your
+      selected party.
+    </p>
+  } @else {
+    <p>
+      Paste the Google Flights address after selecting the complete itinerary, or a supported
+      fixed-date route search.
+    </p>
+    <details class="supported-inputs mb-4">
+      <summary>Supported flights and searches</summary>
+      <p>
+        Selected nonstop itineraries: one way or round trip, economy, 1–2 adults, USD or JPY, and US
+        English.
+      </p>
+      @if (workspace.session.config()?.capabilities?.route_searches) {
+        <p>
+          Route searches: exact airports and date, one way, nonstop, 1 adult, economy excluding
+          Basic, USD, and US English.
+        </p>
+      }
+      <p>Flexible dates, connections, and nearby-airport searches are not supported yet.</p>
+    </details>
+  }
+  @if (action.error()) {
+    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+  }
+  <form class="form-stack" (submit)="save($event)">
+    @if (!monitor()) {
+      <div>
+        <label class="form-label" for="flight-url">Google Flights link</label
+        ><textarea
+          id="flight-url"
+          class="form-control"
+          rows="3"
+          [formField]="editor.url"
+          spellcheck="false"
+          placeholder="https://www.google.com/travel/flights?…"
+        ></textarea>
+      </div>
+      <div>
+        <label class="form-label" for="interval">Check interval</label
+        ><select id="interval" class="form-select" [formField]="editor.interval">
+          @for (interval of intervals(); track interval) {
+            <option [value]="interval">Every {{ interval / 60 }} minutes</option>
+          }
+        </select>
+      </div>
+    }
+    <div>
+      <label class="form-label" for="alert-kind">Notify me when</label
+      ><select id="alert-kind" class="form-select" [formField]="editor.kind">
+        <option value="new_low">A new observed low appears</option>
+        <option value="below_price">The price is below my target</option>
+      </select>
+    </div>
+    @if (model().kind === 'below_price') {
+      <div>
+        <label class="form-label" for="threshold">Target total ({{ currency() }})</label
+        ><input
+          id="threshold"
+          type="number"
+          class="form-control"
+          [formField]="editor.threshold"
+          [step]="1 / unit()"
+        />
+      </div>
+    }
+    @if (monitor()) {
+      <div>
+        <label class="form-label" for="minimum">Minimum price drop ({{ currency() }})</label
+        ><input
+          id="minimum"
+          type="number"
+          class="form-control"
+          [formField]="editor.minimum"
+          [step]="1 / unit()"
+        />
+        <p class="form-text">Use 0 to include every qualifying price drop.</p>
+      </div>
+      <div class="form-check">
+        <input
+          id="rebounds"
+          class="form-check-input"
+          type="checkbox"
+          [formField]="editor.rebounds"
+        /><label class="form-check-label" for="rebounds">Also alert when the price rises</label>
+      </div>
+    } @else {
+      <div>
+        <label class="form-label" for="destination">Alert destination</label
+        ><select id="destination" class="form-select" [formField]="editor.webhook">
+          <option value="">Telegram if connected; otherwise dashboard</option>
+          @for (webhook of workspace.webhooks(); track webhook.id) {
+            @if (webhook.status === 'active') {
+              <option [value]="webhook.id">{{ webhook.url }}</option>
+            }
+          }
+        </select>
+        <p class="form-text">
+          Connect Telegram in Account settings, or verify a receiver in Webhooks. A selected webhook
+          receives this monitor’s alerts instead of Telegram.
+        </p>
+      </div>
+      <p class="form-text">Checks may be delayed. A fare can change between observations.</p>
+    }
+    <div class="d-flex justify-content-end flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="closed.emit()">Cancel</button
+      ><button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="action.busy()"
+        [attr.aria-busy]="action.busy()"
+      >
+        {{ monitor() ? 'Save alert policy' : 'Start watching' }}
+      </button>
+    </div>
+  </form>
+</ff-dialog>

@@ -1,0 +1,191 @@
+<div class="page-heading">
+  <div>
+    <h1>API &amp; MCP</h1>
+    <p>Connect an assistant or build with your flight data.</p>
+  </div>
+  <a class="btn btn-outline-primary" href="/docs" target="_blank" rel="noreferrer"
+    >API reference<i class="bi bi-box-arrow-up-right" aria-hidden="true"></i
+    ><span class="visually-hidden"> (opens a new tab)</span></a
+  >
+</div>
+<section class="connection-setup" aria-label="Connection setup">
+  <div class="connection-options" role="group" aria-label="Connection method">
+    <button
+      type="button"
+      [attr.aria-pressed]="connection() === 'mcp'"
+      (click)="selectConnection('mcp')"
+    >
+      <strong>MCP client</strong><span>Connect your AI assistant</span>
+    </button>
+    <button
+      type="button"
+      [attr.aria-pressed]="connection() === 'api'"
+      (click)="selectConnection('api')"
+    >
+      <strong>HTTP API</strong><span>Use your own application</span>
+    </button>
+  </div>
+  <div class="connection-content">
+    @if (connection() === 'mcp') {
+      <h2>Connect an MCP client</h2>
+      <p>
+        Add this server URL in your client’s connection settings. Choose Streamable HTTP, then sign
+        in to Fareflare to approve access.
+      </p>
+      <div class="endpoint-heading">
+        <label for="mcp-url">Remote MCP server</label>
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="copy(mcp(), 'url')">
+          <i [class]="'bi ' + (copied() === 'url' ? 'bi-check2' : 'bi-copy')" aria-hidden="true"></i
+          >{{ copied() === 'url' ? 'Copied' : 'Copy URL' }}
+        </button>
+      </div>
+      <textarea
+        id="mcp-url"
+        class="endpoint-field"
+        rows="2"
+        readonly
+        spellcheck="false"
+        [value]="mcp()"
+        #mcpField
+        (focus)="mcpField.select()"
+      ></textarea>
+      <details class="connection-details">
+        <summary>My client uses an API key</summary>
+        <p>
+          Create a key below and add this request header in your client. Keep the key out of the
+          server URL.
+        </p>
+        <code>Authorization: Bearer YOUR_API_KEY</code>
+      </details>
+    } @else {
+      <h2>Make your first API request</h2>
+      <p>
+        Create an API key below, replace <code>YOUR_API_KEY</code>, and run this command to list
+        your monitors.
+      </p>
+      <div class="code-example">
+        <div class="code-heading">
+          <span>List flight monitors</span>
+          <button type="button" class="btn btn-sm btn-code" (click)="copy(curl, 'request')">
+            <i
+              [class]="'bi ' + (copied() === 'request' ? 'bi-check2' : 'bi-copy')"
+              aria-hidden="true"
+            ></i
+            >{{ copied() === 'request' ? 'Copied' : 'Copy request' }}
+          </button>
+        </div>
+        <pre><code>{{ curl }}</code></pre>
+      </div>
+      <p class="connection-note">
+        Keep API keys on your server or in a secret store. A key can access your account’s
+        resources.
+      </p>
+    }
+    @if (copyError()) {
+      <p class="text-danger small mt-3" role="alert">{{ copyError() }}</p>
+    }
+    <span class="visually-hidden" role="status">{{ copied() ? 'Copied to clipboard.' : '' }}</span>
+  </div>
+</section>
+@if (secret()) {
+  <ff-secret title="Your API key" [value]="secret()" (dismissed)="secret.set('')" />
+}
+<section class="panel key-create mb-4">
+  <h2>Create an API key</h2>
+  <p class="text-body-secondary">
+    Give each application its own key so you can revoke access independently.
+  </p>
+  @if (action.error()) {
+    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+  }
+  <form class="inline-form" (submit)="create($event)">
+    <div class="flex-grow-1">
+      <label class="form-label" for="key-name">Key name</label
+      ><input
+        id="key-name"
+        class="form-control"
+        [formField]="keyForm.name"
+        placeholder="My automation"
+      />
+    </div>
+    <button type="submit" class="btn btn-primary" [disabled]="action.busy() || !!secret()">
+      Create key
+    </button>
+  </form>
+</section>
+<section class="panel">
+  <h2>Your API keys</h2>
+  @if (keys().length) {
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <caption class="visually-hidden">
+          API keys and their expiration dates
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Expires</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (key of keys(); track key.id) {
+            <tr>
+              <td>
+                <strong>{{ key.name || 'API key' }}</strong
+                ><span class="table-subtext key-id">{{ key.id }}</span>
+              </td>
+              <td>{{ timestamp(key.expires_at) }}</td>
+              <td>
+                <span
+                  [class]="'status status-' + (status(key) === 'Active' ? 'active' : 'paused')"
+                  >{{ status(key) }}</span
+                >
+              </td>
+              <td>
+                @if (!key.revoked) {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-quiet-danger"
+                    (click)="revoking.set(key)"
+                  >
+                    Revoke<span class="visually-hidden"> {{ key.name || key.id }}</span>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="text-body-secondary" role="status">
+      {{
+        action.busy()
+          ? 'Loading API keys…'
+          : 'No API keys yet. Create one when you’re ready to connect an application.'
+      }}
+    </p>
+  }
+</section>
+@if (revoking(); as key) {
+  <ff-dialog title="Revoke this API key?" (closed)="revoking.set(null)"
+    ><p>
+      Applications using {{ key.name || 'this key' }} will immediately lose access. This cannot be
+      undone.
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="revoking.set(null)">
+        Cancel</button
+      ><button
+        type="button"
+        class="btn btn-danger"
+        [disabled]="action.busy()"
+        (click)="revoke(key)"
+      >
+        Revoke key
+      </button>
+    </div></ff-dialog
+  >
+}
