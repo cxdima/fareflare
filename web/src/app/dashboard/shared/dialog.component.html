@@ -1,0 +1,14 @@
+<dialog #dialog class="ff-dialog" aria-labelledby="ff-dialog-title" (cancel)="dismiss($event)">
+  <header class="dialog-heading">
+    <h2 id="ff-dialog-title">{{ title() }}</h2>
+    <button
+      type="button"
+      class="btn btn-link icon-button"
+      aria-label="Close dialog"
+      (click)="dismiss()"
+    >
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+  </header>
+  <div class="dialog-body"><ng-content /></div>
+</dialog>

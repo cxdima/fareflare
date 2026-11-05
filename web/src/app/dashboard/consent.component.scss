@@ -1,0 +1,25 @@
+.consent-panel {
+  max-width: 45rem;
+}
+dl {
+  padding: 1rem 0;
+  border-top: 1px solid var(--ff-line);
+  border-bottom: 1px solid var(--ff-line);
+}
+dt {
+  font-size: 0.8rem;
+  color: var(--ff-muted);
+}
+dd {
+  overflow-wrap: anywhere;
+  margin-bottom: 1rem;
+}
+dd:last-child {
+  margin-bottom: 0;
+}
+.consent-explanation {
+  margin: 1.5rem 0;
+}
+h2 {
+  font-size: 1.1rem;
+}

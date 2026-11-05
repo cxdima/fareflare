@@ -1,0 +1,188 @@
+<div class="page-heading">
+  <div>
+    <p class="overline">Flight monitors</p>
+    <h1>Your flights</h1>
+    <p>Prices, changes, and the next check. All in one place.</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="workspace.active().length >= workspace.session.config()!.limits.monitors"
+    (click)="creating.set(true)"
+  >
+    <i class="bi bi-plus-lg" aria-hidden="true"></i> Watch a flight
+  </button>
+</div>
+<div class="monitor-summary">
+  <div>
+    <span>Watching</span
+    ><strong
+      >{{ workspace.active().length
+      }}<small> / {{ workspace.session.config()!.limits.monitors }}</small></strong
+    >
+  </div>
+  <div>
+    <span>Prices recorded</span><strong>{{ observed() }}</strong>
+  </div>
+  <div>
+    <span>Need a fresh check</span><strong>{{ delayed() }}</strong>
+  </div>
+</div>
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+}
+<div class="section-heading">
+  <h2>Flight monitors</h2>
+  <span class="text-body-secondary small" role="status">{{
+    workspace.refreshing() ? 'Refreshing…' : workspace.monitors().length + ' total'
+  }}</span>
+</div>
+@if (workspace.monitors().length) {
+  <div class="monitor-list">
+    @for (monitor of workspace.monitors(); track monitor.id) {
+      @let presentation = presenter.present(monitor);
+      <article class="flight-ticket" [attr.aria-label]="routeName(monitor) + ' monitor'">
+        <div class="ticket-main">
+          <div class="ticket-route">
+            <span class="overline">{{
+              monitor.target.segments.length > 1 ? 'Round trip' : 'One way'
+            }}</span>
+            <h2>{{ routeName(monitor) }}</h2>
+            <p>{{ dates(monitor) }}</p>
+            <p class="text-body-secondary small">{{ presentation.description }}</p>
+          </div>
+          <div class="ticket-price">
+            <span [class]="'status status-' + monitor.status">{{
+              statusLabel(monitor.status)
+            }}</span
+            ><span class="overline">Latest observed total</span
+            ><strong>
+              @if (monitor.latest) {
+                {{ money(monitor.latest.amount_minor, monitor.latest.currency) }}
+              } @else {
+                <span class="price-pending">Awaiting first check</span>
+              }</strong
+            ><span class="text-body-secondary small"
+              >{{ monitor.target.adults }} {{ monitor.target.adults === 1 ? 'adult' : 'adults' }} ·
+              {{ monitor.latest?.fare_name || 'Economy' }}</span
+            >
+          </div>
+        </div>
+        <div class="ticket-observation">
+          <div>
+            @if (presentation.match) {
+              <span>Latest match: {{ presentation.match }}</span>
+            }
+            <span>{{
+              monitor.latest
+                ? 'Observed ' + timestamp(monitor.latest.observed_at)
+                : 'No price recorded yet'
+            }}</span>
+            @if (monitor.stale) {
+              <span class="status status-stale">Needs a fresh check</span>
+            }
+          </div>
+          <span
+            >Checks every {{ monitor.interval_seconds / 60 }} min
+            @if (monitor.next_check_at && current(monitor) && monitor.status !== 'paused') {
+              · Next {{ timestamp(monitor.next_check_at) }}
+            }
+          </span>
+        </div>
+        @if (monitor.last_error) {
+          <p class="collection-note">
+            <i class="bi bi-clock" aria-hidden="true"></i> The latest check did not finish.
+            {{ monitor.last_error.replaceAll('_', ' ') }}.
+          </p>
+        }
+        <div class="ticket-actions">
+          <p>
+            {{
+              monitor.policy.kind === 'below_price'
+                ? 'Alert below ' +
+                  money(monitor.policy.threshold_minor || 0, monitor.target.currency)
+                : 'Alert on a new observed low'
+            }}
+            · {{ monitor.webhook_id ? 'Webhook connected' : 'Account alerts' }}
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              (click)="history.set(monitor)"
+            >
+              Price history
+            </button>
+            @if (presentation.bookingUrl; as url) {
+              <a class="btn btn-sm btn-link" [href]="url" target="_blank" rel="noreferrer"
+                >{{ presentation.bookingLabel }}
+                <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+                ><span class="visually-hidden"> (opens a new tab)</span></a
+              >
+            }
+            @if (current(monitor)) {
+              <button type="button" class="btn btn-sm btn-link" (click)="editing.set(monitor)">
+                Edit alerts</button
+              ><button
+                type="button"
+                class="btn btn-sm btn-link"
+                [disabled]="action.busy()"
+                (click)="change(monitor, monitor.status === 'paused' ? 'active' : 'paused')"
+              >
+                {{ monitor.status === 'paused' ? 'Resume' : 'Pause' }}</button
+              ><button type="button" class="btn btn-sm btn-link" (click)="stopping.set(monitor)">
+                Stop
+              </button>
+            }
+            @if (current(monitor) && monitor.collection_status === 'blocked') {
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                [disabled]="action.busy()"
+                (click)="retry(monitor)"
+              >
+                Retry collection
+              </button>
+            }
+          </div>
+        </div>
+      </article>
+    }
+  </div>
+} @else {
+  <section class="empty-state panel">
+    <i class="bi bi-airplane" aria-hidden="true"></i>
+    <h2>Which flight are you watching?</h2>
+    <p>Copy your selected itinerary from Google Flights. Add it here to start a price history.</p>
+    <button type="button" class="btn btn-primary" (click)="creating.set(true)">
+      Watch your first flight
+    </button>
+  </section>
+}
+<p class="page-note">Prices are observed periodically. A fare may change before you book.</p>
+@if (creating() || editing()) {
+  <ff-monitor-editor [monitor]="editing()" (closed)="creating.set(false); editing.set(null)" />
+}
+@if (history(); as monitor) {
+  <ff-price-history [monitor]="monitor" (closed)="history.set(null)" />
+}
+@if (stopping(); as monitor) {
+  <ff-dialog title="Stop watching this flight?" (closed)="stopping.set(null)"
+    ><p>
+      Checks and new alerts for {{ routeName(monitor) }} will stop. Its existing history stays
+      available.
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="stopping.set(null)">
+        Keep watching</button
+      ><button
+        type="button"
+        class="btn btn-danger"
+        [disabled]="action.busy()"
+        (click)="change(monitor, 'cancelled')"
+      >
+        Stop watching
+      </button>
+    </div></ff-dialog
+  >
+}

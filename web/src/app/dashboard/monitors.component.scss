@@ -1,0 +1,162 @@
+.monitor-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--ff-line);
+  border-bottom: 1px solid var(--ff-line);
+  margin: 1.5rem 0 2.25rem;
+}
+.monitor-summary > div {
+  padding: 1.3rem 0;
+}
+.monitor-summary > div + div {
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--ff-line);
+}
+.monitor-summary span {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ff-muted);
+}
+.monitor-summary strong {
+  display: block;
+  font-size: 2rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.monitor-summary small {
+  font-size: 1rem;
+  color: var(--ff-muted);
+}
+.monitor-list {
+  display: grid;
+  gap: 1.25rem;
+}
+.flight-ticket {
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-line);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.ticket-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+.ticket-route h2 {
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  margin: 0.3rem 0 0.5rem;
+}
+.ticket-route p {
+  margin-bottom: 0.3rem;
+}
+.ticket-price {
+  text-align: right;
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+}
+.ticket-price > .overline {
+  margin-top: 1rem;
+}
+.ticket-price strong {
+  font-size: 2.25rem;
+  line-height: 1.2;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.price-pending {
+  font-size: 1.15rem;
+}
+.ticket-observation {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1.5rem;
+  border-top: 1px dashed var(--ff-line);
+  border-bottom: 1px solid var(--ff-line);
+  font-size: 0.78rem;
+  color: var(--ff-muted);
+}
+.ticket-observation > div {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ticket-actions {
+  padding: 1rem 1.5rem;
+}
+.ticket-actions p {
+  font-size: 0.8rem;
+  margin-bottom: 0.8rem;
+  color: var(--ff-muted);
+}
+.collection-note {
+  padding: 0.75rem 1.5rem;
+  margin: 0;
+  background: #fff3df;
+  font-size: 0.83rem;
+}
+@media (max-width: 575px) {
+  .ticket-main {
+    padding: 1rem;
+  }
+  .ticket-route h2 {
+    font-size: 1.5rem;
+  }
+  .ticket-price strong {
+    font-size: 1.7rem;
+  }
+  .ticket-route p {
+    font-size: 0.8rem;
+  }
+  .ticket-observation,
+  .ticket-actions {
+    padding: 0.85rem 1rem;
+  }
+  .monitor-summary span {
+    font-size: 0.72rem;
+  }
+  .monitor-summary > div + div {
+    padding-left: 0.65rem;
+  }
+  .monitor-summary strong {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 575px) {
+  .ticket-main {
+    display: block;
+  }
+  .ticket-price {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.3rem 1rem;
+    text-align: left;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ff-line);
+  }
+  .ticket-price > .status {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    justify-self: end;
+    align-self: start;
+  }
+  .ticket-price > .overline {
+    grid-column: 1;
+    margin-top: 0;
+  }
+  .ticket-price > strong,
+  .ticket-price > .text-body-secondary {
+    grid-column: 1;
+  }
+  .ticket-price > strong {
+    font-size: 2rem;
+  }
+}

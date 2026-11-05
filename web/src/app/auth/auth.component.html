@@ -1,0 +1,168 @@
+<div class="auth-page">
+  <header class="auth-header container">
+    <a class="brand" href="/"
+      ><img
+        class="brand-mark"
+        src="/assets/fareflare-mark.png"
+        width="62"
+        height="62"
+        alt=""
+      />Fareflare</a
+    ><a class="quiet-link" href="/"
+      >Back to the website <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+    ></a>
+  </header>
+  <main class="auth-content container" id="main-content">
+    <section class="auth-context">
+      <p class="overline">Your next trip, in view</p>
+      <h1>Less checking.<br />More going.</h1>
+      <p>
+        Keep the flight you want in sight. Fareflare records prices and lets you know when your
+        alert conditions are met.
+      </p>
+      <div class="auth-detail">
+        <span>01</span>
+        <p>Bring a Google Flights link.</p>
+      </div>
+      <div class="auth-detail">
+        <span>02</span>
+        <p>Choose when to hear from us.</p>
+      </div>
+      <div class="auth-detail">
+        <span>03</span>
+        <p>See what changed. Decide when to book.</p>
+      </div>
+      <p class="auth-note">No Google account connection. No payment card.</p>
+    </section>
+    <section class="auth-form-area" aria-labelledby="auth-title">
+      @if (session.config(); as config) {
+        <p class="overline">
+          {{ config.billing_enabled ? 'Your account' : 'Free development access' }}
+        </p>
+        <h2 id="auth-title">
+          {{
+            mode() === 'register'
+              ? 'Create your account'
+              : mode() === 'recover'
+                ? 'Recover your account'
+                : 'Welcome back'
+          }}
+        </h2>
+        <p class="text-body-secondary">
+          {{
+            mode() === 'register'
+              ? 'Use your invitation to get started.'
+              : mode() === 'recover'
+                ? 'Use the recovery code you saved when you signed up.'
+                : 'Sign in to check the flights you’re watching.'
+          }}
+        </p>
+        @if (action.error()) {
+          <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+        }
+        <form class="form-stack" (submit)="onSubmit($event)">
+          <div>
+            <label class="form-label" for="username">Username</label
+            ><input
+              id="username"
+              class="form-control"
+              [formField]="credentials.username"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+            />
+          </div>
+          @if (mode() === 'register' && config.registration_mode === 'invite') {
+            <div>
+              <label class="form-label" for="invite">Invitation code</label
+              ><input
+                id="invite"
+                class="form-control"
+                [formField]="credentials.invite"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+          }
+          @if (mode() === 'recover') {
+            <div>
+              <label class="form-label" for="recovery">Recovery code</label
+              ><input
+                id="recovery"
+                class="form-control"
+                [formField]="credentials.recoveryCode"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+          }
+          <div>
+            <label class="form-label" for="password">{{
+              mode() === 'recover' ? 'New password' : 'Password'
+            }}</label
+            ><input
+              id="password"
+              type="password"
+              class="form-control"
+              [formField]="credentials.password"
+              [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+              [attr.aria-describedby]="mode() === 'login' ? null : 'password-help'"
+            />
+            @if (mode() !== 'login') {
+              <p class="form-text" id="password-help">
+                Use 15–128 characters. A password manager works well.
+              </p>
+            }
+          </div>
+          <button
+            type="submit"
+            class="btn btn-primary w-100"
+            [disabled]="action.busy()"
+            [attr.aria-busy]="action.busy()"
+          >
+            {{
+              mode() === 'register'
+                ? 'Create account'
+                : mode() === 'recover'
+                  ? 'Reset password'
+                  : 'Sign in'
+            }}
+            <i class="bi bi-arrow-right" aria-hidden="true"></i>
+          </button>
+        </form>
+        <div class="auth-links">
+          @if (mode() === 'login') {
+            <button class="btn btn-link p-0" type="button" (click)="changeMode('recover')">
+              Forgot your password?
+            </button>
+            @if (config.registration_mode !== 'closed') {
+              <p>
+                Have an invitation?
+                <button type="button" class="btn btn-link p-0" (click)="changeMode('register')">
+                  Create an account
+                </button>
+              </p>
+            }
+          } @else {
+            <button type="button" class="btn btn-link p-0" (click)="changeMode('login')">
+              Already have an account? Sign in
+            </button>
+          }
+        </div>
+        <p class="auth-note">
+          Development access includes {{ config.limits.monitors }} flight monitors. Keep your
+          recovery code: there is no email password reset.
+        </p>
+      } @else if (session.error()) {
+        <h2 id="auth-title">Sign-in is unavailable</h2>
+        <p role="alert">{{ session.error() }}</p>
+        <button class="btn btn-primary" type="button" (click)="session.bootstrap()">
+          Try again
+        </button>
+      } @else {
+        <h2 id="auth-title">Loading sign-in…</h2>
+        <p role="status">Connecting to Fareflare.</p>
+      }
+    </section>
+  </main>
+</div>

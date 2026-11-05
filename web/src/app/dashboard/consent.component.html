@@ -1,0 +1,49 @@
+<section class="panel consent-panel">
+  <p class="overline">Review access</p>
+  <h1>Connect an application</h1>
+  @if (action.error()) {
+    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+  }
+  @if (details(); as value) {
+    <p>
+      <strong>{{ value.client_name || value.name || 'This application' }}</strong> wants access to
+      your account.
+    </p>
+    <dl>
+      <dt>Callback address</dt>
+      <dd>{{ value.redirect_uri || 'Not provided' }}</dd>
+      <dt>Client identifier</dt>
+      <dd>{{ value.client_id }}</dd>
+      <dt>Resource</dt>
+      <dd>{{ value.resource }}</dd>
+      <dt>Requested scopes</dt>
+      <dd>{{ value.scopes.join(', ') || 'Account access' }}</dd>
+    </dl>
+    <div class="consent-explanation">
+      <h2>What this allows</h2>
+      <p>
+        Read your monitors and price history, create or change monitors, and manage monitoring
+        settings through MCP. Approve only an application you recognize and trust.
+      </p>
+    </div>
+    <div class="d-flex justify-content-end flex-wrap gap-2">
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        [disabled]="action.busy()"
+        (click)="decide(false)"
+      >
+        Deny access</button
+      ><button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="action.busy()"
+        (click)="decide(true)"
+      >
+        Allow access
+      </button>
+    </div>
+  } @else {
+    <p role="status">Loading access request…</p>
+  }
+</section>

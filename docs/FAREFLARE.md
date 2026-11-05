@@ -21,7 +21,8 @@ Google Flights itinerary. Its price and availability can change before booking.
 
 ## Run locally
 
-Use Python 3.12 and Node.js 22 or newer. Install the pinned Python dependencies:
+Use Python 3.12 and Node.js 24 (CI) or a supported Angular 22 Node release.
+The frontend uses Angular, Bootstrap, and external SCSS. Install the pinned Python dependencies:
 
 ```bash
 python3.12 -m venv .venv
@@ -33,7 +34,9 @@ make product-serve
 
 Open the invitation URL in `.next/invitation.json`. The file contains a single-use
 credential: keep it private. The dashboard, API, and MCP share
-`http://127.0.0.1:8001`; local customer data is stored in `.next/product.sqlite3`.
+`http://127.0.0.1:8001`; the flight dashboard is at `/app`, and local customer data
+is stored in `.next/product.sqlite3`. Public guides and landing pages are also
+served by Python, with crawlable initial HTML and matching structured data.
 Keep the recovery code shown at signup. There is no email reset service.
 
 The HTTP server never launches Chrome. With local Chromium and ChromeDriver installed,

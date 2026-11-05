@@ -1,0 +1,134 @@
+<div class="page-heading">
+  <div>
+    <p class="overline">Developer tools</p>
+    <h1>API &amp; MCP</h1>
+    <p>Your monitors, available to the tools you use.</p>
+  </div>
+  <a class="btn btn-outline-primary" href="/docs" target="_blank" rel="noreferrer"
+    >API reference <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+    ><span class="visually-hidden"> (opens a new tab)</span></a
+  >
+</div>
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <section class="panel h-100">
+      <i class="bi bi-terminal panel-icon" aria-hidden="true"></i>
+      <h2>Connect an MCP client</h2>
+      <p>
+        Add this URL to a client that supports Streamable HTTP and OAuth. Follow its sign-in flow
+        and review the requested access.
+      </p>
+      <label class="form-label" for="mcp-url">Remote MCP server</label
+      ><input
+        id="mcp-url"
+        class="form-control font-monospace"
+        readonly
+        [value]="mcp()"
+        #mcpField
+        (focus)="mcpField.select()"
+      />
+      <p class="form-text">
+        For clients with custom headers, create an API key below and use
+        <code>Authorization: Bearer YOUR_API_KEY</code>. Never put a key in the URL.
+      </p>
+    </section>
+  </div>
+  <div class="col-lg-6">
+    <section class="panel h-100">
+      <i class="bi bi-code-slash panel-icon" aria-hidden="true"></i>
+      <h2>Use the HTTP API</h2>
+      <p>Read prices, manage monitors, and configure delivery from your own application.</p>
+      <pre><code>{{ curl }}</code></pre>
+      <p class="form-text">
+        Store keys on your server or in your client’s secret store. Keys can access your account’s
+        resources.
+      </p>
+    </section>
+  </div>
+</div>
+@if (secret()) {
+  <ff-secret title="Your API key" [value]="secret()" (dismissed)="secret.set('')" />
+}
+<section class="panel mb-4">
+  <h2>Create an API key</h2>
+  @if (action.error()) {
+    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+  }
+  <form class="inline-form" (submit)="create($event)">
+    <div class="flex-grow-1">
+      <label class="form-label" for="key-name">Key name</label
+      ><input
+        id="key-name"
+        class="form-control"
+        [formField]="keyForm.name"
+        placeholder="My automation"
+      />
+    </div>
+    <button type="submit" class="btn btn-primary" [disabled]="action.busy() || !!secret()">
+      Create key
+    </button>
+  </form>
+</section>
+<section class="panel">
+  <h2>Your API keys</h2>
+  @if (keys().length) {
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <caption class="visually-hidden">
+          API keys and their expiration dates
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Expires</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (key of keys(); track key.id) {
+            <tr>
+              <td>
+                <strong>{{ key.name || 'API key' }}</strong
+                ><span class="table-subtext key-id">{{ key.id }}</span>
+              </td>
+              <td>{{ timestamp(key.expires_at) }}</td>
+              <td>{{ status(key) }}</td>
+              <td>
+                @if (!key.revoked) {
+                  <button type="button" class="btn btn-sm btn-link" (click)="revoking.set(key)">
+                    Revoke<span class="visually-hidden"> {{ key.name || key.id }}</span>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="text-body-secondary">
+      No API keys yet. Create one when you’re ready to connect an application.
+    </p>
+  }
+</section>
+@if (revoking(); as key) {
+  <ff-dialog title="Revoke this API key?" (closed)="revoking.set(null)"
+    ><p>
+      Applications using {{ key.name || 'this key' }} will immediately lose access. This cannot be
+      undone.
+    </p>
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="revoking.set(null)">
+        Cancel</button
+      ><button
+        type="button"
+        class="btn btn-danger"
+        [disabled]="action.busy()"
+        (click)="revoke(key)"
+      >
+        Revoke key
+      </button>
+    </div></ff-dialog
+  >
+}

@@ -15,7 +15,7 @@ def test_application_composition_loads_product_limits_and_built_assets(store, tm
     assets = tmp_path / "web" / "assets"
     assets.mkdir(parents=True)
     (tmp_path / "web" / "index.html").write_text("<!doctype html><title>Fareflare</title>")
-    (assets / "app-hash.js").write_text("void 0;")
+    (assets / "app-deadbeef.js").write_text("void 0;")
     (tmp_path / "web" / "favicon.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
     app = product_runtime.build_application()
     with TestClient(app, base_url="https://app.example.com") as client:
@@ -23,7 +23,7 @@ def test_application_composition_loads_product_limits_and_built_assets(store, tm
         assert config["limits"]["monitors"] == 3 and config["billing_enabled"] is False
         assert client.get("/").status_code == 200
         assert client.get("/").headers["cache-control"] == "no-store"
-        assert "immutable" in client.get("/assets/app-hash.js").headers["cache-control"]
+        assert "immutable" in client.get("/assets/app-deadbeef.js").headers["cache-control"]
         assert client.get("/favicon.svg").status_code == 200
         assert client.get("/assets/../../.env").status_code == 404
 

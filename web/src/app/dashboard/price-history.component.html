@@ -1,0 +1,76 @@
+<ff-dialog [title]="routeName(monitor()) + ' price history'" (closed)="closed.emit()">
+  <p>
+    Observed totals for {{ monitor().target.adults }}
+    {{ monitor().target.adults === 1 ? 'adult' : 'adults' }}. Gaps mean no observation was recorded.
+  </p>
+  @if (action.error()) {
+    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+  }
+  @if (items().length) {
+    <div class="history-summary">
+      <div>
+        <span class="overline">Lowest shown</span
+        ><strong>{{ money(low(), monitor().target.currency) }}</strong>
+      </div>
+      <div>
+        <span class="overline">Observations</span><strong>{{ items().length }}</strong>
+      </div>
+    </div>
+    @if (items().length > 1) {
+      <svg class="price-chart" viewBox="0 0 700 180" role="img" [attr.aria-label]="chartLabel()">
+        <line class="chart-axis" x1="30" y1="155" x2="670" y2="155" />
+        <polyline class="chart-line" [attr.points]="points()" />
+      </svg>
+    }
+    <div class="table-responsive">
+      <table class="table">
+        <caption class="visually-hidden">
+          Price observations, most recent first
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Observed</th>
+            <th scope="col">Total price</th>
+            <th scope="col">Fare</th>
+            @if (monitor().target.kind === 'search') {
+              <th scope="col">Matching flight</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); track $index) {
+            <tr>
+              <td>{{ timestamp(item.observed_at) }}</td>
+              <td class="text-nowrap">{{ money(item.amount_minor, item.currency) }}</td>
+              <td>{{ item.fare_name || 'Not specified' }}</td>
+              @if (monitor().target.kind === 'search') {
+                <td>
+                  {{
+                    item.observed_offer
+                      ? flightNumbers(item.observed_offer.segments)
+                      : 'Not recorded'
+                  }}
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (cursor(); as next) {
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        [disabled]="action.busy()"
+        (click)="load(next)"
+      >
+        Load earlier observations
+      </button>
+    }
+  } @else {
+    <div class="empty-state">
+      <h3>{{ action.busy() ? 'Loading observations…' : 'No price recorded yet' }}</h3>
+      <p>A price history will appear after the first successful check.</p>
+    </div>
+  }
+</ff-dialog>

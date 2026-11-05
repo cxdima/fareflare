@@ -1,36 +1,61 @@
-# Fareflare dashboard
+# Fareflare website and dashboard
 
-React and TypeScript customer interface, built with Vite and served by the Python portal on the same origin. Branding and development limits come from `GET /v1/config`. Billing is disabled; this interface contains no checkout or payment controls.
+Angular 22 standalone components, Bootstrap 5.3, and external SCSS. The Python
+portal serves the public website, account interface, REST API, and MCP on one
+origin. Public content is readable without JavaScript. No Node server runs in AWS.
 
-## Run and build
+## Run locally
 
-Use Node 24 and the repository’s Python development environment.
+Use Node 24 and the repository's Python environment:
 
 ```sh
 npm --prefix web ci
 npm --prefix web run build
+make product-invite
 make product-serve
 ```
 
-Open `http://127.0.0.1:8001`. Run `make product-invite` to create a local invitation; the invitation is written to a private file, never the frontend bundle. For hot reload, run `npm --prefix web run dev` alongside the portal. Vite proxies `/v1` and `/auth` to port 8001; cookie authentication requires matching origins, so use the built portal for account flows.
+Open `http://127.0.0.1:8001`; the dashboard is `/app`. The local signup URL is in
+`.next/invitation.json`. Keep it private. `npm --prefix web run dev` starts Angular's
+development server and proxies API requests. Use the built Python portal for
+complete session, CSP, and SEO behavior; its configured public origin must match
+the browser origin for account mutations.
 
-## Verify
+## Code organization
+
+- `src/app/core/`: typed API transport, session facade, shared contracts, formatters,
+  and the public content client.
+- `src/app/dashboard/`: feature components, workspace facade, dialogs, and selected
+  itinerary/route-search presentation strategies.
+- `src/app/auth/`: login, invitation signup, and recovery using Angular signal forms.
+- `src/app/public/`: landing page and editorial content views.
+- `src/styles.scss`: design tokens, Bootstrap theme, local fonts, and shared classes.
+- `../src/gfpt_next/site_content.py`: public content, metadata, structured data,
+  sitemap, and crawlable HTML source.
+
+Use component classes with OnPush, signals, and dependency injection. Keep HTML and
+SCSS separate. Use semantic classes; do not introduce style attributes or style
+bindings. Follow [DESIGN.md](../DESIGN.md) for visual rules and the Strategy pattern.
+Do not use raw HTML rendering or bypass Angular sanitization for user content.
+
+## Verification
 
 ```sh
-npm --prefix web run build
 npm --prefix web run format:check
+npm --prefix web run build
 npm --prefix web test
 ```
 
-Playwright uses installed Google Chrome by default. Set `PLAYWRIGHT_CHROME_CHANNEL=chromium` after `npx --prefix web playwright install chromium` to use bundled Chromium. Tests launch Vite and an isolated SQLite-backed portal on ports 4173 and 8007. The portal fixture creates a temporary invitation, does not read `.env`, and never starts a collector or contacts AWS/Google. Browser tests cover real cookie signup/recovery/deletion, API-key revocation, monitor lifecycle, webhook verification, CSRF, idempotency, and WCAG checks with axe. Screenshots and reports stay in ignored directories.
+Playwright runs the built application against an ephemeral Python/SQLite portal
+on port 8007. It never starts a collector or contacts AWS/Google. Tests cover the
+real signup/recovery/deletion session flow, mocked feature cases under the real
+CSP, keyboard dialogs, mobile layout, axe checks, public HTML/SEO, and strict style
+rules. Browser tests use installed Chrome by default; CI sets
+`PLAYWRIGHT_CHROME_CHANNEL=chromium` after `npx playwright install --with-deps chromium`
+inside `web/`. Reports and temporary credentials remain ignored.
 
-## Structure and security
-
-- `src/App.tsx`: authenticated shell, navigation, refresh, OAuth consent.
-- `src/Monitors.tsx`, `Alerts.tsx`, `Integrations.tsx`, `Settings.tsx`: customer workflows.
-- `src/api.ts`: same-origin requests, CSRF, errors, presentation helpers.
-- `src/ui.tsx`, `styles.css`: semantic components and responsive styling.
-
-Use two-space indentation, typed component props, and function components. Run `npm --prefix web run format` for the shared Prettier style. Keep changes within the relevant workflow module and use the shared request helper for cookie/CSRF handling.
-
-Session cookies remain HttpOnly; CSRF tokens and one-time secrets remain in memory. Do not store credentials in local/session storage or URL parameters. Keep scripts, styles, and assets local to preserve the production Content Security Policy. React escapes customer content; never introduce raw HTML rendering. Native dialogs trap focus, support Escape, and return focus to their trigger. Match API schemas and use stable idempotency keys when retrying create requests.
+Session cookies stay HttpOnly. CSRF tokens, invitations, API keys, and recovery
+codes stay in memory. No browser storage holds credentials. A fresh response nonce
+allows Angular component style elements while the CSP continues to reject inline
+style attributes and arbitrary scripts. Fonts, icons, images, and scripts are
+served locally. Native dialogs trap focus and restore it on close.

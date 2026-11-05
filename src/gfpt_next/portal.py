@@ -1,6 +1,8 @@
 """Same-origin customer application: sessions, account controls, API and dashboard."""
 import hashlib
 import hmac
+import re
+import secrets
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
@@ -8,8 +10,7 @@ from urllib.parse import urlsplit
 
 from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
@@ -21,6 +22,16 @@ from gfpt_next.hosted_mcp import make_hosted_mcp
 from gfpt_next.oauth import OAuthProvider
 from gfpt_next.product_config import ProductConfig
 from gfpt_next.service import MonitoringService
+from gfpt_next.site_content import (
+    PRIVATE_PATHS,
+    Page,
+    content_document,
+    feed,
+    private_page,
+    public_pages,
+    render_document,
+    sitemap,
+)
 
 if TYPE_CHECKING:
     from gfpt_next.telegram_accounts import TelegramConnections
@@ -119,8 +130,15 @@ def create_portal(service: MonitoringService, config: ProductConfig,
                          escape(path) + "</code></td><td>" + escape(operation.get("summary", "")) + "</td></tr>"
                          for path, methods in app.openapi()["paths"].items()
                          for method, operation in methods.items())
-        return ("<!doctype html><html lang='en'><meta charset='utf-8'><meta name='viewport' content='width=device-width'>"
-                "<title>" + escape(config.product_name) + " API reference</title><main><h1>" + escape(config.product_name) +
+        styles = "".join('<link rel="stylesheet" href="/' + escape(path.name, quote=True) + '">'
+                         for path in sorted(static_dir.glob("styles-*.css"))) if static_dir else ""
+        return ("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>"
+                "<meta name='robots' content='noindex, follow'><title>" + escape(config.product_name) + " API reference</title>" + styles +
+                "</head><body><a class='skip-link' href='#main-content'>Skip to content</a><header class='site-header'>"
+                "<div class='public-container site-header-inner'><a class='brand' href='/'>" + escape(config.product_name) +
+                "</a><nav class='site-nav' aria-label='Main navigation'><a href='/developers'>Developers</a>"
+                "<a href='/guides'>Field notes</a><a href='/app'>Dashboard</a></nav></div></header>"
+                "<main id='main-content' class='public-container public-article'><p class='eyebrow'>Developer reference</p><h1>" + escape(config.product_name) +
                 " API reference</h1><p>Create a revocable API key in the dashboard and send it as "
                 "<code>Authorization: Bearer YOUR_KEY</code>. Creating monitors and webhooks also requires a unique "
                 "<code>Idempotency-Key</code> header (8–128 characters); reuse it when retrying the same request.</p>"
@@ -128,8 +146,11 @@ def create_portal(service: MonitoringService, config: ProductConfig,
                 "using <code>limit</code> and <code>cursor</code>. Honor <code>Retry-After</code> on HTTP 429.</p>"
                 "<p><a href='/openapi.json'>Download the OpenAPI schema</a> for request fields and response types. "
                 "Connect an MCP client to <code>" + escape(public_url) + "/mcp</code> using OAuth or a bearer API key.</p>"
-                "<table><caption>Available endpoints</caption><thead><tr><th>Method</th><th>Path</th><th>Purpose</th>"
-                "</tr></thead><tbody>" + routes + "</tbody></table><p><a href='/'>Back to dashboard</a></p></main></html>")
+                "<div class='table-responsive'><table class='table table-striped align-middle'><caption>Available endpoints</caption>"
+                "<thead><tr><th scope='col'>Method</th><th scope='col'>Path</th><th scope='col'>Purpose</th>"
+                "</tr></thead><tbody>" + routes + "</tbody></table></div><p><a href='/app'>Open the dashboard</a></p></main>"
+                "<footer class='public-footer'><div class='public-container'><a href='/privacy'>Privacy</a> · "
+                "<a href='/terms'>Preview terms</a></div></footer></body></html>")
 
     @app.exception_handler(AuthenticationFailed)
     async def authentication_failed(request, exc):
@@ -137,18 +158,25 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     @app.middleware("http")
     async def product_headers(request: Request, call_next):
+        request.state.csp_nonce = secrets.token_urlsafe(24)
         response = await call_next(request)
+        nonce = request.state.csp_nonce
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-            "font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            f"default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; "
+            "style-src-attr 'none'; img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+            "object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
-        if request.url.path.startswith("/assets/") and response.status_code == 200:
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        if response.status_code == 200 and getattr(request.state, "asset_cache", None):
+            response.headers["Cache-Control"] = request.state.asset_cache
+        if (request.url.path.startswith(("/v1/", "/auth/", "/oauth/", "/telegram/"))
+                or request.url.path in ("/mcp", "/site-content.json", "/docs")
+                or any(key in request.query_params for key in ("invite", "authorize", "code", "token"))):
+            response.headers["X-Robots-Tag"] = "noindex, nofollow"
         return response
 
     if origin.hostname:
@@ -270,17 +298,60 @@ def create_portal(service: MonitoringService, config: ProductConfig,
     app.router.routes.append(Route("/mcp", endpoint=mcp))
 
     if static_dir and static_dir.is_dir():
-        assets = static_dir / "assets"
-        if assets.is_dir():
-            app.mount("/assets", StaticFiles(directory=assets), name="assets")
+        shell = (static_dir / "index.html").read_text()
+        pages = {page.path: page for page in public_pages(config)}
+        # Only packaged public assets are reachable. Never expose source maps,
+        # dotfiles, deployment configuration, or a path outside the build root.
+        root = static_dir.resolve()
+        allowed_suffixes = {".js", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico",
+                            ".woff", ".woff2", ".ttf", ".webmanifest"}
+        files = {"/" + path.relative_to(static_dir).as_posix(): path
+                 for path in static_dir.rglob("*")
+                 if path.is_file() and (path.suffix.lower() in allowed_suffixes or path.name == "3rdpartylicenses.txt")
+                 and not any(part.startswith(".") for part in path.relative_to(static_dir).parts)
+                 and path.resolve().is_relative_to(root)}
 
-        @app.get("/", include_in_schema=False)
-        def index():
-            return FileResponse(static_dir / "index.html", headers={"Cache-Control": "no-store"})
+        @app.get("/site-content.json", include_in_schema=False)
+        def site_content():
+            return content_document(config)
 
-        @app.get("/favicon.svg", include_in_schema=False)
-        def favicon():
-            return FileResponse(static_dir / "favicon.svg", media_type="image/svg+xml")
+        @app.get("/sitemap.xml", include_in_schema=False)
+        def site_map():
+            return Response(sitemap(config), media_type="application/xml")
+
+        @app.get("/feed.xml", include_in_schema=False)
+        def site_feed():
+            return Response(feed(config), media_type="application/rss+xml")
+
+        @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+        def robots():
+            # Account HTML is crawlable so crawlers can observe its noindex
+            # directive. Authentication remains the data-access boundary.
+            return "User-agent: *\nAllow: /\nSitemap: " + public_url + "/sitemap.xml\n"
+
+        @app.api_route("/{site_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+        def site(site_path: str, request: Request):
+            path = "/" + site_path
+            if path in files:
+                asset = files[path]
+                fingerprinted = re.search(r"[.-](?:[A-Z0-9]{8,}|[a-f0-9]{8,})\.[^.]+$", asset.name)
+                cache = "public, max-age=31536000, immutable" if fingerprinted else "public, max-age=3600"
+                request.state.asset_cache = cache
+                return FileResponse(asset, headers={"Cache-Control": cache})
+            secret_query = any(key in request.query_params for key in ("invite", "authorize", "code", "token"))
+            if path in pages and not secret_query:
+                page, indexable, status = pages[path], True, 200
+            elif path in PRIVATE_PATHS or path in pages and secret_query:
+                page, indexable, status = private_page(path), False, 200
+            else:
+                page = Page("/404", "Page not found — Fareflare", "This page is not available.",
+                            "404", "Page not found.", "Check the address or return to Fareflare.")
+                indexable, status = False, 404
+            headers = {"Cache-Control": "no-store"}
+            if not indexable:
+                headers["X-Robots-Tag"] = "noindex, nofollow"
+            return HTMLResponse(render_document(shell, page, config, request.state.csp_nonce, indexable=indexable),
+                                status_code=status, headers=headers)
 
     app.state.accounts = accounts
     app.state.oauth = oauth

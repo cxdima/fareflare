@@ -7,6 +7,11 @@ release**, published under the [MIT license](../LICENSE).
 - Hosted MCP: <https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com/mcp>
 - Live configuration: billing disabled; constrained route searches enabled.
 
+The website and dashboard now use Angular 22, Bootstrap 5.3, and external SCSS.
+Public landing, project, developer, and field-note pages include crawlable initial
+HTML, matching JSON-LD, canonical/social metadata, sitemap, and RSS. See the
+[website verification record](WEBSITE_VERIFICATION.md) and [design system](../DESIGN.md).
+
 The original family application, Google watches, and collection schedule remain
 in place. The shared Telegram bot's inbound webhook now routes through Fareflare,
 which forwards family commands to the original Lambda. The original application
@@ -53,9 +58,10 @@ server-side, and attempts to enable its unfinished integration fail startup.
 
 | Check | Latest verified result |
 | --- | --- |
-| Backend checks | 937 tests passed; 91.75% coverage; compile, Pyright, and Ruff passed |
-| Dashboard | 10 browser tests passed; frontend build passed |
-| Production API/OAuth/MCP | 47 checks passed, including official SDK interoperability |
+| Backend checks | 978 tests passed; 92.05% coverage; compile, Pyright, and Ruff passed |
+| Website/dashboard | 13 browser tests passed; strict Angular build and formatting passed |
+| Production website update | 23 browser checks passed, including real signup/login/deletion and authenticated MCP tools |
+| Initial production OAuth/MCP | 47 checks passed, including official SDK interoperability |
 | AWS selected-flight collection | USD 314 total observed before the final startup-retry update |
 | Final deployed route-search smoke | Fresh USD 191 Economy Bundle; F9 2550 at 08:44:36 UTC |
 | Shared bot routing | Cutover read back successfully; pending updates preserved |

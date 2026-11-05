@@ -1,0 +1,19 @@
+.connection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.connection-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+}
+.connection-list li + li {
+  border-top: 1px solid var(--ff-line);
+}
+.danger-zone {
+  border-left: 3px solid #a42f25;
+}

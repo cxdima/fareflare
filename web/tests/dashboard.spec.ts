@@ -180,11 +180,11 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
   page,
 }) => {
   const calls = await mock(page, false);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByLabel('Username', { exact: true }).fill('traveler');
   await page.getByLabel('Password', { exact: true }).fill('a-long-private-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Your flights, in view.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toBeVisible();
   await expect(page.getByText('Free during development')).toBeVisible();
   await expect(page.getByText(/upgrade|payment method|subscribe now/i)).toHaveCount(0);
   await page.getByRole('button', { name: 'Watch your first flight' }).click();
@@ -202,8 +202,9 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
 
 test('history shows actual totals and supports pause, resume and stop', async ({ page }) => {
   await mock(page);
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.locator('[style]')).toHaveCount(0);
   await expect(page.getByText('$245.00', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Price history' }).click();
   const dialog = page.getByRole('dialog');
@@ -215,7 +216,7 @@ test('history shows actual totals and supports pause, resume and stop', async ({
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.getByText('Paused', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Resume' }).click();
-  await expect(page.getByText('Watching', { exact: true })).toBeVisible();
+  await expect(page.getByRole('article').getByText('Watching', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await page.getByRole('button', { name: 'Stop watching', exact: true }).click();
   await expect(page.getByText('Stopped', { exact: true })).toBeVisible();
@@ -223,7 +224,7 @@ test('history shows actual totals and supports pause, resume and stop', async ({
 
 test('webhook ownership verification and secrets are explicit', async ({ page }) => {
   const calls = await mock(page);
-  await page.goto('/#webhooks');
+  await page.goto('/app#webhooks');
   await page.getByLabel('Receiver URL').fill('https://example.com/alerts');
   await page.getByRole('button', { name: 'Add receiver' }).click();
   await expect(
@@ -241,8 +242,8 @@ test('webhook ownership verification and secrets are explicit', async ({ page })
 
 test('API keys are shown once and revocable, with MCP connection details', async ({ page }) => {
   await mock(page);
-  await page.goto('/#developer');
-  await expect(page.getByLabel('Remote MCP server')).toHaveValue('http://127.0.0.1:4173/mcp');
+  await page.goto('/app#developer');
+  await expect(page.getByLabel('Remote MCP server')).toHaveValue('http://127.0.0.1:8007/mcp');
   await page.getByLabel('Key name').fill('My local client');
   await page.getByRole('button', { name: 'Create key' }).click();
   await expect(page.getByRole('textbox', { name: 'Your API key', exact: true })).toHaveValue(
@@ -258,7 +259,7 @@ test('API keys are shown once and revocable, with MCP connection details', async
 
 test('registration keeps OAuth authorization pending until explicit consent', async ({ page }) => {
   await mock(page, false);
-  await page.goto('/?authorize=request-123&invite=invite-test');
+  await page.goto('/app?authorize=request-123&invite=invite-test');
   await page.getByLabel('Username', { exact: true }).fill('traveler');
   await page.getByLabel('Password', { exact: true }).fill('a-long-private-password');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
@@ -273,7 +274,7 @@ test('registration keeps OAuth authorization pending until explicit consent', as
 
 test('dashboard, dialog, login, and mobile layout pass accessibility checks', async ({ page }) => {
   await mock(page);
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByText('Needs a fresh check')).toBeVisible();
   expect(
     (
@@ -283,6 +284,7 @@ test('dashboard, dialog, login, and mobile layout pass accessibility checks', as
     ).violations,
   ).toEqual([]);
   await page.getByRole('button', { name: 'Watch a flight', exact: true }).click();
+  await expect(page.locator('[style]')).toHaveCount(0);
   expect(
     (
       await new AxeBuilder({ page })
@@ -291,11 +293,18 @@ test('dashboard, dialog, login, and mobile layout pass accessibility checks', as
     ).violations,
   ).toEqual([]);
   await page.keyboard.press('Escape');
-  await page.setViewportSize({ width: 375, height: 812 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: 'artifacts/dashboard-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.reload();
+  await expect(page.getByText('Needs a fresh check')).toBeVisible();
   await page.screenshot({ path: 'artifacts/dashboard-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.reload();
+  await expect(page.getByText('Needs a fresh check')).toBeVisible();
+  await expect(page.locator('ff-dashboard')).toHaveCount(1);
+  await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/dashboard-mobile-viewport.png' });
+  await page.screenshot({ path: 'artifacts/dashboard-mobile.png', fullPage: true });
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   expect(
     (
@@ -308,22 +317,22 @@ test('dashboard, dialog, login, and mobile layout pass accessibility checks', as
 
 test('actual portal: invitation, cookie session, monitor, API key, recovery and deletion under CSP', async ({
   page,
-}) => {
+}, testInfo) => {
   const fixture = JSON.parse(await readFile('artifacts/portal-fixture.json', 'utf8'));
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (entry) => {
     if (/Content Security Policy|Refused to/.test(entry.text())) errors.push(entry.text());
   });
-  await page.goto(`http://127.0.0.1:8007/?invite=${encodeURIComponent(fixture.invite)}`);
-  await page.getByLabel('Username', { exact: true }).fill('browsertraveler');
+  const username = `browsertraveler${testInfo.retry}`;
+  await page.goto(`/?invite=${encodeURIComponent(fixture.invites[testInfo.retry])}`);
+  await page.getByLabel('Username', { exact: true }).fill(username);
   await page.getByLabel('Password', { exact: true }).fill('first-private-password');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   const recovery = await page
     .getByRole('textbox', { name: 'Your account recovery code', exact: true })
     .inputValue();
   expect(recovery.length).toBeGreaterThan(20);
-  await page.getByRole('button', { name: 'I’ve saved it' }).click();
   expect(await page.evaluate(() => document.cookie)).not.toContain('session');
   await page.getByRole('button', { name: 'Watch your first flight' }).click();
   await page.getByLabel('Google Flights link').fill(flightUrl);
@@ -333,6 +342,18 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   await page.getByLabel('Key name').fill('Browser test');
   await page.getByRole('button', { name: 'Create key' }).click();
   const key = await page.getByRole('textbox', { name: 'Your API key', exact: true }).inputValue();
+  const recoveryField = page.getByRole('textbox', {
+    name: 'Your account recovery code',
+    exact: true,
+  });
+  await expect(recoveryField).toHaveValue(recovery);
+  expect(await recoveryField.getAttribute('id')).not.toBe(
+    await page.getByRole('textbox', { name: 'Your API key', exact: true }).getAttribute('id'),
+  );
+  await page
+    .getByRole('region', { name: 'Your account recovery code', exact: true })
+    .getByRole('button', { name: 'I’ve saved it' })
+    .click();
   const apiResult = await page.request.get('http://127.0.0.1:8007/v1/monitors', {
     headers: { Authorization: `Bearer ${key}` },
   });
@@ -342,11 +363,11 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   await expect(page.getByRole('textbox', { name: 'Your API key', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await page.getByRole('button', { name: 'Forgot your password?' }).click();
-  await page.getByLabel('Username', { exact: true }).fill('browsertraveler');
+  await page.getByLabel('Username', { exact: true }).fill(username);
   await page.getByLabel('Recovery code', { exact: true }).fill(recovery);
   await page.getByLabel('New password', { exact: true }).fill('second-private-password');
   await page.getByRole('button', { name: 'Reset password', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Your flights, in view.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toBeVisible();
   expect(
     (
       await page.request.get('http://127.0.0.1:8007/v1/monitors', {
@@ -377,7 +398,7 @@ test('a failed create keeps input and reuses its idempotency key on retry', asyn
       });
     return route.fallback();
   });
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Watch a flight', exact: true }).click();
   await page.getByLabel('Google Flights link').fill(flightUrl);
   await page.getByRole('button', { name: 'Start watching' }).click();
@@ -393,7 +414,7 @@ test('edit alerts, retry a failed delivery, mute notifications, and revoke MCP a
   page,
 }) => {
   const calls = await mock(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Edit alerts' }).click();
   await page.getByLabel('Notify me when').selectOption('below_price');
   await page.getByLabel('Target total (USD)').fill('199.95');
@@ -469,11 +490,12 @@ test('route-search capability displays the actual matching flight and offer link
   await page.route('**/v1/monitors?limit=100', (route) =>
     route.fulfill({ json: { items: [routeSearch] } }),
   );
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByText('Cheapest matching route', { exact: true })).toBeVisible();
   await expect(page.getByText('Latest match: UA 414', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /View flight/ })).toHaveAttribute('href', flightUrl);
   await page.getByRole('button', { name: 'Watch a flight', exact: true }).click();
+  await page.getByText('Supported flights and searches', { exact: true }).click();
   await expect(page.getByText(/Route searches: exact airports and date/)).toBeVisible();
   await expect(page.getByText(/economy excluding Basic/)).toBeVisible();
 });

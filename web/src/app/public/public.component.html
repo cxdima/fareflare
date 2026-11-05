@@ -1,0 +1,392 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="public-container site-header-inner">
+    <a class="brand" href="/" aria-label="Fareflare home"
+      ><img
+        class="brand-mark"
+        src="/assets/fareflare-mark.png"
+        width="62"
+        height="62"
+        alt=""
+      />Fareflare</a
+    >
+    <nav class="site-nav" aria-label="Main navigation">
+      <a class="nav-secondary" href="/#how-it-works">How it works</a>
+      <a href="/guides">Field notes</a>
+      <a class="nav-secondary" [href]="github"
+        ><i class="bi bi-github" aria-hidden="true"></i> GitHub</a
+      >
+      <a class="nav-signin" href="/app"
+        >Sign in <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+      ></a>
+    </nav>
+  </div>
+</header>
+<main id="main-content">
+  @if (path === '/') {
+    <section class="hero public-container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow hero-kicker">
+          <span class="edition-mark" aria-hidden="true"></span> A little less fare-checking
+        </p>
+        <h1 id="hero-title">Good fares don’t wait <em>until midnight.</em></h1>
+        <p class="hero-intro">
+          Keep an eye on the flight you want. Fareflare watches its price and lets you know when it
+          finds a new low.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/app"
+            >Open your flight list <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a
+          ><a class="quiet-link" href="#how-it-works"
+            >See how it works <i class="bi bi-arrow-down" aria-hidden="true"></i
+          ></a>
+        </div>
+        <p class="access-note">Free during development. An invitation gets you in.</p>
+      </div>
+      <div class="hero-visual">
+        <figure class="window-photo">
+          <img
+            src="/assets/window-seat.jpg"
+            width="1280"
+            height="853"
+            alt="Morning light through an aircraft window, above a mountain range"
+            fetchpriority="high"
+          />
+          <figcaption>Less refreshing. More looking forward.</figcaption>
+        </figure>
+        <div class="fare-note" aria-label="Illustrative flight price alert">
+          <div class="fare-note-top">
+            <span class="eyebrow">Your next departure</span
+            ><i class="bi bi-airplane" aria-hidden="true"></i>
+          </div>
+          <div class="fare-route">
+            <span>DEN</span><span class="route-rule" aria-hidden="true"></span><span>DFW</span>
+          </div>
+          <div class="fare-cities"><span>Denver</span><span>Dallas–Fort Worth</span></div>
+          <div class="fare-note-bottom">
+            <div><span class="fare-price">$191</span><span class="fare-currency"> USD</span></div>
+            <span class="fare-tag"
+              ><i class="bi bi-arrow-down-right" aria-hidden="true"></i> New observed low</span
+            >
+          </div>
+          <p class="example-label">Illustrative alert · not a live fare</p>
+        </div>
+      </div>
+    </section>
+    <div class="promise-strip public-container" aria-label="Product principles">
+      <span
+        ><i class="bi bi-link-45deg" aria-hidden="true"></i> Starts with a Google Flights link</span
+      ><span><i class="bi bi-person-check" aria-hidden="true"></i> No Google account access</span
+      ><a [href]="github"
+        ><i class="bi bi-github" aria-hidden="true"></i> Open source. Yours to inspect.</a
+      >
+    </div>
+
+    <section class="how-section public-container" id="how-it-works" aria-labelledby="how-title">
+      <div class="section-heading">
+        <span class="eyebrow section-index">01 / The idea</span>
+        <h2 id="how-title">Find your flight.<br /><em>Leave the tab.</em></h2>
+        <p>
+          You already know where you want to go. There shouldn’t be a second job in watching the
+          price.
+        </p>
+        <a class="quiet-link" href="/guides/choosing-a-flight-link"
+          >Which flight links work? <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+        ></a>
+      </div>
+      <ol class="steps">
+        <li>
+          <span class="step-number">01</span>
+          <div>
+            <h3>Paste the link.</h3>
+            <p>
+              Choose a supported itinerary or route search on Google Flights. Add its link to your
+              flight list.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-number">02</span>
+          <div>
+            <h3>Set your signal.</h3>
+            <p>
+              Watch for a new observed low, or choose a price you’d be happy to book. Connect
+              Telegram for alerts.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-number">03</span>
+          <div>
+            <h3>Get on with your day.</h3>
+            <p>
+              We check periodically and keep the history. When an alert arrives, follow the flight
+              link to check availability.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="signal-section" aria-labelledby="signal-title">
+      <div class="public-container signal-grid">
+        <div class="signal-demo">
+          <div class="demo-heading">
+            <span class="eyebrow">A flight, over time</span
+            ><span class="demo-route"
+              >DEN <i class="bi bi-arrow-right" aria-hidden="true"></i> DFW</span
+            >
+          </div>
+          <div class="demo-price">
+            <strong>$191</strong><span>lowest observed in this example</span>
+          </div>
+          <svg
+            class="price-illustration"
+            viewBox="0 0 500 170"
+            role="img"
+            aria-labelledby="chart-title chart-description"
+          >
+            <title id="chart-title">Illustrative fare history</title>
+            <desc id="chart-description">
+              An example price fluctuates before falling to 191 dollars. This is not live flight
+              data.
+            </desc>
+            <path class="chart-grid" d="M0 30 H500 M0 90 H500 M0 150 H500" />
+            <path
+              class="chart-line"
+              d="M5 50 H50 V65 H100 V32 H155 V82 H215 V58 H270 V100 H325 V80 H375 V121 H425 V150 H490"
+            />
+            <circle class="chart-dot" cx="490" cy="150" r="5" />
+            @if (alertMode() === 'below_price') {
+              <path class="chart-threshold" d="M0 110 H500" />
+              <text class="chart-label" x="8" y="104">Your $220 threshold</text>
+            }
+          </svg>
+          <div class="chart-axis">
+            <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span>
+          </div>
+          <div class="demo-notification" aria-live="polite">
+            <i class="bi bi-bell" aria-hidden="true"></i>
+            <div>
+              <strong>{{
+                alertMode() === 'new_low' ? 'A new low worth a look.' : 'Your flight is below $220.'
+              }}</strong>
+              <p>
+                {{
+                  alertMode() === 'new_low'
+                    ? 'The next observed low can trigger another alert.'
+                    : 'Set the number. We’ll watch for a matching observation.'
+                }}
+              </p>
+            </div>
+          </div>
+          <p class="example-label">Illustrative price history, not a prediction or live quote.</p>
+        </div>
+        <div class="section-heading">
+          <span class="eyebrow section-index">02 / Your kind of good price</span>
+          <h2 id="signal-title">A useful signal.<br /><em>Then, back to life.</em></h2>
+          <p>
+            Choose what matters to you. Your flight list keeps the last observation, its time, and
+            the lowest price seen while you’ve been watching.
+          </p>
+          <div class="signal-options" role="group" aria-label="Preview an alert rule">
+            <button
+              type="button"
+              [class.selected]="alertMode() === 'new_low'"
+              [attr.aria-pressed]="alertMode() === 'new_low'"
+              (click)="alertMode.set('new_low')"
+            >
+              A new low</button
+            ><button
+              type="button"
+              [class.selected]="alertMode() === 'below_price'"
+              [attr.aria-pressed]="alertMode() === 'below_price'"
+              (click)="alertMode.set('below_price')"
+            >
+              Below my price
+            </button>
+          </div>
+          <p class="honest-note">
+            Checks currently start at 15-minute intervals. Fares can change between checks;
+            collection delays are shown in your dashboard.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-section public-container" aria-labelledby="story-title">
+      <div>
+        <span class="eyebrow section-index">03 / Made for two. Open to more.</span>
+        <h2 id="story-title">It started with<br /><em>a flight for Dad.</em></h2>
+      </div>
+      <div class="story-copy">
+        <p>
+          A price-drop email at midnight wasn’t much help if the fare had already bounced back. So
+          we built a small tracker for a father and son, with alerts in a shared Telegram chat.
+        </p>
+        <p>
+          Fareflare grew from that. The same simple idea, now with your own flight list, your own
+          alerts, and code you can read.
+        </p>
+        <a class="quiet-link" href="/about"
+          >The story behind Fareflare <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+        ></a>
+      </div>
+    </section>
+
+    <section class="developer-section public-container" aria-labelledby="developer-title">
+      <div>
+        <span class="eyebrow">For the builders, too</span>
+        <h2 id="developer-title">Your flight data.<br />Your way of using it.</h2>
+        <p>
+          The dashboard, REST API, and MCP share the same monitors. Send signed webhooks to your own
+          tools, or run Fareflare yourself.
+        </p>
+        <div class="developer-links">
+          <a href="/developers"
+            >Developer guide <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a
+          ><a [href]="github"><i class="bi bi-github" aria-hidden="true"></i> Read the source</a>
+        </div>
+      </div>
+      <div class="code-sample">
+        <div class="code-caption"><span>CREATE A MONITOR</span><span>REST API</span></div>
+        <pre><code>{{ apiExample }}</code></pre>
+        <p>Use your Fareflare origin before <code>/v1/monitors</code>.</p>
+      </div>
+    </section>
+
+    <section class="journal-section public-container" aria-labelledby="journal-title">
+      <div class="journal-header">
+        <div>
+          <span class="eyebrow section-index">The field notes</span>
+          <h2 id="journal-title">A little context<br />for your next departure.</h2>
+        </div>
+        <a class="quiet-link" href="/guides"
+          >All field notes <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+        ></a>
+      </div>
+      <div class="guide-grid">
+        @for (guide of guides(); track guide.path; let i = $index) {
+          <article class="guide-preview">
+            <span class="guide-number">0{{ i + 1 }}</span>
+            <p class="eyebrow">{{ guide.read_minutes }} minute read</p>
+            <h3>
+              <a [href]="guide.path">{{ guide.headline }}</a>
+            </h3>
+            <p>{{ guide.description }}</p>
+            <a class="guide-read" [href]="guide.path" [attr.aria-label]="'Read ' + guide.headline"
+              >Read the note <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+            ></a>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="start-section public-container">
+      <h2>One less tab.<br /><em>One more thing to look forward to.</em></h2>
+      <a class="btn btn-primary" href="/app"
+        >Open Fareflare <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+      ></a>
+      <p>Free, invite-only development access. No checkout.</p>
+    </section>
+  } @else if (page(); as current) {
+    <div class="public-container">
+      <article class="public-article">
+        <a class="quiet-link breadcrumb-link" [href]="current.kind === 'guide' ? '/guides' : '/'"
+          >{{ current.kind === 'guide' ? 'Field notes' : 'Fareflare' }}
+          <i class="bi bi-arrow-right" aria-hidden="true"></i
+        ></a>
+        <p class="eyebrow section-index">{{ current.eyebrow }}</p>
+        <h1>{{ current.headline }}</h1>
+        <p class="article-intro">{{ current.intro }}</p>
+        @if (current.kind === 'guide') {
+          <div class="article-meta">
+            <span>Fareflare project</span
+            ><time [attr.datetime]="current.published">{{ current.published }}</time
+            ><span>{{ current.read_minutes }} minute read</span>
+          </div>
+        }
+        @for (section of current.sections; track section.heading) {
+          <section>
+            <h2>{{ section.heading }}</h2>
+            @for (paragraph of section.paragraphs; track $index) {
+              <p>{{ paragraph }}</p>
+            }
+            @if (section.bullets.length) {
+              <ul>
+                @for (bullet of section.bullets; track $index) {
+                  <li>{{ bullet }}</li>
+                }
+              </ul>
+            }
+            @if (section.code) {
+              <pre><code>{{ section.code }}</code></pre>
+            }
+            @for (link of section.links; track link.href) {
+              <p>
+                <a [href]="link.href"
+                  >{{ link.label }} <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+                ></a>
+              </p>
+            }
+          </section>
+        }
+        @if (path === '/guides') {
+          <div class="guide-index">
+            @for (guide of guides(); track guide.path) {
+              <article>
+                <p class="eyebrow">{{ guide.read_minutes }} minute read</p>
+                <h2>
+                  <a [href]="guide.path">{{ guide.headline }}</a>
+                </h2>
+                <p>{{ guide.description }}</p>
+              </article>
+            }
+          </div>
+        }
+      </article>
+    </div>
+  } @else if (error()) {
+    <section class="public-container content-error">
+      <h1>This page could not load.</h1>
+      <p>Please reload to try again, or <a [href]="github">visit the project on GitHub</a>.</p>
+    </section>
+  } @else if (site.content()) {
+    <section class="public-container content-error">
+      <p class="eyebrow">404 / Uncharted territory</p>
+      <h1>That page isn’t here.</h1>
+      <p><a href="/">Return to Fareflare</a>.</p>
+    </section>
+  } @else {
+    <p class="public-container content-error" role="status">Loading field notes…</p>
+  }
+</main>
+<footer class="public-footer">
+  <div class="public-container">
+    <div class="footer-main">
+      <div>
+        <a class="brand" href="/"
+          ><img
+            class="brand-mark"
+            src="/assets/fareflare-mark.png"
+            width="62"
+            height="62"
+            alt=""
+          />Fareflare</a
+        >
+        <p class="footer-description">
+          A small, open-source tool for keeping an eye on your next flight.
+        </p>
+      </div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="/about">Our story</a><a href="/guides">Field notes</a
+        ><a href="/developers">For developers</a><a [href]="github">GitHub</a
+        ><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/feed.xml">RSS feed</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Fareflare contributors. Code licensed under MIT.</span
+      ><span>Independent project. Not affiliated with Google.</span>
+    </div>
+  </div>
+</footer>

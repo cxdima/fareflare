@@ -9,7 +9,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: 'http://127.0.0.1:8007',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -24,14 +24,10 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev -- --port 4173',
-      url: 'http://127.0.0.1:4173',
-      reuseExistingServer: !process.env.CI,
-    },
-    {
       command: '../.venv/bin/python tests/serve_portal.py',
       url: 'http://127.0.0.1:8007/v1/config',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
+      timeout: 30000,
     },
   ],
 });

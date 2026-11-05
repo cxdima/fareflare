@@ -9,6 +9,11 @@ Telegram connections, signed webhooks, and durable price history. It collects pu
 prices with its own browser; no paid flight-data API or customer Google login is
 required. Development access is free and billing is disabled.
 
+The [hosted preview](https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com) includes
+an Angular/Bootstrap website, field notes, and the customer dashboard at `/app`.
+See the [design system](DESIGN.md), [design research](docs/DESIGN_RESEARCH.md), and
+[website release checks](docs/WEBSITE_VERIFICATION.md).
+
 Start with the [Fareflare setup guide](docs/FAREFLARE.md),
 [implementation status](docs/DEVELOPMENT_STATUS.md), and [release verification](docs/RELEASE_VERIFICATION.md).
 See [API/worker details](docs/NEXT.md) for the internal contracts.

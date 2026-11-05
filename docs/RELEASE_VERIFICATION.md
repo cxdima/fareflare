@@ -1,5 +1,9 @@
 # Fareflare development release verification
 
+This is the initial customer-release record. The subsequent Angular website/API
+image update is documented in [website verification](WEBSITE_VERIFICATION.md).
+The collector image and price observations below remain the earlier evidence.
+
 Verified on **2026-11-05 UTC**. This record describes the invite-only development
 release at <https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com>, including the
 final browser-startup retry update. It supersedes the November 4 shadow report

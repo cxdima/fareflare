@@ -19,10 +19,10 @@ from gfpt_next.store import SQLiteStore  # noqa: E402
 with tempfile.TemporaryDirectory(prefix="fareflare-browser-") as directory:
     store = SQLiteStore(Path(directory) / "test.sqlite3")
     config = ProductConfig(public_url="http://127.0.0.1:8007")
-    invitation = Accounts(store, config).create_invite()
+    invitations = [Accounts(store, config).create_invite()["token"] for _ in range(3)]
     fixture = ROOT / "web" / "artifacts" / "portal-fixture.json"
     fixture.parent.mkdir(exist_ok=True)
-    fixture.write_text(json.dumps({"invite": invitation["token"]}))
+    fixture.write_text(json.dumps({"invites": invitations}))
     fixture.chmod(0o600)
     service = MonitoringService(store, capability_check=supported_target)
     app = create_portal(service, config, static_dir=ROOT / "web" / "dist")

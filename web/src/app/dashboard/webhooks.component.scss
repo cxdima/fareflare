@@ -1,0 +1,19 @@
+.receiver-card h3 {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+.receiver-card code {
+  overflow-wrap: anywhere;
+}
+.receiver-guide {
+  color: var(--ff-muted);
+  font-size: 0.9rem;
+  border-top: 1px solid var(--ff-line);
+  padding-top: 1rem;
+}
+.receiver-guide summary {
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  color: var(--ff-ink);
+}

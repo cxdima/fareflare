@@ -1,0 +1,92 @@
+<div class="page-heading">
+  <div>
+    <p class="overline">Notifications</p>
+    <h1>Alert activity</h1>
+    <p>Price changes and what happened to their notifications.</p>
+  </div>
+  <button type="button" class="btn btn-outline-primary" [disabled]="action.busy()" (click)="load()">
+    Refresh alerts
+  </button>
+</div>
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+}
+@if (items().length) {
+  <section class="panel table-panel">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <caption class="visually-hidden">
+          Price alerts and delivery status
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Flight / event</th>
+            <th scope="col">Observed total</th>
+            <th scope="col">Delivery</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); track item.id) {
+            <tr>
+              <td>
+                <strong>{{ route(item.monitor_id) }}</strong
+                ><span class="table-subtext">{{ reasonLabel(item.reason) }}</span
+                ><span class="table-subtext">{{ timestamp(item.observation.observed_at) }}</span>
+              </td>
+              <td class="text-nowrap">
+                {{ money(item.observation.amount_minor, item.observation.currency) }}
+              </td>
+              <td>
+                <span [class]="'status status-' + item.status">{{ statusLabel(item.status) }}</span
+                ><span class="table-subtext"
+                  >{{ item.webhook_id ? 'Webhook' : 'Account destination' }} · {{ item.attempts }}
+                  {{ item.attempts === 1 ? 'attempt' : 'attempts' }}</span
+                >
+              </td>
+              <td>
+                @if (item.status === 'dead_letter') {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    [disabled]="action.busy()"
+                    (click)="retry(item)"
+                  >
+                    Retry delivery<span class="visually-hidden">
+                      for {{ route(item.monitor_id) }}</span
+                    >
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (cursor(); as next) {
+      <div class="p-3">
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          [disabled]="action.busy()"
+          (click)="load(next)"
+        >
+          Load more alerts
+        </button>
+      </div>
+    }
+  </section>
+} @else {
+  <section class="panel empty-state">
+    <i class="bi bi-bell" aria-hidden="true"></i>
+    <h2>{{ action.busy() ? 'Loading alerts…' : 'No alerts yet' }}</h2>
+    <p>
+      Alerts appear when monitoring starts and your price conditions are met. Delivery failures can
+      be retried here.
+    </p>
+  </section>
+}
+<p class="page-note">
+  An observed low is the lowest price recorded since your monitor started. Suppressed alerts were
+  skipped because of your settings or monitor state.
+</p>

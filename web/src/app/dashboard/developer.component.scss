@@ -1,0 +1,14 @@
+pre {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--ff-ink);
+  color: var(--ff-surface);
+  font-size: 0.82rem;
+  overflow-x: auto;
+  border-radius: 0.25rem;
+}
+.key-id {
+  max-width: 18rem;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+}
