@@ -8,6 +8,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF_DIR="${ROOT}/infra"
 ENV_FILE="${ROOT}/.env"
 
+# This branch contains the isolated successor. The original checkout on main
+# retains the stable deploy command; never apply its production state here.
+if [[ -d "${ROOT}/src/gfpt_next" ]]; then
+  echo "ERROR: Stable deployment is disabled in the next-generation checkout."
+  echo "Use the original main worktree to maintain the stable tracker."
+  exit 64
+fi
+
 need() { command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 not found"; exit 1; }; }
 need terraform; need aws; need docker; need python3
 

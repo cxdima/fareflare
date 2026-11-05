@@ -5,7 +5,7 @@ description = "Google Flights Price Tracker — Lambda-based saved-flights price
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tests_next"]
 pythonpath = ["src"]
 addopts = "-q"
 timeout = 60
@@ -22,3 +22,17 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 # Imports must follow the sys.path/.env bootstrap in the local harness
 "scripts/run_local.py" = ["E402"]
+
+[tool.pyright]
+include = ["src/gfpt_next"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+
+[tool.coverage.run]
+source = ["gfpt_next"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80

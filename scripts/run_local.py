@@ -28,6 +28,9 @@ import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 
+if os.path.isdir(os.path.join(os.path.dirname(__file__), "..", "src", "gfpt_next")):
+    raise SystemExit("Legacy browser runs are disabled in the next-generation checkout; use make next-demo.")
+
 # ── Path bootstrap ─────────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 

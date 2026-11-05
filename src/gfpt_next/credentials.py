@@ -1,0 +1,61 @@
+"""Revocable hashed API credentials and a shared, atomic per-tenant rate limit."""
+from __future__ import annotations
+
+import hashlib
+import re
+import secrets
+import time
+from collections.abc import Callable
+
+from gfpt_next.store import Conflict, Document, Store
+
+
+class RateLimited(ValueError):
+    pass
+
+
+class Credentials:
+    def __init__(self, store: Store, clock: Callable[[], float] = time.time):
+        self.store, self.clock = store, clock
+
+    def issue(self, tenant: str, lifetime_seconds: int = 90 * 86400) -> tuple[str, str]:
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", tenant) or not 60 <= lifetime_seconds <= 365 * 86400:
+            raise ValueError("Invalid credential owner or lifetime")
+        secret = secrets.token_urlsafe(32)
+        identifier = hashlib.sha256(secret.encode()).hexdigest()
+        self.store.commit([Document("credential:" + identifier, "credentials:" + tenant,
+            {"tenant": tenant, "revoked": False, "expires_at": int(self.clock()) + lifetime_seconds})])
+        return identifier, secret
+
+    def authenticate(self, secret: str) -> str | None:
+        if not 32 <= len(secret) <= 128:
+            return None
+        doc = self.store.get("credential:" + hashlib.sha256(secret.encode()).hexdigest())
+        if doc and not doc.data["revoked"] and doc.data["expires_at"] > self.clock():
+            return doc.data["tenant"]
+        return None
+
+    def revoke(self, tenant: str, identifier: str) -> None:
+        doc = self.store.get("credential:" + identifier)
+        if not doc or doc.data["tenant"] != tenant:
+            raise ValueError("Credential not found")
+        self.store.commit([doc.update({**doc.data, "revoked": True})])
+
+
+class RateLimiter:
+    def __init__(self, store: Store, clock: Callable[[], float] = time.time, per_minute: int = 120):
+        self.store, self.clock, self.per_minute = store, clock, per_minute
+
+    def consume(self, tenant: str) -> None:
+        now = int(self.clock())
+        key = f"rate:{tenant}:{now // 60}"
+        for _ in range(5):
+            doc = self.store.get(key) or Document(key, "rate_limits", {"count": 0}, expires_at=now + 120)
+            if doc.data["count"] >= self.per_minute:
+                raise RateLimited("Request limit reached; retry next minute")
+            try:
+                self.store.commit([doc.update({"count": doc.data["count"] + 1})])
+                return
+            except Conflict:
+                continue
+        raise RateLimited("Request limit busy; retry next minute")

@@ -9,6 +9,10 @@ set -euo pipefail
 PREFIX="${SSM_PREFIX:-/gfpricetracker}"
 REGION="${AWS_REGION:-us-east-1}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -d "${ROOT}/src/gfpt_next" ]]; then
+  echo "ERROR: Restoring stable production secrets is disabled in this development checkout."
+  exit 64
+fi
 OUT="${ROOT}/.env"
 
 command -v aws >/dev/null || { echo "ERROR: aws CLI not found"; exit 1; }

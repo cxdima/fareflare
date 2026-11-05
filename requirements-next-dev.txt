@@ -1,0 +1,5 @@
+-r requirements-dev.txt
+-r requirements-next.txt
+pytest-cov==7.1.0
+pyright==1.1.414
+moto[dynamodb]==5.2.5

@@ -1,0 +1,164 @@
+{
+  "review_date": "2026-11-02",
+  "scope": "Anonymous Google Flights browser exploration and local repository review; no account watch, AWS, deployment or Telegram mutations.",
+  "sample": "examples/next-demo.json",
+  "browser_observations": [
+    {
+      "case": "selected_one_adult_usd",
+      "flight": "UA 414",
+      "route": [
+        "DEN",
+        "DFW"
+      ],
+      "date": "2027-03-14",
+      "eligible_fare": "Economy",
+      "display_total": 309,
+      "currency": "USD",
+      "ineligible_basic_total": 292
+    },
+    {
+      "case": "selected_two_adults_usd",
+      "adults": 2,
+      "eligible_fare": "Economy",
+      "display_total": 617,
+      "currency": "USD",
+      "ineligible_basic_total": 583,
+      "conclusion": "Read party total directly; do not multiply one-adult display. Cause of difference was not established."
+    },
+    {
+      "case": "selected_one_adult_jpy",
+      "eligible_fare": "Economy",
+      "display_total": 48706,
+      "currency": "JPY",
+      "also_displayed_usd": 309,
+      "conclusion": "A single fare card can contain multiple currencies."
+    },
+    {
+      "case": "roundtrip_outbound_selection",
+      "outbound": "UA 414",
+      "outbound_date": "2027-03-14",
+      "return_date": "2027-03-21",
+      "display_roundtrip_total_before_return_selection": 537,
+      "currency": "USD"
+    },
+    {
+      "case": "roundtrip_final_selection",
+      "flights": [
+        "UA 414",
+        "UA 2049"
+      ],
+      "dates": [
+        "2027-03-14",
+        "2027-03-21"
+      ],
+      "eligible_total": 577,
+      "ineligible_basic_total": 518,
+      "currency": "USD",
+      "conclusion": "Return selection changes the target and total; intermediate search price is not a quote for the final pair."
+    },
+    {
+      "case": "cabin_menu",
+      "economy_include_basic_separate_from_exclude_basic": true,
+      "additional_cabins": [
+        "premium_economy",
+        "business",
+        "first"
+      ]
+    },
+    {
+      "case": "baggage_dialog",
+      "independent_counts": [
+        "carry_on",
+        "checked"
+      ],
+      "initial_counts": [
+        0,
+        0
+      ]
+    },
+    {
+      "case": "share",
+      "short_link_path": "/travel/flights/s/...",
+      "resolved_path": "/travel/flights/booking",
+      "resolved_link_explicit_currency": false,
+      "decoded_identity_fields_equal_to_original": true,
+      "current_importer_target_id_equal": false
+    },
+    {
+      "case": "signed_out_tracking",
+      "path": "/travel/flights/saves",
+      "sign_in_required": true,
+      "legacy_authentication_check_returned": false,
+      "conclusion": "Signed-out page can remain at saves path; URL alone does not establish authentication."
+    },
+    {
+      "case": "network_metadata",
+      "observed_booking_rpc": "GetBookingResults",
+      "response_status": 200,
+      "request_headers_or_response_bodies_retained": false
+    }
+  ],
+  "isolated_code_probes": {
+    "active_resume_skips_event": {
+      "baseline_minor": 50000,
+      "unprocessed_drop_minor": 40000,
+      "action": "set_status(active) while already active, then process_events",
+      "alert_amounts_minor": [
+        50000
+      ],
+      "latest_observation_minor": 40000
+    },
+    "delivery_order": {
+      "observed_amounts_minor": [
+        50000,
+        40000,
+        35000
+      ],
+      "delivered_amounts_minor": [
+        35000,
+        50000,
+        40000
+      ],
+      "fixed_monitor_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "run_ids": [
+        "event-0",
+        "event-1",
+        "event-2"
+      ],
+      "initial_clock": 1793653200
+    },
+    "legacy_failed_dispatch": {
+      "fault_injection": true,
+      "watermark_after_failure": 400,
+      "reported_updates": 1,
+      "events_on_unchanged_retry": 0
+    },
+    "legacy_price_heuristic": {
+      "synthetic_payload": true,
+      "candidate_numbers": [
+        120,
+        309
+      ],
+      "returned_price": 120,
+      "qualification": "Demonstrates parser ambiguity; not evidence that Google currently uses this exact response shape."
+    }
+  },
+  "unverified_areas": [
+    "authenticated watch registration and capacity",
+    "connecting and mixed-cabin itineraries",
+    "children and infants",
+    "seller checkout equivalence",
+    "upstream inventory freshness",
+    "Lambda latency and cost at commercial volume"
+  ],
+  "sources": [
+    "https://support.google.com/travel/answer/6235879?hl=en&co=GENIE.Platform%3DDesktop",
+    "https://support.google.com/travel/answer/2475306?hl=en",
+    "https://support.google.com/travel/answer/7664728?hl=en",
+    "https://support.google.com/travel/answer/9074247?hl=en",
+    "https://support.google.com/travel/answer/7378789?hl=en",
+    "https://support.google.com/travelanalytics/answer/11230452?hl=en",
+    "https://www.informit.com/articles/article.aspx?p=1404056",
+    "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html"
+  ]
+}

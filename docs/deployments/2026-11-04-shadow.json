@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-11-04T17:53:51.661675+00:00",
+  "worker": "gfpt-next-production",
+  "region": "us-east-1",
+  "source_tree_sha256": "9c790dafb15af5db20ff19ca73f061e3aa68d6032cde71bc6e8e99fdf6742862",
+  "browser_base_image": "851725466918.dkr.ecr.us-east-1.amazonaws.com/gfpricetracker@sha256:e0360736621d981467de827acb3853132520b878e319245ac193762c43be3919",
+  "terraform_inputs": {
+    "expected_account_id": "851725466918",
+    "image_uri": "851725466918.dkr.ecr.us-east-1.amazonaws.com/gfpt-next-production@sha256:cb8fb4724102e0ef605272f5bf97316c26a3f204c65ffe84a6359f2d7affe4b0",
+    "schedule_enabled": true,
+    "telegram_secret_arn": ""
+  },
+  "state_backend": {
+    "bucket": "gfpricetracker-terraform-state",
+    "key": "gfpt-next-production/terraform.tfstate"
+  },
+  "tests": {
+    "passed": 563,
+    "coverage_percent": 92.23
+  },
+  "cases": {
+    "one_adult_usd": {
+      "monitor_id": "9178706eef054f44bc70fea9ab4f9c96",
+      "target_id": "dc70a9ce724a3cd58b7b55b98737ef657b64cf3fd74ccb30bbc1ec81905f4b93",
+      "status": "active",
+      "amount_minor": 30900,
+      "currency": "USD",
+      "observed_at": 1793814719,
+      "history_count": 3
+    },
+    "selected_two_adults": {
+      "monitor_id": "de2bfd400a5d44bd939c3b8028b063b8",
+      "target_id": "71bbb648af86237fc64c3c9bf0190dcb44dda0ecd6a1c24475c04535c9d4d29e",
+      "status": "paused",
+      "amount_minor": 61700,
+      "currency": "USD",
+      "observed_at": 1793814519,
+      "history_count": 1
+    },
+    "selected_jpy": {
+      "monitor_id": "61ab216b79fb4121917acaa9287118c7",
+      "target_id": "912f9f9b0171acfa2bc72c695bd85e069a2312abcfb167fca9b1c20e894aabb8",
+      "status": "paused",
+      "amount_minor": 48883,
+      "currency": "JPY",
+      "observed_at": 1793814322,
+      "history_count": 1
+    },
+    "selected_roundtrip": {
+      "monitor_id": "04390c0b92144d79a926b218dc16c28c",
+      "target_id": "d35b177d021ea22b78176a4afa534f6e2ba633e909b0fcdf90f8ed32ee30e3a9",
+      "status": "paused",
+      "amount_minor": 57700,
+      "currency": "USD",
+      "observed_at": 1793814279,
+      "history_count": 1
+    }
+  },
+  "delivery": {
+    "suppressed": 4,
+    "sent": 0,
+    "attempts": 0
+  },
+  "scheduled_run": {
+    "alerts_sent": 0,
+    "alerts_suppressed": 0,
+    "collected": 1,
+    "events_processed": 1,
+    "failed": 0,
+    "last_worker_at": 1793814720,
+    "runtime_ms": 7093,
+    "shadow": true,
+    "skipped": 0
+  },
+  "scheduled_lambda_reports": [
+    "REPORT RequestId: 339fbcef-9f87-445b-9396-03e3e88db294\tDuration: 7128.65 ms\tBilled Duration: 7129 ms\tMemory Size: 2048 MB\tMax Memory Used: 559 MB\t\n"
+  ],
+  "family_tracker": {
+    "image": "851725466918.dkr.ecr.us-east-1.amazonaws.com/gfpricetracker@sha256:e0360736621d981467de827acb3853132520b878e319245ac193762c43be3919",
+    "last_modified": "2026-07-14T19:27:34.000+0000",
+    "schedule_state": "ENABLED",
+    "schedule": "rate(15 minutes)"
+  }
+}

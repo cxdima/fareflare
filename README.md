@@ -1,4 +1,25 @@
-# Google Flights Price Tracker
+# Fareflare
+
+Track a Google Flights itinerary and get notified when its observed price falls.
+Fareflare grew out of a father-and-son Telegram tracker: a midnight email arrives
+too late when a fare drops and rebounds during the day.
+
+The customer application includes an invite-only dashboard, API keys, hosted MCP,
+Telegram connections, signed webhooks, and durable price history. It collects public
+prices with its own browser; no paid flight-data API or customer Google login is
+required. Development access is free and billing is disabled.
+
+Start with the [Fareflare setup guide](docs/FAREFLARE.md),
+[implementation status](docs/DEVELOPMENT_STATUS.md), and [release verification](docs/RELEASE_VERIFICATION.md).
+See [API/worker details](docs/NEXT.md) for the internal contracts.
+The code is [MIT licensed](LICENSE). API and worker code live in `src/gfpt_next/`,
+the dashboard in `web/`, and additive infrastructure in `infra-next/`.
+
+## Original family tracker
+
+The original application in `src/gfpt/` and `infra/` remains operational during
+the transition. The following sections document that application. Its deployment
+shortcut is guarded to prevent accidentally replacing the family service.
 
 Monitors the saved-flights list of one Google account on Google Flights and alerts its Telegram users (two of us, in practice) whenever a flight hits a new price low. Runs on AWS Lambda — an arm64 container image with headless Chromium — on an EventBridge schedule, every 15 minutes by default (`SCHEDULE_MINUTES` in `.env`).
 
