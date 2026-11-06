@@ -26,7 +26,12 @@ type TelegramModel = Pick<
   | 'telegram_show_fare'
   | 'telegram_silent'
 >;
-type Preview = { text: string; silent: boolean; time_zone: string };
+type Preview = {
+  text: string;
+  silent: boolean;
+  time_zone: string;
+  buttons?: { text: string; url: string }[];
+};
 
 @Component({
   selector: 'ff-preferences',

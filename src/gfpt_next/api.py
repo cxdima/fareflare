@@ -13,9 +13,10 @@ from gfpt_next.api_reference import render_api_reference
 from gfpt_next.credentials import Credentials, RateLimited, RateLimiter
 from gfpt_next.domain import AlertPolicy
 from gfpt_next.preferences import Preferences as PreferencesInput
-from gfpt_next.preferences import merge_preferences, telegram_text
+from gfpt_next.preferences import merge_preferences
 from gfpt_next.service import MonitoringService, NotFound
 from gfpt_next.store import Conflict
+from gfpt_next.telegram_messages import alert_message
 
 
 class PolicyInput(BaseModel):
@@ -168,7 +169,7 @@ class AlertList(BaseModel):
 
 def create_app(service: MonitoringService, api_keys: dict[str, str] | None = None, *,
                credentials: Credentials | None = None, limiter: RateLimiter | None = None,
-               live_collection: bool = False,
+               live_collection: bool = False, public_url: str | None = None,
                principal_resolver: Callable[[Request], str | None] | None = None) -> FastAPI:
     """api_keys maps tenant names to separate high-entropy service credentials."""
     api_keys = api_keys or {}
@@ -329,11 +330,15 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
             "id": "example-alert", "reason": "new_low",
             "observation": {"amount_minor": 19100, "currency": "USD", "price_basis": "total",
                             "fare_name": "Economy", "observed_at": int(service.clock())},
-            "itinerary": {"adults": 1, "url": "https://www.google.com/travel/flights",
+            "itinerary": {"adults": 1, "url": "https://www.google.com/travel/flights?tfs=CBoQAho_EgoyMDI3LTAzLTE0Ih8KA0RFThIKMjAyNy0wMy0xNBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1",
                           "segments": [{"date": "2027-03-14", "legs": [{
                               "origin": "DEN", "destination": "DFW", "airline": "UA", "number": "414"}]}]},
         }
-        return {"text": "Example alert — sample data\n\n" + telegram_text(sample, preferences),
+        message = alert_message(sample, preferences, public_url)
+        buttons = [{"text": button["text"], "url": button["url"]}
+                   for row in (message.reply_markup or {}).get("inline_keyboard", [])
+                   for button in row if "url" in button]
+        return {"text": "Example alert — sample data\n\n" + message.text, "buttons": buttons,
                 "silent": preferences.telegram_silent, "time_zone": preferences.time_zone or "UTC"}
 
     return app

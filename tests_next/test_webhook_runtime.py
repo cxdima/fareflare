@@ -48,6 +48,16 @@ def test_runtime_delivery_mode_preserves_explicit_destination(store, clock, flig
         aws.assert_not_called()
 
     telegram_requests = []
+    telegram_monitors = []
+    send = TelegramSink.send
+
+    def record_delivery(sink, delivery):
+        sent = send(sink, delivery)
+        if sent:
+            telegram_monitors.append(delivery["monitor_id"])
+        return sent
+
+    monkeypatch.setattr(TelegramSink, "send", record_delivery)
 
     def telegram(request):
         telegram_requests.append(json.loads(request.content))
@@ -74,8 +84,9 @@ def test_runtime_delivery_mode_preserves_explicit_destination(store, clock, flig
     if receiver.events:
         assert receiver.events[0]["data"]["monitor_id"] == webhook_monitor["id"]
     if telegram_requests:
-        assert deliveries[legacy_monitor["id"]]["id"][:12] in telegram_requests[0]["text"]
-        assert deliveries[webhook_monitor["id"]]["id"][:12] not in telegram_requests[0]["text"]
+        assert telegram_monitors == [legacy_monitor["id"]]
+        assert telegram_requests[0]["chat_id"] == "111"
+        assert "USD 309.00" in telegram_requests[0]["text"]
 
 
 def test_invalid_runtime_delivery_mode_fails_before_secret_or_network_access(store, monkeypatch):

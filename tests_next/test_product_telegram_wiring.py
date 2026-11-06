@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
 from gfpt_next import product_runtime, product_telegram, runtime
-from gfpt_next.telegram_accounts import TelegramConnections
+from gfpt_next.telegram_accounts import ReplyResult, TelegramConnections
 from gfpt_next.webhooks import RoutedSink
 
 BOT_TOKEN = "123456:" + "x" * 30
@@ -40,7 +40,7 @@ def test_application_reads_bot_secret_and_handles_only_verified_webhook(store, m
     monkeypatch.setenv("LAMBDA_TASK_ROOT", str(tmp_path))
     monkeypatch.setattr(product_runtime, "DynamoStore", lambda *args, **kwargs: store)
     replies = []
-    monkeypatch.setattr(TelegramConnections, "_reply", lambda self, chat, text: replies.append((chat, text)))
+    monkeypatch.setattr(TelegramConnections, "_reply", lambda self, chat, text: replies.append((chat, text)) or ReplyResult(True))
     app = product_runtime.build_application()
     update = {"update_id": 100, "message": {"text": "/help", "chat": {"id": 999, "type": "private"},
                                            "from": {"id": 999}}}
@@ -54,7 +54,7 @@ def test_application_reads_bot_secret_and_handles_only_verified_webhook(store, m
     assert clients == ["secretsmanager"]
     assert len(replies) == 1
     assert replies[0][0] == "999"
-    assert "Connect Telegram" in replies[0][1]
+    assert "Connect Telegram" in replies[0][1].text
 
 
 def test_product_worker_loads_bot_using_only_secrets_manager(store, monkeypatch):

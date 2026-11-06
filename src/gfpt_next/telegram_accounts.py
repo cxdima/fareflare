@@ -6,31 +6,45 @@ Connection links are single use; no Telegram identity is trusted from the web UI
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import secrets
 import time
 from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
 from gfpt_next.accounts import Accounts, AuthenticationFailed
-from gfpt_next.credentials import RateLimiter
+from gfpt_next.credentials import RateLimited, RateLimiter
 from gfpt_next.delivery import TelegramSink, install_telegram_log_redaction
 from gfpt_next.preferences import merge_preferences
 from gfpt_next.store import Conflict, Document, Store
+from gfpt_next.telegram_messages import TelegramMessage
+
+if TYPE_CHECKING:
+    from gfpt_next.service import MonitoringService
 
 _START = re.compile(r"/start(?:@([A-Za-z0-9_]+))?\s+ff_([A-Za-z0-9_-]{43})\Z")
-_COMMAND = re.compile(r"/(start|help|stop)(?:@([A-Za-z0-9_]+))?\Z")
+_COMMAND = re.compile(r"/([a-z_]+)(?:@([A-Za-z0-9_]+))?(?=\s|$)")
 
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+@dataclass(frozen=True)
+class ReplyResult:
+    sent: bool
+    retry_after: int = 2
+
+
 class TelegramConnections:
     def __init__(self, store: Store, accounts: Accounts, bot_token: str, bot_username: str,
                  public_url: str, *, transport=None,
-                 client: httpx.Client | None = None, clock: Callable[[], float] = time.time):
+                 client: httpx.Client | None = None, clock: Callable[[], float] = time.time,
+                 service: MonitoringService | None = None):
         if not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", bot_token):
             raise ValueError("Invalid Telegram bot credential")
         if not re.fullmatch(r"[A-Za-z0-9_]{5,32}", bot_username):
@@ -42,6 +56,11 @@ class TelegramConnections:
         self.public_url = public_url.rstrip("/")
         self._transport, self._client = transport, client
         self._limit = RateLimiter(store, clock, per_minute=5)
+        self._commands_limit = RateLimiter(store, clock, per_minute=20)
+        from gfpt_next.service import MonitoringService
+        from gfpt_next.telegram_bot import TelegramBot
+        self._bot = TelegramBot(service or MonitoringService(store, clock), accounts,
+                                self.public_url, clock=clock)
 
     def _now(self) -> int:
         return int(self.clock())
@@ -60,7 +79,8 @@ class TelegramConnections:
             return None
         chat = self.store.get("telegram-chat:" + binding.data["chat_id"])
         if (not chat or not chat.data.get("connected") or chat.data.get("tenant") != tenant
-                or chat.data.get("auth_epoch") != epoch):
+                or chat.data.get("auth_epoch") != epoch
+                or chat.data.get("connection_id") != binding.data.get("connection_id")):
             return None
         return binding
 
@@ -94,10 +114,16 @@ class TelegramConnections:
         return preferences.update({**preferences.data,
                                    "notification_epoch": preferences.data.get("notification_epoch", 0) + 1})
 
-    def disconnect(self, tenant: str) -> None:
+    def disconnect(self, tenant: str, *, expected: dict | None = None) -> None:
         for _ in range(5):
             account = self._account(tenant)
             binding = self.store.get("telegram-account:" + tenant)
+            if expected is not None and (
+                account.data["auth_epoch"] != expected["auth_epoch"] or not binding
+                or not binding.data.get("connected") or binding.data.get("chat_id") != expected["chat_id"]
+                or binding.data.get("connection_id", binding.data.get("connected_at")) != expected["connection_id"]
+            ):
+                return  # An old chat cannot disconnect a connection established after its command.
             if not binding or (not binding.data.get("connected") and not binding.data.get("pending_hash")):
                 return
             writes = [account.update(account.data), self._notification_fence(tenant),
@@ -141,8 +167,10 @@ class TelegramConnections:
                 account.update(account.data), self._notification_fence(tenant),
                 challenge.update({**challenge.data, "used": True}),
                 binding.update({"tenant": tenant, "auth_epoch": epoch, "connected": True,
-                                "chat_id": chat_id, "pending_hash": None, "connected_at": self._now()}),
-                chat.update({"tenant": tenant, "auth_epoch": epoch, "connected": True}, expires_at=None),
+                                "chat_id": chat_id, "pending_hash": None, "connected_at": self._now(),
+                                "connection_id": identifier}),
+                chat.update({"tenant": tenant, "auth_epoch": epoch, "connected": True,
+                             "connection_id": identifier}, expires_at=None),
             ]
             if old_chat and old_chat.data.get("tenant") == tenant:
                 writes.append(old_chat.update({"connected": False}, expires_at=self._now()))
@@ -165,16 +193,19 @@ class TelegramConnections:
             return None
         return str(identifier)
 
-    def _claim_update(self, update_id: int) -> Document | None:
+    def _claim_update(self, update_id: int, fingerprint: str) -> Document | None:
         key = "telegram-update:" + str(update_id)
         for _ in range(5):
             current = self.store.get(key)
+            if current and current.data.get("fingerprint", fingerprint) != fingerprint:
+                return current.update({"done": True})
             if current and (current.data.get("done") or current.due > self._now()):
                 return current
             current = current or Document(key, "telegram-updates", {})
             lease = secrets.token_hex(16)
             try:
-                self.store.commit([current.update({"done": False, "lease": lease},
+                self.store.commit([current.update({**current.data, "done": False, "lease": lease,
+                                                   "fingerprint": fingerprint},
                                                    due=self._now() + 30, expires_at=self._now() + 2 * 86400)])
                 claimed = self.store.get(key)
                 if claimed and claimed.data.get("lease") == lease:
@@ -183,61 +214,190 @@ class TelegramConnections:
                 continue
         return None
 
-    def _reply(self, chat_id: str, text: str) -> None:
+    def _call(self, method: str, payload: dict) -> dict:
         try:
             if self._client is not None:
-                self._client.post(f"https://api.telegram.org/bot{self._token}/sendMessage",
-                                  json={"chat_id": chat_id, "text": text})
+                response = self._client.post(f"https://api.telegram.org/bot{self._token}/{method}",
+                                             json=payload)
             else:
-                with httpx.Client(timeout=10, follow_redirects=False, trust_env=False,
+                with httpx.Client(timeout=5, follow_redirects=False, trust_env=False,
                                   transport=self._transport) as client:
-                    client.post(f"https://api.telegram.org/bot{self._token}/sendMessage",
-                                json={"chat_id": chat_id, "text": text})
-        except httpx.HTTPError:
-            pass  # The durable connection does not depend on this optional confirmation.
+                    response = client.post(f"https://api.telegram.org/bot{self._token}/{method}",
+                                           json=payload)
+            result = response.json()
+            if not isinstance(result, dict):
+                return {"ok": False}
+            parameters = result.get("parameters")
+            delay = parameters.get("retry_after") if isinstance(parameters, dict) else None
+            retry_after = min(3600, max(2, delay)) if response.status_code == 429 and type(delay) is int else 2
+            return {**result, "http_status": response.status_code,
+                    "retry_after": retry_after,
+                    "ok": response.is_success and result.get("ok") is True}
+        except (httpx.HTTPError, ValueError):
+            return {"ok": False}
+
+    def _reply(self, chat_id: str, message: TelegramMessage, *, message_id: int | None = None) -> ReplyResult:
+        payload = {"chat_id": chat_id, **message.payload()}
+        if message_id is not None:
+            result = self._call("editMessageText", {**payload, "message_id": message_id})
+            description = result.get("description")
+            if result.get("ok") or (result.get("http_status") == 400 and result.get("error_code") == 400
+                                     and isinstance(description, str) and "message is not modified" in description.lower()):
+                return ReplyResult(True)
+            if result.get("http_status") == 403 and result.get("error_code") == 403:
+                return ReplyResult(True)  # A blocked bot cannot deliver; retries cannot repair that.
+            if result.get("http_status") != 400 or result.get("error_code") != 400:
+                return ReplyResult(False, result.get("retry_after", 2))
+            # Old or inaccessible messages can no longer be edited. Send a fresh menu.
+        result = self._call("sendMessage", payload)
+        return ReplyResult(result.get("ok") is True or (result.get("http_status") == 403 and result.get("error_code") == 403),
+                           result.get("retry_after", 2))
+
+    def _identity(self, chat_id: str) -> dict | None:
+        chat = self.store.get("telegram-chat:" + chat_id)
+        if not chat or not chat.data.get("connected"):
+            return None
+        tenant, epoch = chat.data.get("tenant"), chat.data.get("auth_epoch")
+        if (not isinstance(tenant, str) or type(epoch) is not int
+                or not self.accounts.validate_account_active(tenant, epoch)):
+            return None
+        binding = self._binding(tenant, epoch)
+        if not binding or binding.data.get("chat_id") != chat_id:
+            return None
+        return {"tenant": tenant, "auth_epoch": epoch,
+                "connection_id": binding.data.get("connection_id", binding.data.get("connected_at"))}
+
+    def _connection_instructions(self) -> TelegramMessage:
+        return TelegramMessage(
+            "Welcome to Fareflare\n\nWatch flight prices and manage your alerts here.\n"
+            "Sign in to Fareflare, open Account settings, and choose Connect Telegram.",
+            "<b>Welcome to Fareflare</b>\n\nWatch flight prices and manage your alerts here.\n"
+            "Sign in to Fareflare, open <b>Account settings</b>, and choose <b>Connect Telegram</b>.",
+            {"inline_keyboard": [[{"text": "Connect your account", "url": self.public_url + "/app#settings",
+                                   "style": "primary"}]]},
+        )
+
+    def _callback(self, query: dict) -> tuple[str, int, str] | None:
+        message = query.get("message")
+        if not isinstance(message, dict) or not isinstance(message.get("from"), dict):
+            return None
+        author = message["from"]
+        if author.get("id") != int(self._token.split(":", 1)[0]) or author.get("is_bot") is not True:
+            return None
+        chat_id = self._private_chat({"chat": message.get("chat"), "from": query.get("from")})
+        message_id, data = message.get("message_id"), query.get("data")
+        if (not chat_id or type(message_id) is not int or message_id <= 0
+                or message.get("date") == 0 or not isinstance(data, str)):
+            return None
+        try:
+            if not 1 <= len(data.encode()) <= 64:
+                return None
+        except UnicodeError:
+            return None
+        return chat_id, message_id, data
+
+    def _deliver_reply(self, claim: Document) -> bool:
+        cached = claim.data.get("reply")
+        if cached is None:
+            self.store.commit([claim.update({"done": True})])
+            return True
+        chat_id, scope = claim.data["chat_id"], claim.data.get("scope")
+        if scope is not None and self._identity(chat_id) != scope:
+            self.store.commit([claim.update({"done": True})])
+            return True  # Recovery/rebinding must never deliver a cached account view.
+        message = TelegramMessage(**cached)
+        message_id = claim.data.get("message_id")
+        result = (self._reply(chat_id, message, message_id=message_id) if message_id is not None
+                  else self._reply(chat_id, message))
+        data = {key: value for key, value in claim.data.items() if key != "claimed"}
+        self.store.commit([claim.update({"done": True} if result.sent else data,
+                                       due=self._now() + (0 if result.sent else result.retry_after))])
+        return result.sent
+
+    def _cache_reply(self, claim: Document, chat_id: str | None, reply: TelegramMessage | None,
+                     message_id: int | None, scope: dict | None) -> bool:
+        if chat_id and reply is not None:
+            reply.payload()
+            data = {key: value for key, value in claim.data.items() if key != "claimed"}
+            self.store.commit([claim.update({**data, "reply": asdict(reply), "chat_id": chat_id,
+                                            "message_id": message_id, "scope": scope})])
+            refreshed = self.store.get(claim.key)
+            assert refreshed is not None
+            return self._deliver_reply(refreshed)
+        return self._deliver_reply(claim)
+
+    def _throttle_notice(self, chat_id: str) -> TelegramMessage | None:
+        # Cap notices too: excess commands must not create an outbound flood.
+        key = f"telegram-throttle:{chat_id}:{self._now() // 60}"
+        if self.store.get(key):
+            return None
+        try:
+            self.store.commit([Document(key, "telegram-throttle", {}, expires_at=self._now() + 120)])
+        except Conflict:
+            return None
+        return TelegramMessage("Please wait a minute before sending another command. Your flight checks continue.")
 
     def handle_update(self, update: dict) -> bool:
         if not isinstance(update, dict) or type(update.get("update_id")) is not int or update["update_id"] < 0:
             return True
-        claim = self._claim_update(update["update_id"])
+        fingerprint = _digest(json.dumps(update, sort_keys=True, separators=(",", ":")))
+        claim = self._claim_update(update["update_id"], fingerprint)
         if claim is None:
             return False
         if not claim.data.get("claimed"):
             return claim.data.get("done") is True
+        query = update.get("callback_query")
+        callback = self._callback(query) if isinstance(query, dict) else None
+        if isinstance(query, dict) and isinstance(query.get("id"), str) and 0 < len(query["id"]) <= 256:
+            payload = {"callback_query_id": query["id"]}
+            if callback is None:
+                payload["text"] = "Open /start in your private Fareflare chat."
+            self._call("answerCallbackQuery", payload)
+        if claim.data.get("reply") is not None:
+            return self._deliver_reply(claim)
+        if isinstance(query, dict) and callback is None:
+            return self._deliver_reply(claim)
         message = update.get("message")
         message = message if isinstance(message, dict) else {}
         text = message.get("text")
         text = text.strip() if isinstance(text, str) else ""
-        private_chat = self._private_chat(message)
+        private_chat = callback[0] if callback else self._private_chat(message)
+        message_id = callback[1] if callback else None
+        callback_data = callback[2] if callback else None
         reply = None
+        scope = self._identity(private_chat) if private_chat else None
+        command = _COMMAND.match(text)
+        if command and command[2] and command[2].lower() != self.bot_username.lower():
+            return self._deliver_reply(claim)
+        normalized = "/" + command[1] + text[command.end():] if command else text
+        if private_chat and normalized in ("/stop", "/disconnect") and scope:
+            # Opting out remains available even after the interactive command limit.
+            self.disconnect(scope["tenant"], expected={**scope, "chat_id": private_chat})
+            reply = TelegramMessage("Telegram alerts are disconnected. Your flights and alert history remain in Fareflare.")
+            return self._cache_reply(claim, private_chat, reply, message_id, None)
+        if private_chat:
+            try:
+                self._commands_limit.consume("telegram-command-" + private_chat)
+            except RateLimited:
+                return self._cache_reply(claim, private_chat, self._throttle_notice(private_chat), message_id, scope)
         match = _START.fullmatch(text)
         if private_chat and match and (not match[1] or match[1].lower() == self.bot_username.lower()):
-            reply = self._consume(match[2], private_chat)
+            reply = TelegramMessage(self._consume(match[2], private_chat))
+            scope = self._identity(private_chat)
+            if reply.text.startswith("Fareflare is connected") and scope:
+                reply = self._bot.handle(scope["tenant"], private_chat, scope["auth_epoch"],
+                                         "/start", None, update["update_id"])
         elif private_chat:
-            command = _COMMAND.fullmatch(text)
-            chat = self.store.get("telegram-chat:" + private_chat)
-            tenant = chat.data.get("tenant") if chat and chat.data.get("connected") else None
-            bound = (chat is not None and isinstance(tenant, str)
-                     and self.accounts.validate_account_active(tenant, chat.data["auth_epoch"])
-                     and self._binding(tenant, chat.data["auth_epoch"]) is not None)
-            if command and (not command[2] or command[2].lower() == self.bot_username.lower()):
-                if command[1] == "stop":
-                    if bound and isinstance(tenant, str):
-                        self.disconnect(tenant)
-                        reply = "Telegram alerts are disconnected. Your flights and alert history remain in Fareflare."
-                    else:
-                        reply = "This chat is not connected to Fareflare."
-                elif bound:
-                    reply = ("Your Fareflare alerts are connected. Manage flights and alert preferences in your account. "
-                             "Use /stop to disconnect Telegram.\n" + self.public_url + "/app")
-                else:
-                    reply = ("Fareflare sends alerts when it observes a flight price change. "
-                             "Sign in, open Account settings, and choose Connect Telegram to link this chat.\n"
-                             + self.public_url + "/app#settings")
-        self.store.commit([claim.update({"done": True})])
-        if private_chat and reply:
-            self._reply(private_chat, reply)
-        return True
+            text = normalized
+            if text in ("/stop", "/disconnect"):
+                reply = TelegramMessage("This chat is not connected to Fareflare.")
+                scope = None
+            elif scope:
+                reply = self._bot.handle(scope["tenant"], private_chat, scope["auth_epoch"],
+                                         text or None, callback_data, update["update_id"])
+            elif callback or text in ("/start", "/help", "/flights", "/add", "/settings", "/cancel") or text.startswith("https://"):
+                reply = self._connection_instructions()
+        return self._cache_reply(claim, private_chat, reply, message_id, scope)
 
     def send(self, delivery: dict) -> bool:
         tenant = delivery.get("tenant")
@@ -254,4 +414,5 @@ class TelegramConnections:
             return True  # Inbox history already exists; no stale alert is sent to a newly connected chat.
         return TelegramSink(self._token, {tenant: binding.data["chat_id"]},
                             transport=self._transport,
+                            public_url=self.public_url,
                             preferences=merge_preferences(preferences.data.get("preferences") if preferences else None)).send(delivery)

@@ -7,6 +7,14 @@ for image digests, local checks and the completed production verification.
 
 ## Current development revision
 
+- **Telegram bot — implementation pending verification:** native private-chat
+  controls for adding Google Flights links with confirmation, paginated flights
+  and recorded prices, pause/resume, retry, confirmed stopping, target-price and
+  minimum-drop entry, new-low/rebound rules, muting and message settings. Alerts
+  use concise formatted text and validated link buttons. Profile and webhook
+  setup tools preserve private rollback snapshots. See the [Telegram guide](TELEGRAM.md)
+  for user behavior and [operations](OPERATIONS.md#telegram-configuration) for
+  deployment steps. These changes are not covered by the prior release counts below.
 - **Personal settings:** saved IANA time zones, six regional formats, 12/24-hour
   clocks, Telegram detail options and silent delivery. An explicit message preview
   uses sample data without sending a notification. Existing global/route muting

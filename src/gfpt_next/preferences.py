@@ -88,37 +88,6 @@ def regional_price(amount_minor: int, currency: str, locale: Locale) -> str:
 
 
 def telegram_text(delivery: dict, preferences: Preferences) -> str:
-    """Render plain text only; provider strings are never interpreted as markup."""
-    observation = delivery["observation"]
-    price = regional_price(observation["amount_minor"], observation["currency"], preferences.locale)
-    reason = {"tracking_started": "Tracking started", "new_low": "New observed low",
-              "below_price": "Price threshold reached", "rebound": "Price rose from its low"}[delivery["reason"]]
-    itinerary = delivery.get("itinerary", {})
-    lines = [f"{reason}: {price}"]
-    for segment in itinerary.get("segments", []):
-        legs = segment["legs"]
-        day = regional_date(date.fromisoformat(segment["date"]), preferences.locale)
-        route = f"{legs[0]['origin']} → {legs[-1]['destination']} · {day}"
-        if preferences.telegram_show_flight_numbers:
-            flights = ", ".join(leg["airline"] + leg["number"] for leg in legs)
-            route += " · " + flights
-        lines.append(route)
-    details = []
-    if itinerary.get("adults") and observation.get("price_basis") == "total":
-        adults = itinerary["adults"]
-        details.append(f"Total for {adults} adult" + ("s" if adults > 1 else ""))
-    if preferences.telegram_show_fare and observation.get("fare_name"):
-        details.append("Fare: " + observation["fare_name"])
-    if preferences.telegram_style == "compact":
-        if details:
-            lines.append(" · ".join(details))
-    else:
-        lines.extend(details)
-    if preferences.telegram_show_observed_time:
-        lines.append("Observed " + observed_time(observation["observed_at"], preferences))
-    url = itinerary.get("url", "")
-    if url and len(url) <= 1200:
-        lines.append(url)
-    if preferences.telegram_style == "detailed":
-        lines.append(f"Alert {delivery['id'][:12]}")
-    return "\n".join(lines)
+    """Compatibility helper for the shared presenter's plain message body."""
+    from gfpt_next.telegram_messages import alert_message
+    return alert_message(delivery, preferences).text

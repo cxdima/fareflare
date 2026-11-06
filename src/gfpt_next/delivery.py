@@ -6,7 +6,8 @@ import re
 
 import httpx
 
-from gfpt_next.preferences import Preferences, telegram_text
+from gfpt_next.preferences import Preferences
+from gfpt_next.telegram_messages import alert_message
 
 
 class _TelegramCredentialFilter(logging.Filter):
@@ -28,7 +29,7 @@ def install_telegram_log_redaction() -> None:
 
 class TelegramSink:
     def __init__(self, token: str, recipients: dict[str, str], transport=None, *,
-                 preferences: Preferences | None = None):
+                 preferences: Preferences | None = None, public_url: str | None = None):
         if not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token):
             raise ValueError("Invalid Telegram bot credential")
         if not recipients or any(not re.fullmatch(r"-?\d+", chat) for chat in recipients.values()):
@@ -36,6 +37,7 @@ class TelegramSink:
         install_telegram_log_redaction()
         self._token, self._recipients, self._transport = token, recipients, transport
         self._preferences = preferences or Preferences()
+        self._public_url = public_url
 
     def send(self, delivery: dict) -> bool:
         if delivery.get("webhook_id") is not None:
@@ -43,13 +45,14 @@ class TelegramSink:
         chat = self._recipients.get(delivery["tenant"])
         if chat is None:
             return False
-        text = telegram_text(delivery, self._preferences)
         try:
+            message = alert_message(delivery, self._preferences, self._public_url)
+            payload = {**message.payload(), "chat_id": chat,
+                       "disable_notification": self._preferences.telegram_silent}
             with httpx.Client(timeout=10, follow_redirects=False, trust_env=False,
                               transport=self._transport) as client:
                 response = client.post(f"https://api.telegram.org/bot{self._token}/sendMessage",
-                                       json={"chat_id": chat, "text": text,
-                                             "disable_notification": self._preferences.telegram_silent})
+                                       json=payload)
                 return response.is_success and response.json().get("ok") is True
         except (httpx.HTTPError, ValueError):
             return False

@@ -8,6 +8,8 @@
   signatures, and delivery behavior.
 - [Account preferences](ACCOUNT_PREFERENCES.md): time zones, regional formatting,
   Telegram messages, muting and their API/MCP contract.
+- [Telegram guide](TELEGRAM.md): connect once, manage flights and alert rules,
+  review prices, and control messages in chat; implementation pending verification.
 - [Operations](OPERATIONS.md): invitations, Terraform, image releases, Telegram,
   monitoring, and recovery.
 

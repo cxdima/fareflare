@@ -13,15 +13,17 @@ Open **Account settings** to configure display formats, Telegram messages and mu
 | `telegram_show_flight_numbers` | `true` | Include flight numbers. |
 | `telegram_show_observed_time` | `true` | Include when the fare was checked, with its time zone. |
 | `telegram_show_fare` | `true` | Include the fare name when available. |
-| `telegram_silent` | `false` | Send immediately without a Telegram notification sound. |
-| `muted` | `false` | Stop outgoing notifications while collection/history continue. |
+| `telegram_silent` | `false` | Send Telegram alerts without notification sound; webhooks are unaffected. |
+| `muted` | `false` | Stop outgoing notifications, including webhooks, while collection/history continue. |
 | `muted_routes` | `[]` | Mute up to 100 airport pairs, such as `DEN-DFW`. |
 
 With no saved time zone, the website uses the device's zone and Telegram uses UTC. **Use device time zone** selects the current device's named zone; **Save display settings** persists it for Telegram and other devices. API clients can restore the fallback with `time_zone: null`. Raw fixed offsets and host-specific names such as `localtime` are rejected.
 
 Observation timestamps are instants; departure dates remain the airport's calendar date. CSV timestamps stay ISO 8601 UTC. Regional formatting preserves the quoted currency and amount: it does not convert USD to EUR or change collection currency. Interface and Telegram prose remain English.
 
-Price, route and booking link remain in Telegram alerts. **Preview message** renders sample data using the selected message options and saved display settings. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged.
+Price and route remain in Telegram alerts. The current bot implementation moves validated flight/dashboard links into native buttons, removing raw booking URLs and internal IDs from the visible body. **Preview message** renders sample data using the selected message options and saved display settings, with noninteractive example button labels. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged. These presentation changes are [pending release verification](DEVELOPMENT_STATUS.md#current-development-revision).
+
+After connecting once through the website, the [Telegram bot](TELEGRAM.md) offers compact/detailed messages, sound and global muting through `/settings`. Time zone, regional format, individual detail fields and route muting remain in Account settings.
 
 ## API and MCP contract
 
@@ -31,13 +33,13 @@ Price, route and booking link remain in Telegram alerts. **Preview message** ren
 {"time_zone":"America/Chicago","hour_cycle":"h23","telegram_silent":true}
 ```
 
-`POST /v1/preferences/telegram-preview` accepts the same partial preference fields and returns `text`, `silent` and the effective `time_zone`. Browser mutations require the session's CSRF token. API keys use bearer authentication.
+`POST /v1/preferences/telegram-preview` accepts the same partial preference fields and returns `text`, `buttons` (label/URL pairs), `silent` and the effective `time_zone`. The website displays button labels without opening the sample links. Browser mutations require the session's CSRF token. API keys use bearer authentication.
 
 MCP exposes `get_preferences` and `set_preferences`. Pass the partial object through `settings`; the existing `muted` and `muted_routes` arguments remain supported.
 
 ## Implementation boundaries
 
-`PreferencesFacade` owns dashboard-scoped state, deduplicates reads and cancels requests at teardown. `RegionalFormat` caches reactive browser `Intl` formatters; pure factories live in `regional-formatting.ts`. The Python `Preferences` model validates API, MCP and delivery input. `MonitoringService` merges changes with optimistic concurrency; `telegram_text` renders plain text through the existing Telegram adapter.
+`PreferencesFacade` owns dashboard-scoped state, deduplicates reads and cancels requests at teardown. `RegionalFormat` caches reactive browser `Intl` formatters; pure factories live in `regional-formatting.ts`. The Python `Preferences` model validates API, MCP and delivery input. `MonitoringService` merges changes with optimistic concurrency. `telegram_messages` renders escaped HTML and a plain counterpart from the same preferences; `telegram_text` retains the plain-text interface.
 
 Presentation changes preserve queued alerts and use current preferences at delivery. Muting changes advance the notification revision so stale queued alerts cannot reappear after unmuting. Deployments need IANA tzdata in both API and delivery images.
 

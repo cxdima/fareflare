@@ -12,6 +12,7 @@ from gfpt_next.accounts import Accounts
 from gfpt_next.store import Store
 
 if TYPE_CHECKING:
+    from gfpt_next.service import MonitoringService
     from gfpt_next.telegram_accounts import TelegramConnections
 
 
@@ -31,7 +32,7 @@ class TelegramRuntime:
     webhook_secret: str
 
 
-def build_telegram(store: Store, accounts: Accounts, public_url: str):
+def build_telegram(store: Store, accounts: Accounts, public_url: str, *, service: MonitoringService | None = None):
     arn = os.environ.get("GFPT_NEXT_CUSTOMER_TELEGRAM_SECRET_ARN")
     if not arn:
         return None
@@ -40,5 +41,5 @@ def build_telegram(store: Store, accounts: Accounts, public_url: str):
     config = json.loads(boto3.client("secretsmanager", region_name=region)
                         .get_secret_value(SecretId=arn)["SecretString"])
     connections = TelegramConnections(store, accounts, config["bot_token"], config["bot_username"], public_url,
-                                      clock=accounts.clock)
+                                      clock=accounts.clock, service=service)
     return TelegramRuntime(connections, config["webhook_secret"])
