@@ -1,5 +1,8 @@
 # Fareflare interface verification
 
+For the subsequent history, collection and onboarding release, see
+[the current verification report](HISTORY_RELEASE_VERIFICATION.md).
+
 This release removes personal origin content and retired tracker behavior from the
 product and repository. The public site, authentication, dashboard, API/MCP setup,
 and bot connection messages use the same product terminology.

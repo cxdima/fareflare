@@ -2,7 +2,7 @@
 
 Fareflare is available as a free, invite-only service and as MIT-licensed source.
 Billing remains disabled. The current interface and release checks are documented
-in [website verification](WEBSITE_VERIFICATION.md).
+in [the current release verification](HISTORY_RELEASE_VERIFICATION.md).
 
 ## Available
 
