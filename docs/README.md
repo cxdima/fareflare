@@ -24,6 +24,8 @@
 ## Status and evidence
 
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
+- [Personal settings verification](SETTINGS_VERIFICATION.md): current local tests,
+  packaged images, visual review and deployment status.
 - [Frontend stack audit](STACK_AUDIT.md): Angular/Bootstrap runtime checks and the
   shared script-free API reference.
 - [History release verification](HISTORY_RELEASE_VERIFICATION.md): recorded history,

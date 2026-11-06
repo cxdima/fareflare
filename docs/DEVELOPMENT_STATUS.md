@@ -3,7 +3,8 @@
 Fareflare is available as a free, invite-only service and as MIT-licensed source.
 Billing remains disabled. The most recent recorded hosted release is documented
 in [the history release verification](HISTORY_RELEASE_VERIFICATION.md). Source
-changes described below have not yet received a new deployment verification record.
+changes described below are verified locally and packaged; deployment awaits a
+renewed AWS session. See [personal settings verification](SETTINGS_VERIFICATION.md).
 
 ## Current development revision
 
@@ -20,9 +21,9 @@ changes described below have not yet received a new deployment verification reco
   default Swagger/ReDoc applications. [The audit](STACK_AUDIT.md) distinguishes
   that change from the unverified browser-extension detection report.
 
-Local backend verification completed with **761 passing tests and 92.58% coverage**.
-The regional formatter's eight pure cases passed. The combined browser checks and
-deployment verification are still in progress for this revision; earlier release
+Local verification completed with **761 backend tests, 92.58% coverage and 69
+frontend checks**. The API and worker images passed 60 isolated checks with exact
+source/build hashes. Hosted verification awaits deployment; earlier release
 results below apply to their recorded builds.
 
 ## Previously verified capabilities
