@@ -21,10 +21,22 @@ prioritizes a connection method and complete copyable configuration rather than
 equal panels competing for attention.
 
 Public pages explain tracking with a labeled example and a real sequence of user
-actions. Upright Plus Jakarta Sans replaces the serif/italic combination. Cool
-surfaces, navy text, orange primary actions, and green price states are shared
+actions. Upright Plus Jakarta Sans replaces the serif/italic combination. Muted
+sage surfaces, deep green text, burnt-orange actions, and green price states are shared
 across the site. No personal origin story, decorative overlines, or development
 labels in the workspace header/footer.
+
+The comfort revision keeps the layout while replacing bright white surfaces and
+the sidebar selection pill. Active navigation uses a short underline and type
+weight. Flight actions pair a plane icon with an explicit label; other settings
+keep ordinary action labels. Account preferences and sign-out share one compact
+group. Bootstrap variables and reusable classes define colors, boundaries,
+hover/pressed states and focus rings; component templates contain no inline styles.
+
+Regional settings include a format example and explain which values remain
+unchanged: airport departure dates, fare currency and UTC exports. A Telegram
+preview uses the same server renderer as delivery and clearly identifies sample
+data. These choices are documented in [the preference contract](ACCOUNT_PREFERENCES.md).
 
 These sources inform decisions, not guarantees of visual quality. Verification
 includes screenshots, narrow screens, keyboard use, accessibility checks, and

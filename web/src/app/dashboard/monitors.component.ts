@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../core/api.service';
-import { money, timestamp, tripDate } from '../core/format';
+import { RegionalFormat } from '../core/regional-format';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -24,9 +24,10 @@ export class MonitorsComponent {
   readonly presenter = inject(MonitorPresenter);
   readonly action = new ActionState();
   private readonly api = inject(ApiService);
-  readonly money = money;
-  readonly timestamp = timestamp;
-  readonly tripDate = tripDate;
+  readonly money = (amount: number, currency: string) => this.regional.money(amount, currency);
+  readonly regional = inject(RegionalFormat);
+  readonly timestamp = this.regional.timestamp;
+  readonly tripDate = this.regional.tripDate;
   readonly routeName = routeName;
   readonly statusLabel = statusLabel;
   readonly creating = signal(false);
@@ -76,7 +77,7 @@ export class MonitorsComponent {
     this.filter.set('all');
   }
   dates(item: Monitor): string {
-    return item.target.segments.map((segment) => tripDate(segment.date)).join(' – ');
+    return item.target.segments.map((segment) => this.tripDate(segment.date)).join(' – ');
   }
   collectionMessage(item: Monitor): string {
     if (!this.current(item)) return 'This monitor is no longer checking prices.';

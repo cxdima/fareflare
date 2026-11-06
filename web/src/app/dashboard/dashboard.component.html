@@ -13,18 +13,16 @@
           alt=""
         />Fareflare</a
       >
-      <nav aria-label="Main navigation">
+      <nav class="nav flex-column" aria-label="Main navigation">
         @for (item of navigation; track item.id) {
           <a
+            class="nav-link"
             [href]="'/app#' + item.id"
             [attr.aria-current]="!authorization && view() === item.id ? 'page' : null"
             (click)="select($event, item.id)"
             ><i [class]="'bi ' + item.icon" aria-hidden="true"></i
             ><span class="nav-label">{{ item.label }}</span
             ><span class="nav-label-short" aria-hidden="true">{{ item.shortLabel }}</span>
-            @if (item.id === 'monitors' && workspace.monitorsLoaded()) {
-              <span class="nav-count" aria-hidden="true">{{ workspace.activeCount() }}</span>
-            }
           </a>
         }
       </nav>
@@ -38,22 +36,24 @@
             (opens a new tab)</span
           ></a
         >
-        <div class="profile">
-          <span class="profile-initial" aria-hidden="true">{{
-            account.username.slice(0, 1).toUpperCase()
-          }}</span>
-          <div>
-            <strong>{{ account.username }}</strong>
-          </div>
+        <div class="account-panel">
+          <a class="profile" href="/app#settings" (click)="select($event, 'settings')">
+            <span class="profile-icon" aria-hidden="true"><i class="bi bi-person"></i></span>
+            <span class="profile-details"
+              ><strong>{{ account.username }}</strong
+              ><span>Preferences</span></span
+            >
+            <i class="bi bi-chevron-right profile-chevron" aria-hidden="true"></i>
+          </a>
+          <button
+            type="button"
+            class="btn btn-outline-primary signout"
+            [disabled]="logoutAction.busy()"
+            (click)="logout()"
+          >
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out
+          </button>
         </div>
-        <button
-          type="button"
-          class="btn btn-quiet signout"
-          [disabled]="logoutAction.busy()"
-          (click)="logout()"
-        >
-          Sign out
-        </button>
         @if (logoutAction.error()) {
           <p class="text-danger small" role="alert">{{ logoutAction.error() }}</p>
         }

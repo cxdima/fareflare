@@ -73,6 +73,17 @@ JPY uses whole yen (`19100` means ¥19,100). Spreadsheet formula-like text is
 prefixed with an apostrophe for safe import. CSV export is a browser download,
 not a new server endpoint or a complete-history export.
 
+**Account settings** saves your time zone, regional date/number format and clock
+preference. With no saved zone, the website uses device time and Telegram uses
+UTC. Save a named zone to keep both consistent. Flight departure dates stay in
+the airport's calendar; fare amounts retain their original currency.
+
+Choose detailed or compact Telegram messages, optional flight/fare/timestamp
+details, and silent delivery. **Preview message** displays sample content without
+saving changes or sending a notification. Global and route muting stop outgoing
+alerts while collection continues. See [account preferences](ACCOUNT_PREFERENCES.md)
+for defaults, partial API/MCP updates and formatting limits.
+
 Collection waits for verified fare evidence within a shared 100-second budget,
 leaving time inside the 120-second lease for cleanup and persistence. A transient
 page update can be retried within that budget; an unsupported or mismatched fare

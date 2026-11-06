@@ -79,4 +79,15 @@ export type ApiKey = {
   revoked: boolean;
 };
 export type Page<T> = { items: T[]; next_cursor?: string | null };
-export type Preferences = { muted: boolean; muted_routes: string[] };
+export type Preferences = {
+  muted: boolean;
+  muted_routes: string[];
+  time_zone: string | null;
+  locale: 'en-US' | 'en-GB' | 'de-DE' | 'fr-FR' | 'es-ES' | 'uk-UA';
+  hour_cycle: 'auto' | 'h12' | 'h23';
+  telegram_style: 'detailed' | 'compact';
+  telegram_show_flight_numbers: boolean;
+  telegram_show_observed_time: boolean;
+  telegram_show_fare: boolean;
+  telegram_silent: boolean;
+};

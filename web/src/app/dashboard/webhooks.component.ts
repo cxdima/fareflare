@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { ApiService } from '../core/api.service';
-import { requestKey, timestamp } from '../core/format';
+import { requestKey } from '../core/format';
+import { RegionalFormat } from '../core/regional-format';
 import type { Webhook } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -32,7 +33,8 @@ export class WebhooksComponent {
   readonly secret = signal('');
   readonly createdUrl = signal('');
   readonly note = signal('');
-  readonly timestamp = timestamp;
+  readonly regional = inject(RegionalFormat);
+  readonly timestamp = this.regional.timestamp;
   private attempt = { url: '', key: '' };
 
   async create(event: Event): Promise<void> {
@@ -65,7 +67,7 @@ export class WebhooksComponent {
       );
       this.note.set(
         result.delivered
-          ? `Challenge delivered. Copy data.token from your receiver before ${timestamp(result.expires_at)}.`
+          ? `Challenge delivered. Copy data.token from your receiver before ${this.timestamp(result.expires_at)}.`
           : 'The receiver did not accept the challenge. Check its logs and try again.',
       );
     });

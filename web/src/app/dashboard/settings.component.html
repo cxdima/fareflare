@@ -69,6 +69,7 @@
     <p role="status">Loading Telegram connection…</p>
   }
 </section>
+<ff-preferences />
 <section class="panel mb-4">
   <h2>Connected applications</h2>
   <p class="text-body-secondary">
@@ -92,52 +93,6 @@
       </li>
     }
   </ul>
-</section>
-<section class="panel mb-4">
-  <h2>Notification preferences</h2>
-  <p class="text-body-secondary">
-    Muting stops outgoing alerts. Price checks and history continue.
-  </p>
-  @if (action.error()) {
-    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
-  }
-  @if (saved()) {
-    <div class="alert alert-success" role="status">Notification preferences saved.</div>
-  }
-  @if (preferencesLoaded()) {
-    <form class="form-stack" (submit)="save($event)">
-      <div class="form-check">
-        <input
-          id="mute"
-          class="form-check-input"
-          type="checkbox"
-          [formField]="preferences.muted"
-          (change)="saved.set(false)"
-        /><label class="form-check-label" for="mute">Mute all notifications</label>
-      </div>
-      <div>
-        <label class="form-label" for="routes">Muted routes</label
-        ><input
-          id="routes"
-          class="form-control"
-          [formField]="preferences.routes"
-          placeholder="DEN-DFW, SFO-NRT"
-          aria-describedby="routes-help"
-          (input)="saved.set(false)"
-        />
-        <p class="form-text" id="routes-help">
-          Optional airport pairs, separated by commas. For example: DEN-DFW.
-        </p>
-      </div>
-      <div>
-        <button type="submit" class="btn btn-primary" [disabled]="action.busy()">
-          Save preferences
-        </button>
-      </div>
-    </form>
-  } @else {
-    <p role="status">Loading preferences…</p>
-  }
 </section>
 <section class="panel mb-4">
   <h2>Account recovery</h2>

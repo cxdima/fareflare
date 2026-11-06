@@ -9,6 +9,8 @@ import httpx
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
+from gfpt_next.preferences import Preferences
+
 
 def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
     parts = urlsplit(api_url)
@@ -146,12 +148,18 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
 
     @server.tool()
     async def get_preferences() -> dict[str, Any]:
-        """Read global and route mute preferences."""
+        """Read account display, Telegram message and alert-muting preferences."""
         return await call("GET", "v1/preferences")
 
     @server.tool()
-    async def set_preferences(muted: bool = False, muted_routes: list[str] | None = None) -> dict[str, Any]:
-        """Set alert muting without stopping collection; routes use DEN-DFW format."""
-        return await call("PUT", "v1/preferences", body={"muted": muted, "muted_routes": muted_routes or []})
+    async def set_preferences(muted: bool | None = None, muted_routes: list[str] | None = None,
+                              settings: Preferences | None = None) -> dict[str, Any]:
+        """Update only supplied preferences; routes use DEN-DFW. Settings include timezone and Telegram format."""
+        body = settings.model_dump(exclude_unset=True) if settings else {}
+        if muted is not None:
+            body["muted"] = muted
+        if muted_routes is not None:
+            body["muted_routes"] = muted_routes
+        return await call("PUT", "v1/preferences", body=body)
 
     return server

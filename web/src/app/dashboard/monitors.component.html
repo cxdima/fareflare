@@ -5,14 +5,15 @@
   </div>
   <button
     type="button"
-    class="btn btn-primary"
+    class="btn btn-primary btn-flight"
     [disabled]="
       !workspace.monitorsLoaded() ||
       workspace.activeCount() >= workspace.session.config()!.limits.monitors
     "
     (click)="creating.set(true)"
   >
-    <i class="bi bi-plus-lg" aria-hidden="true"></i> Watch a flight
+    <span class="flight-button-icon" aria-hidden="true"><i class="bi bi-airplane-fill"></i></span>
+    Watch a flight
   </button>
 </div>
 <div class="monitor-summary" aria-label="Monitor summary">
@@ -246,7 +247,8 @@
     <i class="bi bi-airplane" aria-hidden="true"></i>
     <h2>Which flight are you watching?</h2>
     <p>Paste a Google Flights link to start tracking its price.</p>
-    <button type="button" class="btn btn-primary" (click)="creating.set(true)">
+    <button type="button" class="btn btn-primary btn-flight" (click)="creating.set(true)">
+      <span class="flight-button-icon" aria-hidden="true"><i class="bi bi-airplane-fill"></i></span>
       Watch your first flight
     </button>
   </section>

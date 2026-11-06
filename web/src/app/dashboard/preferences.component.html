@@ -1,0 +1,286 @@
+@if (loading.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ loading.error()
+    }}<button type="button" class="btn btn-link" [disabled]="loading.busy()" (click)="load()">
+      Retry settings
+    </button>
+  </div>
+}
+@if (store.loaded()) {
+  <section class="panel mb-4" aria-labelledby="display-heading">
+    <div class="settings-heading">
+      <i class="bi bi-globe2" aria-hidden="true"></i>
+      <div>
+        <h2 id="display-heading">Time and region</h2>
+        <p>Choose how dates, times and prices appear across your account.</p>
+      </div>
+    </div>
+    <form class="form-stack" (submit)="saveDisplay($event)">
+      <div class="regional-grid">
+        <div class="zone-field">
+          <label for="time-zone" class="form-label">Time zone</label>
+          <input
+            id="time-zone"
+            class="form-control"
+            list="time-zones"
+            [formField]="display.time_zone"
+            aria-describedby="zone-help zone-error"
+            autocomplete="off"
+            (input)="displaySaved.set(false)"
+          />
+          <datalist id="time-zones">
+            @for (zone of zones; track zone) {
+              <option [value]="zone"></option>
+            }
+          </datalist>
+          <p id="zone-help" class="form-text">
+            Named time zones adjust automatically for daylight saving.
+          </p>
+          <p id="zone-error" class="field-error">
+            @if (display.time_zone().touched()) {
+              {{ display.time_zone().errors()[0]?.message }}
+            }
+          </p>
+          <button
+            type="button"
+            class="btn btn-quiet btn-sm"
+            [disabled]="store.saving()"
+            (click)="useDeviceZone()"
+          >
+            <i class="bi bi-geo-alt" aria-hidden="true"></i>Use device time zone
+          </button>
+        </div>
+        <div>
+          <label for="regional-format" class="form-label">Regional format</label>
+          <select
+            id="regional-format"
+            class="form-select"
+            [formField]="display.locale"
+            (change)="displaySaved.set(false)"
+          >
+            @for (locale of locales; track locale.value) {
+              <option [value]="locale.value">{{ locale.label }}</option>
+            }
+          </select>
+          <p class="form-text">Date and number formatting. Interface text stays in English.</p>
+        </div>
+        <div>
+          <label for="clock-format" class="form-label">Clock</label>
+          <select
+            id="clock-format"
+            class="form-select"
+            [formField]="display.hour_cycle"
+            (change)="displaySaved.set(false)"
+          >
+            <option value="auto">Regional default</option>
+            <option value="h12">12 hour (2:30 PM)</option>
+            <option value="h23">24 hour (14:30)</option>
+          </select>
+        </div>
+      </div>
+      @if (displayExample()) {
+        <div class="display-example">
+          <span>Format preview</span><strong>{{ displayExample() }}</strong
+          ><span>{{ priceExample() }} <span class="example-note">example USD amount</span></span>
+        </div>
+      }
+      <p class="settings-note">
+        Flight departure dates stay in the airport’s local calendar. Fares keep their original
+        currency; this setting does not convert prices. CSV timestamps stay in UTC for portability.
+      </p>
+      @if (!store.value().time_zone) {
+        <p class="settings-note">
+          The website currently uses your device time. Save a time zone here to use it in Telegram
+          too; until then, Telegram uses UTC.
+        </p>
+      }
+      @if (displayAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ displayAction.error() }}</div>
+      }
+      @if (displaySaved()) {
+        <p class="settings-success" role="status">
+          <i class="bi bi-check-circle" aria-hidden="true"></i>Display settings saved.
+        </p>
+      }
+      <div>
+        <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
+          {{ displayAction.busy() ? 'Saving…' : 'Save display settings' }}
+        </button>
+      </div>
+    </form>
+  </section>
+  <section class="panel mb-4" aria-labelledby="telegram-message-heading">
+    <div class="settings-heading">
+      <i class="bi bi-telegram" aria-hidden="true"></i>
+      <div>
+        <h2 id="telegram-message-heading">Your Telegram message</h2>
+        <p>Choose the details you want in each price alert.</p>
+      </div>
+    </div>
+    <form class="form-stack" (submit)="saveTelegram($event)">
+      <div class="telegram-preferences-grid">
+        <div class="form-stack">
+          <div>
+            <label for="telegram-style" class="form-label">Message style</label
+            ><select
+              id="telegram-style"
+              class="form-select"
+              [formField]="telegram.telegram_style"
+              (change)="telegramChanged()"
+            >
+              <option value="detailed">Detailed itinerary</option>
+              <option value="compact">Compact, price first</option>
+            </select>
+          </div>
+          <fieldset class="message-options">
+            <legend>Include in alerts</legend>
+            <div class="form-check">
+              <input
+                id="show-flight-numbers"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_show_flight_numbers"
+                (change)="telegramChanged()"
+              /><label for="show-flight-numbers" class="form-check-label">Flight numbers</label>
+            </div>
+            <div class="form-check">
+              <input
+                id="show-observed-time"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_show_observed_time"
+                (change)="telegramChanged()"
+              /><label for="show-observed-time" class="form-check-label"
+                >Time the price was checked</label
+              >
+            </div>
+            <div class="form-check">
+              <input
+                id="show-fare"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_show_fare"
+                (change)="telegramChanged()"
+              /><label for="show-fare" class="form-check-label">Fare name</label>
+            </div>
+          </fieldset>
+          <div>
+            <div class="form-check">
+              <input
+                id="silent-telegram"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_silent"
+                (change)="telegramChanged()"
+              /><label for="silent-telegram" class="form-check-label">Send silently</label>
+            </div>
+            <p class="form-text">
+              Telegram receives the alert immediately without a notification sound.
+            </p>
+          </div>
+        </div>
+        <div class="telegram-preview">
+          <div class="preview-heading">
+            <i class="bi bi-chat-left-text" aria-hidden="true"></i><strong>Message preview</strong
+            ><span>Sample</span>
+          </div>
+          @if (preview(); as sample) {
+            <pre>{{ sample.text }}</pre>
+            <p class="settings-note">
+              {{ sample.silent ? 'Silent delivery' : 'Standard notification' }}. Time zone:
+              {{ sample.time_zone }}.
+            </p>
+          } @else {
+            <p class="preview-placeholder">
+              Preview an example with your selected details. Nothing will be sent to Telegram.
+            </p>
+          }
+          @if (previewAction.error()) {
+            <p class="field-error" role="alert">{{ previewAction.error() }}</p>
+          }
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            [disabled]="previewAction.busy() || store.saving()"
+            (click)="updatePreview()"
+          >
+            <i class="bi bi-eye" aria-hidden="true"></i
+            >{{ previewAction.busy() ? 'Loading preview…' : 'Preview message' }}
+          </button>
+          <p class="settings-note">Uses your saved display settings ({{ savedZone() }}).</p>
+        </div>
+      </div>
+      <p class="settings-note">
+        Price, route and booking link remain in every message. These preferences affect Telegram;
+        webhook event data stays structured and unchanged.
+      </p>
+      @if (telegramAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ telegramAction.error() }}</div>
+      }
+      @if (telegramSaved()) {
+        <p class="settings-success" role="status">
+          <i class="bi bi-check-circle" aria-hidden="true"></i>Telegram message settings saved.
+        </p>
+      }
+      <div>
+        <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
+          {{ telegramAction.busy() ? 'Saving…' : 'Save Telegram settings' }}
+        </button>
+      </div>
+    </form>
+  </section>
+  <section class="panel mb-4" aria-labelledby="notification-preferences-heading">
+    <div class="settings-heading">
+      <i class="bi bi-bell" aria-hidden="true"></i>
+      <div>
+        <h2 id="notification-preferences-heading">Notification preferences</h2>
+        <p>Muting stops outgoing alerts. Price checks and history continue.</p>
+      </div>
+    </div>
+    <form class="form-stack" (submit)="saveMute($event)">
+      <div class="form-check">
+        <input
+          id="mute"
+          class="form-check-input"
+          type="checkbox"
+          [formField]="mute.muted"
+          (change)="muteSaved.set(false)"
+        /><label class="form-check-label" for="mute">Mute all notifications</label>
+      </div>
+      <div>
+        <label class="form-label" for="routes">Muted routes</label
+        ><input
+          id="routes"
+          class="form-control"
+          [formField]="mute.routes"
+          placeholder="DEN-DFW, SFO-NRT"
+          aria-describedby="routes-help routes-error"
+          (input)="muteSaved.set(false)"
+        />
+        <p class="form-text" id="routes-help">
+          Optional airport pairs, separated by commas. For example: DEN-DFW.
+        </p>
+        <p id="routes-error" class="field-error">
+          @if (mute.routes().touched()) {
+            {{ mute.routes().errors()[0]?.message }}
+          }
+        </p>
+      </div>
+      @if (muteAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ muteAction.error() }}</div>
+      }
+      @if (muteSaved()) {
+        <p class="settings-success" role="status">
+          <i class="bi bi-check-circle" aria-hidden="true"></i>Notification preferences saved.
+        </p>
+      }
+      <div>
+        <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
+          {{ muteAction.busy() ? 'Saving…' : 'Save preferences' }}
+        </button>
+      </div>
+    </form>
+  </section>
+} @else if (!loading.error()) {
+  <div class="panel mb-4" role="status">Loading your preferences…</div>
+}

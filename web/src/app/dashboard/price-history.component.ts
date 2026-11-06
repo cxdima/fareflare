@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { ApiService } from '../core/api.service';
-import { money, timestamp } from '../core/format';
+import { RegionalFormat } from '../core/regional-format';
 import type { Monitor, Observation, Page } from '../core/types';
 import { ActionState } from './shared/action-state';
 import { DialogComponent } from './shared/dialog.component';
@@ -38,8 +38,9 @@ export class PriceHistoryComponent implements OnInit, OnDestroy {
     { value: '7' as const, label: 'Past 7 days' },
     { value: '30' as const, label: 'Past 30 days' },
   ];
-  readonly money = money;
-  readonly timestamp = timestamp;
+  readonly money = (amount: number, currency: string) => this.regional.money(amount, currency);
+  readonly regional = inject(RegionalFormat);
+  readonly timestamp = this.regional.timestamp;
   readonly routeName = routeName;
   readonly flightNumbers = flightNumbers;
   private readonly api = inject(ApiService);
@@ -52,17 +53,15 @@ export class PriceHistoryComponent implements OnInit, OnDestroy {
   readonly chartLabel = computed(() => {
     const view = this.view();
     return view
-      ? `Observed price history, from ${money(view.first.amount_minor, view.first.currency)} to ${money(view.latest.amount_minor, view.latest.currency)}. ${view.items.length} observations. Long gaps are not connected. All values are in the table below.`
+      ? `Observed price history, from ${this.money(view.first.amount_minor, view.first.currency)} to ${this.money(view.latest.amount_minor, view.latest.currency)}. ${view.items.length} observations. Long gaps are not connected. All values are in the table below.`
       : '';
   });
   readonly changeLabel = computed(() => {
     const view = this.view();
     if (!view || view.items.length < 2) return 'One observation so far';
     if (view.change === 0) return 'Unchanged from the first price shown';
-    const percent = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
-      view.percent,
-    );
-    return `${view.change < 0 ? 'Down' : 'Up'} ${money(Math.abs(view.change), view.latest.currency)} (${percent}%) from the first price shown`;
+    const percent = this.regional.number(view.percent);
+    return `${view.change < 0 ? 'Down' : 'Up'} ${this.money(Math.abs(view.change), view.latest.currency)} (${percent}%) from the first price shown`;
   });
 
   ngOnInit(): void {
