@@ -20,14 +20,14 @@ select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["E501"]
 
 [tool.pyright]
-include = ["src/gfpt_next"]
+include = ["src/fareflare"]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 
 [tool.coverage.run]
-source = ["gfpt_next"]
+source = ["fareflare"]
 
 [tool.coverage.report]
 show_missing = true

@@ -7,10 +7,10 @@ from unittest.mock import Mock
 import pytest
 from selenium.common.exceptions import TimeoutException
 
-from gfpt_next import public_browser
-from gfpt_next.links import import_link
-from gfpt_next.public_browser import PublicGoogleFlightsProvider
-from gfpt_next.public_quotes import QuoteUnavailable
+from fareflare import public_browser
+from fareflare.links import import_link
+from fareflare.public_browser import PublicGoogleFlightsProvider
+from fareflare.public_quotes import QuoteUnavailable
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def test_search_browser_selects_only_verified_result_then_booking(search_browser
     detail.click.assert_called_once()
     select.click.assert_called_once()
     driver.quit.assert_called_once()
-    assert "gfpt-next-public-" in str(launch.call_args.kwargs["options"].arguments)
+    assert "fareflare-public-" in str(launch.call_args.kwargs["options"].arguments)
     assert all("Continue to book" not in str(call) for call in driver.find_elements.call_args_list)
 
 

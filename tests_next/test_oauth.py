@@ -11,9 +11,9 @@ from fastapi.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.oauth import OAuthProvider
-from gfpt_next.store import Document
+from fareflare.accounts import Accounts
+from fareflare.oauth import OAuthProvider
+from fareflare.store import Document
 
 ORIGIN = "https://fareflare.example"
 RESOURCE = ORIGIN + "/mcp"

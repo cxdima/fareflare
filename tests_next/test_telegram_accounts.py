@@ -6,11 +6,11 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.delivery import TelegramSink
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.store import Conflict, Document
-from gfpt_next.telegram_accounts import TelegramConnections
+from fareflare.accounts import Accounts
+from fareflare.delivery import TelegramSink
+from fareflare.product_config import ProductConfig
+from fareflare.store import Conflict, Document
+from fareflare.telegram_accounts import TelegramConnections
 
 PASSWORD = "a long development passphrase"
 BOT_TOKEN = "123456:" + "x" * 30

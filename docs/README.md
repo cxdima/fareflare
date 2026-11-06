@@ -2,6 +2,8 @@
 
 ## Use or self-host Fareflare
 
+- [Public domain and access](PUBLIC_LAUNCH.md): HTTPS, signup, naming migration and abuse controls.
+
 - [Setup and supported flights](FAREFLARE.md): local installation, collection,
   account configuration, and deployment prerequisites.
 - [API, MCP, and webhooks](NEXT.md): integration contracts, authentication,

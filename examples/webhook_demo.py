@@ -11,11 +11,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from gfpt_next.api import create_app
-from gfpt_next.service import MonitoringService, Reading
-from gfpt_next.store import SQLiteStore
-from gfpt_next.webhook_http import verify_webhook
-from gfpt_next.webhooks import RoutedSink
+from fareflare.api import create_app
+from fareflare.service import MonitoringService, Reading
+from fareflare.store import SQLiteStore
+from fareflare.webhook_http import verify_webhook
+from fareflare.webhooks import RoutedSink
 
 
 def main() -> dict:

@@ -6,8 +6,8 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from gfpt_next.service import MonitoringService
-from gfpt_next.store import DynamoStore, SQLiteStore
+from fareflare.service import MonitoringService
+from fareflare.store import DynamoStore, SQLiteStore
 
 EXAMPLE = Path(__file__).parents[1] / "examples/next-demo.json"
 
@@ -30,14 +30,14 @@ def store(request, tmp_path):
     with mock_aws():
         client = boto3.client("dynamodb", region_name="us-east-1",
                               aws_access_key_id="testing", aws_secret_access_key="testing")
-        client.create_table(TableName="gfpt-next-tests", BillingMode="PAY_PER_REQUEST",
+        client.create_table(TableName="fareflare-tests", BillingMode="PAY_PER_REQUEST",
             KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": name, "AttributeType": kind}
                                   for name, kind in (("id", "S"), ("partition", "S"), ("due", "N"))],
             GlobalSecondaryIndexes=[{"IndexName": "partition-due", "KeySchema": [
                 {"AttributeName": "partition", "KeyType": "HASH"},
                 {"AttributeName": "due", "KeyType": "RANGE"}], "Projection": {"ProjectionType": "ALL"}}])
-        yield DynamoStore("gfpt-next-tests", client=client)
+        yield DynamoStore("fareflare-tests", client=client)
 
 
 @pytest.fixture

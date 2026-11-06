@@ -13,8 +13,8 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from starlette.routing import Route
 
-from gfpt_next.api import create_app
-from gfpt_next.hosted_mcp import make_hosted_mcp
+from fareflare.api import create_app
+from fareflare.hosted_mcp import make_hosted_mcp
 
 KEYS = {"alice": "a" * 40, "bob": "b" * 40}
 HEADERS = {"Accept": "application/json, text/event-stream", "MCP-Protocol-Version": "2025-11-25"}

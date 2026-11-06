@@ -81,16 +81,17 @@ not a guarantee of price freshness.
 
 ## Accounts, invitations, and capacity
 
-Keep `registration_mode="invite"` and `billing_enabled=false` during development.
+The hosted release uses `registration_mode="open"` and `billing_enabled=false`.
+Self-hosted deployments can select `invite` for private access.
 Enabling billing fails startup until a payment integration exists. Free access
-does not eliminate AWS charges. Default limits are three monitors per account,
+does not eliminate AWS charges. Default limits are 20 monitors per account,
 a 900-second minimum requested interval, and 20 distinct shared targets.
 Equivalent targets share collection; account preferences remain private.
 
 Issue a deployed invitation with an explicit account guard:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli \
+PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
   --public-url https://YOUR-API.execute-api.REGION.amazonaws.com \
   invite .next/invitation-UNIQUE.json --table fareflare-production \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION
@@ -227,7 +228,7 @@ delivery. Do not interpret a duplicate message as permission to repeat a change.
 
 HTTP 200 from `/health` does not prove that collection is fresh. Inspect
 `last_worker_at`, the DynamoDB `health:worker` record, monitor freshness and
-`last_error`, and the API/worker CloudWatch logs. `GFPTNext` metrics include browser
+`last_error`, and the API/worker CloudWatch logs. `Fareflare` metrics include browser
 starts/reuses, collection failures, skipped targets, delivery counts, and runtime.
 Monitor Lambda throttles and dead-letter deliveries as well as exceptions.
 

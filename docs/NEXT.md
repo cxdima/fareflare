@@ -19,7 +19,7 @@ Lows mean lowest observed since that monitor began tracking.
 Collection timestamps do not prove when Google's upstream fare last refreshed.
 
 The local MCP adapter is stdio, using the official SDK; it calls the API and owns no scheduler.
-Set `GFPT_NEXT_API_URL` and `GFPT_NEXT_API_KEY` for a different API. Remote URLs
+Set `FAREFLARE_API_URL` and `FAREFLARE_API_KEY` for a different API. Remote URLs
 require HTTPS. The deployed customer application also exposes hosted MCP at `/mcp`
 with OAuth/PKCE or a customer API key; see [API and MCP setup](FAREFLARE.md#api-mcp-and-notifications).
 
@@ -58,7 +58,7 @@ The API's `/docs` page and MCP expose the same workflow:
    product delivery in your deployment:
 
    ```bash
-   PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli worker --limit 5
+   PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
    ```
 
 Destinations must be public HTTPS URLs on port 443. Each attempt checks every DNS
@@ -70,7 +70,7 @@ Alerts use `type: "flight.price_alert"`; `data` contains `monitor_id`, `reason`,
 `observation`, and `itinerary`. Prices retain their currency, minor units, and timestamp.
 The `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers follow
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md).
-Use `gfpt_next.webhook_http.verify_webhook(secret, raw_body, headers)` or a compatible
+Use `fareflare.webhook_http.verify_webhook(secret, raw_body, headers)` or a compatible
 library. Verify raw bytes before parsing, check timestamp freshness, and durably
 deduplicate `webhook-id`. The event body and ID remain stable across retries;
 the signature timestamp is refreshed. Acknowledge with 2xx after durable acceptance.

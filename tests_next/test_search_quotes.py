@@ -8,10 +8,10 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import pytest
 
-from gfpt_next.links import InvalidLink, import_link
-from gfpt_next.public_quotes import PageEvidence, QuoteUnavailable
-from gfpt_next.search_links import SearchMessage, offer_matches_search
-from gfpt_next.search_quotes import (
+from fareflare.links import InvalidLink, import_link
+from fareflare.public_quotes import PageEvidence, QuoteUnavailable
+from fareflare.search_links import SearchMessage, offer_matches_search
+from fareflare.search_quotes import (
     SearchPageEvidence,
     verified_search_minimum,
     verified_search_reading,

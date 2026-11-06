@@ -1,7 +1,7 @@
 import pytest
 
-from gfpt_next.service import MonitoringService, Reading
-from gfpt_next.store import Document
+from fareflare.service import MonitoringService, Reading
+from fareflare.store import Document
 
 
 def test_free_limits_share_targets_and_release_capacity(store, clock, flight_url):
@@ -73,7 +73,7 @@ def test_account_deletion_racing_creation_rolls_back(store, clock, flight_url, m
 def test_departure_releases_quota_and_capacity_without_reactivation(store, clock, flight_url):
     from datetime import UTC, datetime
 
-    from gfpt_next.service import MonitoringService
+    from fareflare.service import MonitoringService
 
     service = MonitoringService(store, lambda: clock[0], monitor_limit=1, global_target_limit=1)
     first = service.create_monitor("alice", flight_url, "depart-alice")

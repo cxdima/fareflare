@@ -5,9 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 from mcp.server.mcpserver.exceptions import ToolError
 
-from gfpt_next.api import create_app
-from gfpt_next.mcp_server import make_server
-from gfpt_next.service import Reading
+from fareflare.api import create_app
+from fareflare.mcp_server import make_server
+from fareflare.service import Reading
 
 KEYS = {"alice": "a" * 40, "bob": "b" * 40}
 

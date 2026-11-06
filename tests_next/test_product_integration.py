@@ -10,10 +10,10 @@ import pytest
 from fastapi.testclient import TestClient
 from mangum import Mangum
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.portal import create_portal
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.service import MonitoringService
+from fareflare.accounts import Accounts
+from fareflare.portal import create_portal
+from fareflare.product_config import ProductConfig
+from fareflare.service import MonitoringService
 
 ORIGIN = "https://app.example.com"
 PASSWORD = "correct test password for integrations"
@@ -77,7 +77,7 @@ def test_portal_oauth_pkce_consent_audience_and_revocation(product, flight_url):
         token = issued.json()["access_token"]
         headers = {"Authorization": "Bearer " + token}
         assert client.get("/v1/monitors", headers=headers).status_code == 401
-        assert client.get("/v1/monitors", headers={**headers, "gfpt.mcp_internal": "true"}).status_code == 401
+        assert client.get("/v1/monitors", headers={**headers, "fareflare.mcp_internal": "true"}).status_code == 401
         called = client.post("/mcp", headers={**headers, **MCP_HEADERS}, json={
             "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "create_monitor",
                 "arguments": {"url": flight_url, "idempotency_key": "oauth-actual-monitor"}}})

@@ -1,6 +1,6 @@
 # Fareflare development status
 
-Fareflare is available as a free, invite-only service and as MIT-licensed source.
+Fareflare is available as a free, open-registration service and as MIT-licensed source.
 Billing remains disabled. The current hosted release includes native Telegram
 flight controls, focused account settings and the refined Angular/Bootstrap
 workspace. See [workspace design verification](UI_REFINEMENT_VERIFICATION.md) for
@@ -47,7 +47,7 @@ recorded.
 The reviewed design release changed only the API Lambda image. Readback confirms
 its update succeeded, environment and concurrency were preserved, and the worker
 and original tracker retained their images and modification times. Billing stays
-disabled and registration invite-only. This release did not change bot routing or
+disabled and registration open. This release did not change bot routing or
 send live Telegram messages. Prior [bot](TELEGRAM_VERIFICATION.md) and
 [settings](SETTINGS_VERIFICATION.md) releases retain separate verification records.
 
@@ -77,7 +77,7 @@ within that budget; identity, currency, and fare checks still apply. This improv
 handling of page updates without expanding supported flight coverage or raising
 the configured polling frequency.
 
-The hosted configuration allows three monitors per account, a 900-second minimum
+The hosted configuration allows 20 monitors per account, a 900-second minimum
 requested interval, and 20 shared collection targets. These limits constrain work;
 they do not guarantee a polling deadline or zero infrastructure cost. See
 [setup](FAREFLARE.md) for exact flight coverage.

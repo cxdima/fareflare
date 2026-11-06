@@ -7,7 +7,7 @@ prices as it checks. See the latest fare, previous observations, and collection
 status in one dashboard. Connect Telegram or a verified webhook to receive alerts
 when a price meets your rule.
 
-[Open Fareflare](https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com) ·
+[Open Fareflare](https://fareflare.dev) ·
 [Local setup](docs/FAREFLARE.md) · [Documentation](docs/README.md) ·
 [Contribute](CONTRIBUTING.md)
 
@@ -43,7 +43,9 @@ pause/resume controls, alert-rule editing and message settings inside the chat
 after an initial account connection. This revision is deployed; see the
 [verification record](docs/TELEGRAM_VERIFICATION.md) for completed checks and limits.
 
-The hosted service is **free and invite-only** while capacity is being measured.
+[Sign up at fareflare.dev](https://fareflare.dev/register). The hosted service is
+**free with open registration** and allows 20 monitors per account while capacity
+is being measured.
 Billing is disabled. Self-hosting uses your own infrastructure and can incur costs.
 Prices are sampled periodically: Fareflare cannot guarantee the cheapest fare on
 the market or detect a drop that begins and ends between checks.
@@ -72,7 +74,7 @@ Live collection needs Chromium and a matching ChromeDriver. Run one bounded pass
 in another terminal:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli worker --limit 5
+PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
 ```
 
 The worker checks due monitors and processes alerts. Schedule it separately for
@@ -102,14 +104,14 @@ Both API entry points use a shared script-free HTML reference. The
 
 | Path             | Purpose                                                                     |
 | ---------------- | --------------------------------------------------------------------------- |
-| `src/gfpt_next/` | Domain models, account services, API/MCP, collectors, persistence, delivery |
+| `src/fareflare/` | Domain models, account services, API/MCP, collectors, persistence, delivery |
 | `web/`           | Angular website, dashboard, and Playwright tests                            |
 | `tests_next/`    | Backend behavior, security, integration, and collector fixtures             |
 | `infra-next/`    | Terraform for the API, worker, storage, scheduling, and alarms              |
 | `examples/`      | Synthetic demos and a signed webhook receiver example                       |
 | `docs/`          | Setup, architecture, operations, and verification records                   |
 
-Internal module and environment-variable names retain the `gfpt_next` prefix.
+The Python package is `fareflare`; configuration keys use the `FAREFLARE_` prefix.
 Use the default Makefile commands above for the account-based application.
 
 ## API and MCP

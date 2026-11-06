@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
-from gfpt_next.links import InvalidLink, ItineraryMessage, import_link
+from fareflare.links import InvalidLink, ItineraryMessage, import_link
 
 
 def change_token(url, change):

@@ -17,8 +17,8 @@ import boto3
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 
-from gfpt_next.delivery import install_telegram_log_redaction
-from gfpt_next.webhook_http import normalize_webhook_url
+from fareflare.delivery import install_telegram_log_redaction
+from fareflare.webhook_http import normalize_webhook_url
 
 
 class RouteError(ValueError):

@@ -1,10 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.portal import create_portal
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.service import MonitoringService
+from fareflare.accounts import Accounts
+from fareflare.portal import create_portal
+from fareflare.product_config import ProductConfig
+from fareflare.service import MonitoringService
 
 PASSWORD = "a long test password for signup"
 
@@ -125,3 +125,49 @@ def test_unsaved_telegram_preview_requires_session_csrf_and_never_persists(porta
     rejected = client.post("/v1/preferences/telegram-preview", json=body, headers={
         **headers, "Origin": "https://attacker.example"})
     assert rejected.status_code == 403
+
+
+def test_open_signup_is_bounded_by_peer_not_spoofed_forwarded_headers(store, clock):
+    config = ProductConfig(public_url="https://fareflare.dev", registration_mode="open")
+    service = MonitoringService(store, lambda: clock[0], monitor_limit=config.monitor_limit)
+    accounts = Accounts(store, config, lambda: clock[0])
+    app = create_portal(service, config, accounts)
+    with TestClient(app, base_url=config.public_url) as client:
+        assert client.get('/v1/config').json()['limits']['monitors'] == 20
+        for index in range(3):
+            response = client.post('/auth/register', json={
+                'username': f'openuser{index}', 'password': PASSWORD,
+            }, headers={'X-Forwarded-For': f'203.0.113.{index}'})
+            assert response.status_code == 201
+        blocked = client.post('/auth/register', json={
+            'username': 'blockeduser', 'password': PASSWORD,
+        }, headers={'X-Forwarded-For': '198.51.100.12'})
+        assert blocked.status_code == 429
+        assert blocked.headers['retry-after'] == '60'
+        clock[0] += 61
+        assert client.post('/auth/register', json={
+            'username': 'nextminute', 'password': PASSWORD,
+        }).status_code == 201
+
+
+def test_old_browser_origin_redirects_but_api_and_webhook_paths_remain_available(store, clock):
+    config = ProductConfig(public_url='https://fareflare.dev', additional_hosts=('old.example.com',))
+    app = create_portal(MonitoringService(store, lambda: clock[0]), config)
+    with TestClient(app, base_url='https://old.example.com', follow_redirects=False) as client:
+        response = client.get('/login?invite=example')
+        assert response.status_code == 308
+        assert response.headers['location'] == 'https://fareflare.dev/login?invite=example'
+        assert client.get('/v1/config').status_code == 200
+        assert client.post('/auth/login', json={'username':'user', 'password':PASSWORD},
+                           headers={'Origin':'https://old.example.com'}).status_code == 403
+        assert client.get('/', headers={'Host':'attacker.example.com'}).status_code == 400
+
+
+def test_twenty_monitor_quota_rejects_twenty_first_and_releases_on_stop(store, clock, flight_url):
+    service = MonitoringService(store, lambda: clock[0], monitor_limit=ProductConfig().monitor_limit)
+    monitors = [service.create_monitor('quotauser', flight_url, f'quota-request-{index}') for index in range(20)]
+    with pytest.raises(ValueError, match='quota'):
+        service.create_monitor('quotauser', flight_url, 'quota-request-over')
+    service.set_status('quotauser', monitors[0]['id'], 'cancelled')
+    service.create_monitor('quotauser', flight_url, 'quota-request-replacement')
+    assert store.get('tenant:quotauser').data['monitors'] == 20

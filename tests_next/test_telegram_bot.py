@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.contracts import Reading
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.store import Document
-from gfpt_next.telegram_bot import TelegramBot
-from gfpt_next.telegram_rules import parse_amount
+from fareflare.accounts import Accounts
+from fareflare.contracts import Reading
+from fareflare.product_config import ProductConfig
+from fareflare.store import Document
+from fareflare.telegram_bot import TelegramBot
+from fareflare.telegram_rules import parse_amount
 
 PASSWORD = "private native bot test password"
 

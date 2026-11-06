@@ -14,7 +14,7 @@ import boto3
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 
-from gfpt_next.delivery import install_telegram_log_redaction
+from fareflare.delivery import install_telegram_log_redaction
 
 PRIVATE_SCOPE = {"type": "all_private_chats"}
 COMMANDS = [

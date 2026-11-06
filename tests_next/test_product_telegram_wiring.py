@@ -5,9 +5,9 @@ from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
-from gfpt_next import product_runtime, product_telegram, runtime
-from gfpt_next.telegram_accounts import ReplyResult, TelegramConnections
-from gfpt_next.webhooks import RoutedSink
+from fareflare import product_runtime, product_telegram, runtime
+from fareflare.telegram_accounts import ReplyResult, TelegramConnections
+from fareflare.webhooks import RoutedSink
 
 BOT_TOKEN = "123456:" + "x" * 30
 SECRET_ARN = "arn:aws:secretsmanager:us-east-1:111111111111:secret:fareflare-bot-example"
@@ -15,9 +15,9 @@ WEBHOOK_SECRET = hashlib.sha256(("gfpt-webhook:" + BOT_TOKEN).encode()).hexdiges
 
 
 def aws_config(monkeypatch):
-    monkeypatch.setenv("GFPT_NEXT_TABLE", "gfpt-next-tests")
-    monkeypatch.setenv("GFPT_NEXT_PUBLIC_URL", "https://app.example.com")
-    monkeypatch.setenv("GFPT_NEXT_CUSTOMER_TELEGRAM_SECRET_ARN", SECRET_ARN)
+    monkeypatch.setenv("FAREFLARE_TABLE", "fareflare-tests")
+    monkeypatch.setenv("FAREFLARE_PUBLIC_URL", "https://app.example.com")
+    monkeypatch.setenv("FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN", SECRET_ARN)
     secret = Mock()
     secret.get_secret_value.return_value = {"SecretString": json.dumps({
         "bot_token": BOT_TOKEN, "bot_username": "fareflare_bot",
@@ -59,7 +59,7 @@ def test_application_reads_bot_secret_and_handles_only_verified_webhook(store, m
 
 def test_product_worker_loads_bot_using_only_secrets_manager(store, monkeypatch):
     secret, clients = aws_config(monkeypatch)
-    monkeypatch.setenv("GFPT_NEXT_DELIVERY", "product")
+    monkeypatch.setenv("FAREFLARE_DELIVERY", "product")
     monkeypatch.setattr(runtime, "DynamoStore", lambda *args, **kwargs: store)
     worker = runtime.build_worker()
     assert isinstance(worker.sink, RoutedSink)

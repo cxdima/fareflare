@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from gfpt_next.cli import demo, load_local_config, main
+from fareflare.cli import demo, load_local_config, main
 
 ROOT = Path(__file__).parents[1]
 
@@ -55,16 +55,16 @@ def test_cli_serve_and_mcp_only_use_next_configuration(tmp_path, monkeypatch):
     assert called[0]["port"] == 8123
     from mcp.server.mcpserver import MCPServer
     monkeypatch.setattr(MCPServer, "run", lambda self: called.append("mcp"))
-    monkeypatch.delenv("GFPT_NEXT_API_KEY", raising=False)
-    monkeypatch.delenv("GFPT_NEXT_API_URL", raising=False)
+    monkeypatch.delenv("FAREFLARE_API_KEY", raising=False)
+    monkeypatch.delenv("FAREFLARE_API_URL", raising=False)
     main(["--config", str(config), "mcp"])
     assert called[-1] == "mcp"
     assert "TELEGRAM_BOT_TOKEN" not in os.environ or os.environ["TELEGRAM_BOT_TOKEN"] != "production-do-not-use"
 
 
 def test_quote_cli_returns_live_adapter_result_without_configuration(monkeypatch, flight_url, capsys):
-    from gfpt_next.public_browser import PublicGoogleFlightsProvider
-    from gfpt_next.service import Reading
+    from fareflare.public_browser import PublicGoogleFlightsProvider
+    from fareflare.service import Reading
     monkeypatch.setattr(PublicGoogleFlightsProvider, "collect", lambda self, target:
         Reading(target["id"], 30900, "USD", 123, "test-browser", "Economy", "total"))
     main(["quote", flight_url])
@@ -73,8 +73,8 @@ def test_quote_cli_returns_live_adapter_result_without_configuration(monkeypatch
 
 
 def test_quote_cli_reports_sanitized_failure(monkeypatch, flight_url, capsys):
-    from gfpt_next.public_browser import PublicGoogleFlightsProvider
-    from gfpt_next.public_quotes import QuoteUnavailable
+    from fareflare.public_browser import PublicGoogleFlightsProvider
+    from fareflare.public_quotes import QuoteUnavailable
 
     def unavailable(self, target):
         raise QuoteUnavailable("challenge")
@@ -90,9 +90,9 @@ def test_quote_cli_reports_sanitized_failure(monkeypatch, flight_url, capsys):
 
 
 def test_collect_once_updates_local_monitors_but_never_delivers(tmp_path, monkeypatch, flight_url, capsys):
-    from gfpt_next.public_browser import PublicGoogleFlightsProvider
-    from gfpt_next.service import MonitoringService, Reading
-    from gfpt_next.store import SQLiteStore
+    from fareflare.public_browser import PublicGoogleFlightsProvider
+    from fareflare.service import MonitoringService, Reading
+    from fareflare.store import SQLiteStore
     config = tmp_path / "config.json"
     main(["--config", str(config), "init"])
     capsys.readouterr()

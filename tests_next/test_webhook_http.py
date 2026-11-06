@@ -11,8 +11,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from gfpt_next import webhook_http
-from gfpt_next.webhook_http import (
+from fareflare import webhook_http
+from fareflare.webhook_http import (
     WebhookHTTPTransport,
     new_signing_secret,
     normalize_webhook_url,
@@ -20,7 +20,7 @@ from gfpt_next.webhook_http import (
     verify_webhook,
 )
 
-SECRET = "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+SECRET = "whsec_" + base64.b64encode(bytes(range(32))).decode()  # Synthetic test vector.
 BODY = b'{"type":"price.drop","price":12345}'
 
 

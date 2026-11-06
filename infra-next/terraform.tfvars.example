@@ -7,10 +7,15 @@ expected_account_id = "YOUR_12_DIGIT_AWS_ACCOUNT_ID"
 image_uri     = ""
 api_image_uri = ""
 
-registration_mode        = "invite"
+registration_mode        = "open"
 billing_enabled          = false
 search_enabled           = false
 schedule_enabled         = false
 product_delivery_enabled = false
 worker_max_targets       = 1
 worker_schedule_minutes  = 5
+
+# Route 53 custom domain (optional for self-hosting)
+domain_name = "fareflare.dev"
+hosted_zone_id = "YOUR_HOSTED_ZONE_ID"
+monitor_limit = 20

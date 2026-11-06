@@ -6,10 +6,10 @@ from html.parser import HTMLParser
 import httpx
 import pytest
 
-from gfpt_next.delivery import TelegramSink
-from gfpt_next.links import import_link
-from gfpt_next.preferences import Preferences, telegram_text
-from gfpt_next.telegram_messages import (
+from fareflare.delivery import TelegramSink
+from fareflare.links import import_link
+from fareflare.preferences import Preferences, telegram_text
+from fareflare.telegram_messages import (
     TelegramMessage,
     alert_message,
     safe_dashboard_url,

@@ -6,12 +6,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.api import create_app
-from gfpt_next.link_resolver import GoogleLinkResolver
-from gfpt_next.links import InvalidLink, import_link
-from gfpt_next.public_quotes import PageEvidence
-from gfpt_next.search_quotes import SearchPageEvidence, verified_search_reading
-from gfpt_next.service import MonitoringService
+from fareflare.api import create_app
+from fareflare.link_resolver import GoogleLinkResolver
+from fareflare.links import InvalidLink, import_link
+from fareflare.public_quotes import PageEvidence
+from fareflare.search_quotes import SearchPageEvidence, verified_search_reading
+from fareflare.service import MonitoringService
 
 
 def test_route_price_history_and_alerts_keep_actual_offer(store, clock):

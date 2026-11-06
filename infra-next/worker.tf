@@ -127,12 +127,12 @@ resource "aws_lambda_function" "worker" {
   }
   environment {
     variables = {
-      GFPT_NEXT_TABLE                        = aws_dynamodb_table.documents.name
-      GFPT_NEXT_DELIVERY                     = var.product_delivery_enabled ? "product" : (var.webhook_delivery_enabled ? (var.telegram_secret_arn == "" ? "webhooks" : "routed") : (var.telegram_secret_arn == "" ? "shadow" : "telegram"))
-      GFPT_NEXT_MAX_TARGETS                  = tostring(var.worker_max_targets)
-      GFPT_NEXT_TELEGRAM_SECRET_ARN          = var.telegram_secret_arn
-      GFPT_NEXT_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
-      GFPT_NEXT_PUBLIC_URL                   = aws_apigatewayv2_api.public.api_endpoint
+      FAREFLARE_TABLE                        = aws_dynamodb_table.documents.name
+      FAREFLARE_DELIVERY                     = var.product_delivery_enabled ? "product" : (var.webhook_delivery_enabled ? (var.telegram_secret_arn == "" ? "webhooks" : "routed") : (var.telegram_secret_arn == "" ? "shadow" : "telegram"))
+      FAREFLARE_MAX_TARGETS                  = tostring(var.worker_max_targets)
+      FAREFLARE_TELEGRAM_SECRET_ARN          = var.telegram_secret_arn
+      FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
+      FAREFLARE_PUBLIC_URL                   = local.public_url
     }
   }
   depends_on = [aws_iam_role_policy.worker, aws_cloudwatch_log_group.worker]
@@ -156,7 +156,7 @@ resource "aws_cloudwatch_event_target" "worker" {
   count = var.image_uri == "" ? 0 : 1
   rule  = aws_cloudwatch_event_rule.worker[0].name
   arn   = aws_lambda_function.worker[0].arn
-  input = jsonencode({ source = "gfpt-next.scheduler" })
+  input = jsonencode({ source = "fareflare.scheduler" })
   retry_policy {
     maximum_event_age_in_seconds = 60
     maximum_retry_attempts       = 0
@@ -195,7 +195,7 @@ output "repository_url" {
 resource "aws_cloudwatch_metric_alarm" "collection_failures" {
   count               = var.image_uri == "" ? 0 : 1
   alarm_name          = "${var.name}-collection-failures"
-  namespace           = "GFPTNext"
+  namespace           = "Fareflare"
   metric_name         = "failed"
   statistic           = "Sum"
   period              = 300

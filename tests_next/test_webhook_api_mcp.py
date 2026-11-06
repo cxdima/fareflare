@@ -7,10 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 from mcp.server.mcpserver.exceptions import ToolError
 
-from gfpt_next.api import create_app
-from gfpt_next.mcp_server import make_server
-from gfpt_next.service import MonitoringService, Reading
-from gfpt_next.webhooks import RoutedSink
+from fareflare.api import create_app
+from fareflare.mcp_server import make_server
+from fareflare.service import MonitoringService, Reading
+from fareflare.webhooks import RoutedSink
 
 KEYS = {"alice": "a" * 40, "bob": "b" * 40}
 DESTINATION = "https://hooks.example.com/flights"
