@@ -97,16 +97,17 @@ resource "aws_lambda_function" "api" {
   }
   environment {
     variables = {
-      GFPT_NEXT_TABLE                        = aws_dynamodb_table.documents.name
-      GFPT_NEXT_PUBLIC_URL                   = aws_apigatewayv2_api.public.api_endpoint
-      GFPT_NEXT_PRODUCT_NAME                 = var.product_name
-      GFPT_NEXT_REGISTRATION_MODE            = var.registration_mode
-      GFPT_NEXT_BILLING_ENABLED              = tostring(var.billing_enabled)
-      GFPT_NEXT_SEARCH_ENABLED               = tostring(var.search_enabled)
-      GFPT_NEXT_MONITOR_LIMIT                = "3"
-      GFPT_NEXT_MIN_INTERVAL                 = "900"
-      GFPT_NEXT_GLOBAL_TARGET_LIMIT          = "20"
-      GFPT_NEXT_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
+      FAREFLARE_TABLE                        = aws_dynamodb_table.documents.name
+      FAREFLARE_PUBLIC_URL                   = local.public_url
+      FAREFLARE_ADDITIONAL_HOSTS             = replace(aws_apigatewayv2_api.public.api_endpoint, "https://", "")
+      FAREFLARE_PRODUCT_NAME                 = var.product_name
+      FAREFLARE_REGISTRATION_MODE            = var.registration_mode
+      FAREFLARE_BILLING_ENABLED              = tostring(var.billing_enabled)
+      FAREFLARE_SEARCH_ENABLED               = tostring(var.search_enabled)
+      FAREFLARE_MONITOR_LIMIT                = tostring(var.monitor_limit)
+      FAREFLARE_MIN_INTERVAL                 = "900"
+      FAREFLARE_GLOBAL_TARGET_LIMIT          = "20"
+      FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
     }
   }
   depends_on = [aws_iam_role_policy.api, aws_cloudwatch_log_group.api]
@@ -141,8 +142,8 @@ resource "aws_apigatewayv2_stage" "api" {
     for_each = var.api_image_uri == "" ? [] : ["POST /auth/register", "POST /auth/login", "POST /auth/recover"]
     content {
       route_key              = route_settings.value
-      throttling_burst_limit = 3
-      throttling_rate_limit  = 1
+      throttling_burst_limit = route_settings.value == "POST /auth/register" ? 2 : 3
+      throttling_rate_limit  = route_settings.value == "POST /auth/register" ? 0.2 : 1
     }
   }
   depends_on = [aws_apigatewayv2_route.api]
@@ -178,5 +179,5 @@ output "api_repository_url" {
 }
 
 output "application_url" {
-  value = aws_apigatewayv2_api.public.api_endpoint
+  value = local.public_url
 }

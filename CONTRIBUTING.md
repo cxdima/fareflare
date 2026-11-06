@@ -18,7 +18,7 @@ clear documentation corrections can go directly to a pull request.
 
 ## Code organization and style
 
-- Keep domain decisions in `src/gfpt_next/` independent of browser and cloud APIs.
+- Keep domain decisions in `src/fareflare/` independent of browser and cloud APIs.
   Adapters translate external data into validated contracts; API and MCP share
   application services.
 - Use four-space Python indentation, type hints, `snake_case` functions, and
@@ -41,7 +41,7 @@ npm --prefix web test
 ```
 
 `make check` compiles Python, runs Pyright and Ruff, and executes pytest with
-an 80% minimum coverage threshold for `gfpt_next`. Add behavioral tests for changed
+an 80% minimum coverage threshold for `fareflare`. Add behavioral tests for changed
 rules, tenant isolation, retries, money handling, and failure paths. Backend tests
 must not read real credentials or contact AWS or Google.
 

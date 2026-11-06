@@ -1,11 +1,22 @@
 # Fareflare development status
 
-Fareflare is available as a free, invite-only service and as MIT-licensed source.
+Fareflare is available as a free, open-registration service and as MIT-licensed source.
 Billing remains disabled. The current hosted release includes native Telegram
 flight controls, focused account settings and the refined Angular/Bootstrap
 workspace. See [workspace design verification](UI_REFINEMENT_VERIFICATION.md) for
 visual review and release evidence, and [Telegram verification](TELEGRAM_VERIFICATION.md)
 for the preceding bot release. Actual Telegram receipt has not been verified.
+
+## Public domain release
+
+The service is now https://fareflare.dev with public signup and 20 monitors per
+account. Terraform manages Route 53, ACM and the Regional custom domain. The
+Python package and environment keys use `fareflare`/`FAREFLARE_`. Signup-specific
+and account-route rate limits supplement existing gateway and API protections.
+[Public launch verification](PUBLIC_LAUNCH.md) records migration, security limits,
+949 backend tests, 78 frontend tests and 45 live checks. Existing deployment IDs
+and stored account data are preserved. Shared collection remains capped at 20
+unique targets independently of the per-account monitor limit.
 
 ## Current development revision
 
@@ -47,7 +58,7 @@ recorded.
 The reviewed design release changed only the API Lambda image. Readback confirms
 its update succeeded, environment and concurrency were preserved, and the worker
 and original tracker retained their images and modification times. Billing stays
-disabled and registration invite-only. This release did not change bot routing or
+disabled and registration open. This release did not change bot routing or
 send live Telegram messages. Prior [bot](TELEGRAM_VERIFICATION.md) and
 [settings](SETTINGS_VERIFICATION.md) releases retain separate verification records.
 
@@ -77,7 +88,7 @@ within that budget; identity, currency, and fare checks still apply. This improv
 handling of page updates without expanding supported flight coverage or raising
 the configured polling frequency.
 
-The hosted configuration allows three monitors per account, a 900-second minimum
+The hosted configuration allows 20 monitors per account, a 900-second minimum
 requested interval, and 20 shared collection targets. These limits constrain work;
 they do not guarantee a polling deadline or zero infrastructure cost. See
 [setup](FAREFLARE.md) for exact flight coverage.

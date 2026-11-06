@@ -6,10 +6,10 @@ from unittest.mock import Mock
 import pytest
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
-from gfpt_next import public_browser
-from gfpt_next.links import import_link
-from gfpt_next.public_browser import PublicGoogleFlightsProvider
-from gfpt_next.public_quotes import QuoteUnavailable
+from fareflare import public_browser
+from fareflare.links import import_link
+from fareflare.public_browser import PublicGoogleFlightsProvider
+from fareflare.public_quotes import QuoteUnavailable
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_browser_uses_disposable_profile_and_only_expands_details(browser):
     driver.quit.assert_called_once()
     options = launch.call_args.kwargs["options"]
     profile = next(arg.split("=", 1)[1] for arg in options.arguments if arg.startswith("--user-data-dir="))
-    assert "gfpt-next-public-" in profile
+    assert "fareflare-public-" in profile
     assert not Path(profile).exists()
     assert "--no-sandbox" not in options.arguments
     driver.get_cookies.assert_not_called()
@@ -114,7 +114,7 @@ def test_quit_failure_does_not_mask_valid_quote(browser):
 
 def test_lambda_browser_uses_container_process_settings_without_affecting_local_runs(browser, monkeypatch):
     driver, launch, target = browser
-    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'gfpt-next-test')
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'fareflare-test')
     assert PublicGoogleFlightsProvider().collect(target).amount_minor == 30900
     options = launch.call_args.kwargs['options']
     assert {'--single-process', '--no-sandbox', '--disable-dev-shm-usage'} <= set(options.arguments)

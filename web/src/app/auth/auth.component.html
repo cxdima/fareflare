@@ -41,7 +41,9 @@
         <p class="text-body-secondary">
           {{
             mode() === 'register'
-              ? 'Use your invitation to get started.'
+              ? config.registration_mode === 'open'
+                ? 'Create a free account to start tracking flights.'
+                : 'Use your invitation to get started.'
               : mode() === 'recover'
                 ? 'Use the recovery code you saved when you signed up.'
                 : 'Sign in to check the flights you’re watching.'
@@ -188,7 +190,9 @@
             </button>
             @if (config.registration_mode !== 'closed') {
               <p>
-                Have an invitation?
+                {{
+                  config.registration_mode === 'open' ? 'New to Fareflare?' : 'Have an invitation?'
+                }}
                 <button
                   type="button"
                   class="btn btn-link p-0"

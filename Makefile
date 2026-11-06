@@ -24,10 +24,10 @@ build:
 	@npm --prefix web run build
 
 serve:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.product_cli serve
+	@PYTHONPATH=src $(PYTHON) -m fareflare.product_cli serve
 
 invite:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.product_cli invite .next/invitation.json
+	@PYTHONPATH=src $(PYTHON) -m fareflare.product_cli invite .next/invitation.json
 
 test:
 	@$(PYTHON) -m pytest
@@ -36,13 +36,13 @@ lint:
 	@$(PYTHON) -m ruff check src tests_next
 
 check:
-	@$(PYTHON) -m compileall -q src/gfpt_next
+	@$(PYTHON) -m compileall -q src/fareflare
 	@$(PYTHON) -m pyright
 	@$(PYTHON) -m ruff check src tests_next
-	@$(PYTHON) -m pytest --cov=gfpt_next --cov-report=term-missing
+	@$(PYTHON) -m pytest --cov=fareflare --cov-report=term-missing
 
 demo:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli demo
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli demo
 
 webhook-demo:
 	@PYTHONPATH=src $(PYTHON) examples/webhook_demo.py
@@ -56,19 +56,19 @@ product-serve: serve
 product-invite: invite
 
 next-init:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli init
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli init
 
 next-serve:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli serve
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli serve
 
 next-mcp:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli mcp
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli mcp
 
 next-quote:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli quote
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli quote
 
 next-collect:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli collect-once
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli collect-once
 
 next-worker:
-	@PYTHONPATH=src $(PYTHON) -m gfpt_next.cli worker
+	@PYTHONPATH=src $(PYTHON) -m fareflare.cli worker

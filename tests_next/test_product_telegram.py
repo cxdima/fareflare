@@ -3,10 +3,10 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.portal import create_portal
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.product_telegram import InboxSink
+from fareflare.accounts import Accounts
+from fareflare.portal import create_portal
+from fareflare.product_config import ProductConfig
+from fareflare.product_telegram import InboxSink
 
 
 def test_customer_inbox_never_claims_explicit_webhook_or_unknown_account_delivery(store):

@@ -6,15 +6,15 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.api import create_app
-from gfpt_next.credentials import Credentials, RateLimited, RateLimiter
-from gfpt_next.delivery import TelegramSink
-from gfpt_next.domain import AlertPolicy, evaluate
-from gfpt_next.link_resolver import GoogleLinkResolver
-from gfpt_next.links import InvalidLink, import_link
-from gfpt_next.service import Reading
-from gfpt_next.store import Document
-from gfpt_next.worker import Worker
+from fareflare.api import create_app
+from fareflare.credentials import Credentials, RateLimited, RateLimiter
+from fareflare.delivery import TelegramSink
+from fareflare.domain import AlertPolicy, evaluate
+from fareflare.link_resolver import GoogleLinkResolver
+from fareflare.links import InvalidLink, import_link
+from fareflare.service import Reading
+from fareflare.store import Document
+from fareflare.worker import Worker
 
 SHARE = 'https://www.google.com/travel/flights/s/CtJjhcABupzKqMeB9'
 
@@ -203,8 +203,8 @@ def test_queue_head_promotion_is_atomic_with_concurrent_event_append(service, cl
 
 
 def test_terminal_delivery_retention_does_not_block_future_alerts(tmp_path, flight_url, clock):
-    from gfpt_next.service import MonitoringService
-    from gfpt_next.store import SQLiteStore
+    from fareflare.service import MonitoringService
+    from fareflare.store import SQLiteStore
     store = SQLiteStore(tmp_path / 'retention.db')
     service = MonitoringService(store, lambda: clock[0])
     monitor = service.create_monitor('alice', flight_url, 'retention-test')
@@ -224,7 +224,7 @@ def test_terminal_delivery_retention_does_not_block_future_alerts(tmp_path, flig
 
 
 def test_lambda_runtime_defaults_to_shadow_and_rejects_other_events(service, monkeypatch):
-    from gfpt_next import runtime
+    from fareflare import runtime
     context = Mock()
     context.get_remaining_time_in_millis.return_value = 180000
     with pytest.raises(ValueError):
@@ -233,22 +233,22 @@ def test_lambda_runtime_defaults_to_shadow_and_rejects_other_events(service, mon
     worker.service = service
     worker.tick.return_value = {'collected': 1, 'shadow': True}
     monkeypatch.setattr(runtime, 'build_worker', lambda: worker)
-    assert runtime.handler({'source': 'gfpt-next.scheduler'}, context)['shadow'] is True
+    assert runtime.handler({'source': 'fareflare.scheduler'}, context)['shadow'] is True
     worker.tick.assert_called_once_with(max_targets=1, budget_seconds=150)
     assert service.store.get('health:worker').data['collected'] == 1
 
 
 def test_runtime_only_loads_telegram_secret_when_delivery_is_enabled(service, monkeypatch):
-    from gfpt_next import runtime
-    monkeypatch.setenv('GFPT_NEXT_TABLE', 'gfpt-next-tests')
-    monkeypatch.delenv('GFPT_NEXT_DELIVERY', raising=False)
+    from fareflare import runtime
+    monkeypatch.setenv('FAREFLARE_TABLE', 'fareflare-tests')
+    monkeypatch.delenv('FAREFLARE_DELIVERY', raising=False)
     monkeypatch.setattr(runtime, 'DynamoStore', lambda *args, **kwargs: service.store)
     aws = Mock()
     monkeypatch.setattr(runtime.boto3, 'client', aws)
     assert runtime.build_worker().sink is None
     aws.assert_not_called()
-    monkeypatch.setenv('GFPT_NEXT_DELIVERY', 'telegram')
-    monkeypatch.setenv('GFPT_NEXT_TELEGRAM_SECRET_ARN', 'test-secret')
+    monkeypatch.setenv('FAREFLARE_DELIVERY', 'telegram')
+    monkeypatch.setenv('FAREFLARE_TELEGRAM_SECRET_ARN', 'test-secret')
     aws.return_value.get_secret_value.return_value = {'SecretString': json.dumps({
         'bot_token': '123:' + 'a' * 25, 'recipients': {'alice': '111'}})}
     assert isinstance(runtime.build_worker().sink, TelegramSink)
@@ -302,7 +302,7 @@ def test_telegram_alert_shows_the_flight_party_and_human_readable_time(service, 
 @pytest.mark.parametrize('shadow', [False, True])
 @pytest.mark.parametrize('stale_entries', [False, True])
 def test_worker_processes_new_observation_and_alert_despite_index_lag(service, clock, flight_url, monkeypatch, shadow, stale_entries):
-    from gfpt_next.store import Page
+    from fareflare.store import Page
     monitor = service.create_monitor('alice', flight_url, 'index-lag-regression')
     original_page = service.store.page
     stale = {}

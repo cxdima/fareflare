@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from gfpt_next.links import import_link
-from gfpt_next.public_quotes import (
+from fareflare.links import import_link
+from fareflare.public_quotes import (
     PageEvidence,
     QuoteUnavailable,
     supported_target,

@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from gfpt_next import accounts as module
-from gfpt_next.accounts import Accounts, AuthenticationFailed, hash_password, verify_password
-from gfpt_next.credentials import RateLimited
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.service import MonitoringService, Reading
+from fareflare import accounts as module
+from fareflare.accounts import Accounts, AuthenticationFailed, hash_password, verify_password
+from fareflare.credentials import RateLimited
+from fareflare.product_config import ProductConfig
+from fareflare.service import MonitoringService, Reading
 
 PASSWORD = "my development passphrase"
 REPLACEMENT = "my replacement passphrase"
@@ -28,14 +28,14 @@ def test_default_product_is_free_invite_only_and_bounded():
     config = ProductConfig.from_env({})
     assert config.public() == {"product_name": "Fareflare", "billing_enabled": False,
         "capabilities": {"route_searches": False},
-        "registration_mode": "invite", "limits": {"monitors": 3, "min_interval_seconds": 900, "global_targets": 20}}
-    assert ProductConfig.from_env({"GFPT_NEXT_SEARCH_ENABLED": "true"}).search_enabled is True
+        "registration_mode": "invite", "limits": {"monitors": 20, "min_interval_seconds": 900, "global_targets": 20}}
+    assert ProductConfig.from_env({"FAREFLARE_SEARCH_ENABLED": "true"}).search_enabled is True
     with pytest.raises(ValueError):
-        ProductConfig.from_env({"GFPT_NEXT_SEARCH_ENABLED": "maybe"})
+        ProductConfig.from_env({"FAREFLARE_SEARCH_ENABLED": "maybe"})
     with pytest.raises(ValueError):
-        ProductConfig.from_env({"GFPT_NEXT_BILLING_ENABLED": "true"})
+        ProductConfig.from_env({"FAREFLARE_BILLING_ENABLED": "true"})
     with pytest.raises(ValueError):
-        ProductConfig.from_env({"GFPT_NEXT_BILLING_ENABLED": "maybe"})
+        ProductConfig.from_env({"FAREFLARE_BILLING_ENABLED": "maybe"})
     with pytest.raises(ValueError):
         ProductConfig(monitor_limit=True)
     with pytest.raises(ValueError):

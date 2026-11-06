@@ -1,8 +1,8 @@
 """The API reference must stay usable without a second UI runtime or remote assets."""
 from fastapi.testclient import TestClient
 
-from gfpt_next.api import create_app
-from gfpt_next.api_reference import render_api_reference
+from fareflare.api import create_app
+from fareflare.api_reference import render_api_reference
 
 
 def test_standalone_reference_keeps_schema_and_endpoints_without_swagger_or_redoc(service):

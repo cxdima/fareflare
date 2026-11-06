@@ -6,9 +6,9 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.product_cli import main
-from gfpt_next.store import DynamoStore
+from fareflare.accounts import Accounts
+from fareflare.product_cli import main
+from fareflare.store import DynamoStore
 
 
 @pytest.mark.parametrize("prefix", ["fareflare", "gfpt-next"])

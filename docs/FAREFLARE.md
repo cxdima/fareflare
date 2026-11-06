@@ -4,8 +4,8 @@ Fareflare watches Google Flights itineraries and supported route searches, recor
 the lowest eligible price it actually observes. It cannot promise the lowest fare
 across the entire market or detect a price that appears and disappears between checks.
 
-The [hosted service](https://8jq9j5zhif.execute-api.us-east-1.amazonaws.com)
-is free and invite-only, with billing disabled and route searches enabled. Current
+The [hosted service](https://fareflare.dev)
+is free with open registration, with billing disabled and route searches enabled. Current
 collection supports:
 
 - **Selected itineraries:** US-English economy, one or two adults, USD/JPY, and
@@ -43,7 +43,7 @@ The HTTP server never launches Chrome. With local Chromium and ChromeDriver inst
 run a bounded worker against the same database:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli worker --limit 5
+PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
 ```
 
 Use `--chrome-binary` and `--chromedriver` for explicit executable paths. Run the
@@ -100,14 +100,14 @@ and collection status.
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
-| `GFPT_NEXT_PRODUCT_NAME` | `Fareflare` | Display name |
-| `GFPT_NEXT_PUBLIC_URL` | Required in Lambda | Exact HTTPS application origin |
-| `GFPT_NEXT_REGISTRATION_MODE` | `invite` | Single-use invites; `open` is opt-in |
-| `GFPT_NEXT_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
-| `GFPT_NEXT_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
-| `GFPT_NEXT_MONITOR_LIMIT` | `3` | Monitors per account |
-| `GFPT_NEXT_MIN_INTERVAL` | `900` | Minimum requested interval in seconds |
-| `GFPT_NEXT_GLOBAL_TARGET_LIMIT` | `20` | Shared collection capacity |
+| `FAREFLARE_PRODUCT_NAME` | `Fareflare` | Display name |
+| `FAREFLARE_PUBLIC_URL` | Required in Lambda | Exact HTTPS application origin |
+| `FAREFLARE_REGISTRATION_MODE` | `invite` | Single-use invites; `open` is opt-in |
+| `FAREFLARE_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
+| `FAREFLARE_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
+| `FAREFLARE_MONITOR_LIMIT` | `3` | Monitors per account |
+| `FAREFLARE_MIN_INTERVAL` | `900` | Minimum requested interval in seconds |
+| `FAREFLARE_GLOBAL_TARGET_LIMIT` | `20` | Shared collection capacity |
 
 Billing deliberately refuses startup when enabled until a payment integration is
 implemented. Identical target identities share collection; subscriptions and alert
@@ -118,10 +118,10 @@ Self-hosted installations keep route searches off by default. To enable them loc
 start the API and worker in separate terminals with the same flag:
 
 ```bash
-GFPT_NEXT_SEARCH_ENABLED=true make serve
+FAREFLARE_SEARCH_ENABLED=true make serve
 # Separate worker terminal:
-GFPT_NEXT_SEARCH_ENABLED=true PYTHONPATH=src \
-  .venv/bin/python -m gfpt_next.product_cli worker --limit 5
+FAREFLARE_SEARCH_ENABLED=true PYTHONPATH=src \
+  .venv/bin/python -m fareflare.product_cli worker --limit 5
 ```
 
 `GET /v1/config` exposes `capabilities.route_searches`; the dashboard adapts its
@@ -169,7 +169,7 @@ configuration templates and release sequence.
 Issue a deployed invite explicitly:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m gfpt_next.product_cli \
+PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
   --public-url https://YOUR-HTTP-API.execute-api.REGION.amazonaws.com \
   invite .next/invitation.json --table fareflare-YOUR-NAME \
   --aws-account YOUR_ACCOUNT_ID --region REGION

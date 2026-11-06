@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.api import create_app
+from fareflare.api import create_app
 
 
 @pytest.mark.parametrize("status,expected_count", [("paused", 2), ("cancelled", 1), ("expired", 1)])

@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from gfpt_next.service import MonitoringService, NotFound, Reading
-from gfpt_next.store import Conflict, Document, DynamoStore, SQLiteStore
+from fareflare.service import MonitoringService, NotFound, Reading
+from fareflare.store import Conflict, Document, DynamoStore, SQLiteStore
 
 
 def observe(service, monitor, clock, amount=50000, run="first"):
@@ -191,7 +191,7 @@ def test_out_of_order_event_discovery_waits_for_missing_sequence(service, flight
     observe(service, monitor, clock)
     clock[0] += 900
     observe(service, monitor, clock, amount=40000, run="second")
-    from gfpt_next.store import Page
+    from fareflare.store import Page
     original_page = service.store.page
     def page(partition, *args, **kwargs):
         result = original_page(partition, *args, **kwargs)
@@ -306,7 +306,7 @@ def test_pause_then_resume_suppresses_pre_pause_queue(service, flight_url, clock
 
 
 def test_unsupported_collection_is_blocked_without_losing_intent(service, flight_url):
-    from gfpt_next.contracts import CollectionFailure
+    from fareflare.contracts import CollectionFailure
     monitor = service.create_monitor('alice', flight_url, 'unsupported-test')
     provider = Mock()
     provider.collect.side_effect = CollectionFailure('unsupported_itinerary')

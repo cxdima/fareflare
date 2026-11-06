@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx
 from mcp import ClientSession, StdioServerParameters, stdio_client
 
-from gfpt_next.cli import main
+from fareflare.cli import main
 
 
 def test_stdio_mcp_to_running_api(tmp_path, flight_url):
@@ -21,9 +21,9 @@ def test_stdio_mcp_to_running_api(tmp_path, flight_url):
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     root = Path(__file__).parents[1]
-    env = {**os.environ, "PYTHONPATH": str(root / "src"), "GFPT_NEXT_API_URL": f"http://127.0.0.1:{port}"}
-    env.pop("GFPT_NEXT_API_KEY", None)
-    command = [sys.executable, "-m", "gfpt_next.cli", "--config", str(config)]
+    env = {**os.environ, "PYTHONPATH": str(root / "src"), "FAREFLARE_API_URL": f"http://127.0.0.1:{port}"}
+    env.pop("FAREFLARE_API_KEY", None)
+    command = [sys.executable, "-m", "fareflare.cli", "--config", str(config)]
     process = subprocess.Popen([*command, "serve", "--port", str(port)], env=env,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:

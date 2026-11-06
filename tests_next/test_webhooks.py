@@ -3,11 +3,11 @@ import json
 
 import pytest
 
-from gfpt_next.credentials import RateLimited
-from gfpt_next.service import MonitoringService, NotFound, Reading
-from gfpt_next.store import Conflict
-from gfpt_next.webhook_http import verify_webhook
-from gfpt_next.webhooks import RoutedSink
+from fareflare.credentials import RateLimited
+from fareflare.service import MonitoringService, NotFound, Reading
+from fareflare.store import Conflict
+from fareflare.webhook_http import verify_webhook
+from fareflare.webhooks import RoutedSink
 
 
 class Receiver:

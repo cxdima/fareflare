@@ -6,10 +6,10 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from gfpt_next.accounts import Accounts
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.telegram_accounts import TelegramConnections
-from gfpt_next.telegram_messages import TelegramMessage
+from fareflare.accounts import Accounts
+from fareflare.product_config import ProductConfig
+from fareflare.telegram_accounts import TelegramConnections
+from fareflare.telegram_messages import TelegramMessage
 
 PASSWORD = 'private development passphrase'
 TOKEN = '123456:' + 'x' * 30

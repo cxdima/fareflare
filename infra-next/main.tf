@@ -79,7 +79,7 @@ resource "aws_dynamodb_table" "documents" {
     enabled = true
   }
   tags = {
-    Project     = "gfpt-next"
+    Project     = "fareflare"
     Environment = "production"
   }
 }

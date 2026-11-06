@@ -7,11 +7,11 @@ from unittest.mock import Mock
 import pytest
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
-from gfpt_next import public_browser
-from gfpt_next.links import import_link
-from gfpt_next.public_browser import PublicGoogleFlightsProvider
-from gfpt_next.store import Page
-from gfpt_next.worker import Worker
+from fareflare import public_browser
+from fareflare.links import import_link
+from fareflare.public_browser import PublicGoogleFlightsProvider
+from fareflare.store import Page
+from fareflare.worker import Worker
 from tests_next.test_links import change_token
 
 

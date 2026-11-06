@@ -5,9 +5,9 @@ from unittest.mock import Mock
 import pytest
 from selenium.common.exceptions import WebDriverException
 
-from gfpt_next import public_browser
-from gfpt_next.public_browser import PublicGoogleFlightsProvider
-from gfpt_next.public_quotes import QuoteUnavailable
+from fareflare import public_browser
+from fareflare.public_browser import PublicGoogleFlightsProvider
+from fareflare.public_quotes import QuoteUnavailable
 
 TARGET = {"market": "US", "currency": "USD", "adults": 1, "cabin": 1, "provider_query": {}}
 

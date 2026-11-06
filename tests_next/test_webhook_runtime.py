@@ -5,10 +5,10 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from gfpt_next import runtime
-from gfpt_next.delivery import TelegramSink
-from gfpt_next.service import MonitoringService, Reading
-from gfpt_next.webhooks import RoutedSink
+from fareflare import runtime
+from fareflare.delivery import TelegramSink
+from fareflare.service import MonitoringService, Reading
+from fareflare.webhooks import RoutedSink
 
 
 class Receiver:
@@ -33,9 +33,9 @@ def test_runtime_delivery_mode_preserves_explicit_destination(store, clock, flig
     service.process_events()
     receiver.events.clear()
 
-    monkeypatch.setenv("GFPT_NEXT_TABLE", "gfpt-next-tests")
-    monkeypatch.setenv("GFPT_NEXT_DELIVERY", mode)
-    monkeypatch.setenv("GFPT_NEXT_TELEGRAM_SECRET_ARN", "test-secret")
+    monkeypatch.setenv("FAREFLARE_TABLE", "fareflare-tests")
+    monkeypatch.setenv("FAREFLARE_DELIVERY", mode)
+    monkeypatch.setenv("FAREFLARE_TELEGRAM_SECRET_ARN", "test-secret")
     monkeypatch.setattr(runtime, "DynamoStore", lambda *args, **kwargs: store)
     aws = Mock()
     aws.return_value.get_secret_value.return_value = {"SecretString": json.dumps({
@@ -90,8 +90,8 @@ def test_runtime_delivery_mode_preserves_explicit_destination(store, clock, flig
 
 
 def test_invalid_runtime_delivery_mode_fails_before_secret_or_network_access(store, monkeypatch):
-    monkeypatch.setenv("GFPT_NEXT_TABLE", "gfpt-next-tests")
-    monkeypatch.setenv("GFPT_NEXT_DELIVERY", "unrecognized")
+    monkeypatch.setenv("FAREFLARE_TABLE", "fareflare-tests")
+    monkeypatch.setenv("FAREFLARE_DELIVERY", "unrecognized")
     monkeypatch.setattr(runtime, "DynamoStore", lambda *args, **kwargs: store)
     aws = Mock()
     monkeypatch.setattr(runtime.boto3, "client", aws)

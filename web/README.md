@@ -32,7 +32,7 @@ the browser origin for account mutations.
 - `src/app/auth/`: login, invitation signup, and recovery using Angular signal forms.
 - `src/app/public/`: landing page and editorial content views.
 - `src/styles.scss`: design tokens, Bootstrap theme, local fonts, and shared classes.
-- `../src/gfpt_next/site_content.py`: public content, metadata, structured data,
+- `../src/fareflare/site_content.py`: public content, metadata, structured data,
   sitemap, and crawlable HTML source.
 
 Use component classes with OnPush, signals, and dependency injection. Keep HTML and

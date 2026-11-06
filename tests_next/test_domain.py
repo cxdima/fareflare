@@ -1,6 +1,6 @@
 import pytest
 
-from gfpt_next.domain import AlertPolicy, evaluate
+from fareflare.domain import AlertPolicy, evaluate
 
 
 def test_small_drops_accumulate_against_last_queued_alert():

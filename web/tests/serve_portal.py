@@ -9,12 +9,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import uvicorn  # noqa: E402
 
-from gfpt_next.accounts import Accounts  # noqa: E402
-from gfpt_next.portal import create_portal  # noqa: E402
-from gfpt_next.product_config import ProductConfig  # noqa: E402
-from gfpt_next.public_quotes import supported_target  # noqa: E402
-from gfpt_next.service import MonitoringService  # noqa: E402
-from gfpt_next.store import SQLiteStore  # noqa: E402
+from fareflare.accounts import Accounts  # noqa: E402
+from fareflare.portal import create_portal  # noqa: E402
+from fareflare.product_config import ProductConfig  # noqa: E402
+from fareflare.public_quotes import supported_target  # noqa: E402
+from fareflare.service import MonitoringService  # noqa: E402
+from fareflare.store import SQLiteStore  # noqa: E402
 
 with tempfile.TemporaryDirectory(prefix="fareflare-browser-") as directory:
     store = SQLiteStore(Path(directory) / "test.sqlite3")

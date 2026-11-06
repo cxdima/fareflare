@@ -3,12 +3,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from gfpt_next.product_cli import main
+from fareflare.product_cli import main
 
 
 def test_local_invitation_is_private_single_use_and_not_overwritten(tmp_path, capsys):
-    from gfpt_next.accounts import Accounts
-    from gfpt_next.store import SQLiteStore
+    from fareflare.accounts import Accounts
+    from fareflare.store import SQLiteStore
     path = tmp_path / "invite.json"
     database = tmp_path / "product.sqlite3"
     command = ["--database", str(database), "invite", str(path)]
@@ -33,7 +33,7 @@ def test_cloud_invitation_requires_expected_account_before_write(tmp_path, monke
     monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
     path = tmp_path / "invite.json"
     with pytest.raises(ValueError, match="AWS account"):
-        main(["invite", str(path), "--table", "gfpt-next-tests", "--aws-account", "111111111111"])
+        main(["invite", str(path), "--table", "fareflare-tests", "--aws-account", "111111111111"])
     assert not path.exists()
 
 

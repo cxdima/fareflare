@@ -2,6 +2,6 @@
 FROM public.ecr.aws/lambda/python:3.12@sha256:0fe974382dcb297e80e7feb8c7620d7e8ece5b42b4d01a5a9ffe939c654bf8b0
 COPY requirements-next.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements-next.lock
-COPY src/gfpt_next ./gfpt_next
+COPY src/fareflare ./fareflare
 COPY web/dist ./web
-CMD ["gfpt_next.product_runtime.handler"]
+CMD ["fareflare.product_runtime.handler"]

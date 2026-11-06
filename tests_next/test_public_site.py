@@ -7,10 +7,10 @@ from html import unescape
 import pytest
 from fastapi.testclient import TestClient
 
-from gfpt_next.portal import create_portal
-from gfpt_next.product_config import ProductConfig
-from gfpt_next.service import MonitoringService
-from gfpt_next.site_content import content_document, public_pages, render_document
+from fareflare.portal import create_portal
+from fareflare.product_config import ProductConfig
+from fareflare.service import MonitoringService
+from fareflare.site_content import content_document, public_pages, render_document
 
 
 @pytest.fixture

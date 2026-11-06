@@ -3,5 +3,5 @@ ARG BROWSER_BASE=fareflare-browser-base
 FROM ${BROWSER_BASE}
 COPY requirements-next.lock .
 RUN pip install --no-cache-dir --require-hashes -r requirements-next.lock
-COPY src/gfpt_next ./gfpt_next
-CMD ["gfpt_next.runtime.handler"]
+COPY src/fareflare ./fareflare
+CMD ["fareflare.runtime.handler"]

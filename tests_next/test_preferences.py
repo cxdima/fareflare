@@ -7,10 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from gfpt_next.api import create_app
-from gfpt_next.preferences import Preferences, observed_time, regional_price, telegram_text
-from gfpt_next.service import Reading
-from gfpt_next.store import Conflict
+from fareflare.api import create_app
+from fareflare.preferences import Preferences, observed_time, regional_price, telegram_text
+from fareflare.service import Reading
+from fareflare.store import Conflict
 from tests_next.test_hosted_mcp import application, tool
 
 
@@ -197,7 +197,7 @@ def test_regional_amounts_keep_original_currency_and_minor_unit_precision(locale
 
 
 def test_compact_message_respects_independent_fields_and_keeps_trip_party(flight_url):
-    from gfpt_next.telegram_messages import alert_message
+    from fareflare.telegram_messages import alert_message
     value = sample()
     value["itinerary"]["url"] = flight_url
     detailed = telegram_text(value, Preferences())
@@ -221,7 +221,7 @@ def test_preferences_do_not_accept_timezone_path_or_markup_settings():
 
 
 def test_telegram_send_escapes_provider_text_and_honors_silent_transport_flag():
-    from gfpt_next.delivery import TelegramSink
+    from fareflare.delivery import TelegramSink
     sent = []
 
     def transport(request):
