@@ -6,6 +6,11 @@ Fareflare's web application uses Angular 22, Bootstrap 5, Bootstrap Icons and lo
 
 A fresh Chrome context without extensions loaded the public site, sign-in page and API reference. Its scripts came from Fareflare's own origin; no React globals, mounted React roots, fiber properties or registered React renderers were found. The unauthenticated dashboard request redirected to sign-in; it also downloaded the dashboard bundle. This does not establish what the reporting extension observed in the user's authenticated browser. The screenshot's exact cause remains unverified.
 
+After deployment, the [production settings verification](SETTINGS_VERIFICATION.md)
+also checked a clean, authenticated workspace. It found Angular, no React globals
+or mounted renderer markers, and no external scripts. The API reference remained
+script-free and `/redoc` returned 404.
+
 ## Removed dependency path
 
 The standalone Python API still exposed FastAPI's default Swagger UI and ReDoc pages. These documentation applications introduce an additional frontend stack. The hosted portal already replaced those pages with its own static reference.
