@@ -7,6 +7,17 @@ workspace. See [workspace design verification](UI_REFINEMENT_VERIFICATION.md) fo
 visual review and release evidence, and [Telegram verification](TELEGRAM_VERIFICATION.md)
 for the preceding bot release. Actual Telegram receipt has not been verified.
 
+## Public domain release
+
+The service is now https://fareflare.dev with public signup and 20 monitors per
+account. Terraform manages Route 53, ACM and the Regional custom domain. The
+Python package and environment keys use `fareflare`/`FAREFLARE_`. Signup-specific
+and account-route rate limits supplement existing gateway and API protections.
+[Public launch verification](PUBLIC_LAUNCH.md) records migration, security limits,
+949 backend tests, 78 frontend tests and 45 live checks. Existing deployment IDs
+and stored account data are preserved. Shared collection remains capped at 20
+unique targets independently of the per-account monitor limit.
+
 ## Current development revision
 
 - **Telegram bot — deployed:** native private-chat

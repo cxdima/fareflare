@@ -50,3 +50,33 @@ Fixed-minute windows allow boundary bursts and per-IP limits affect shared netwo
 These controls do not establish sustained collection reliability or complete bot/DDoS
 protection. API Gateway HTTP APIs do not provide direct WAF association. See
 [development status](DEVELOPMENT_STATUS.md) for remaining operational work.
+
+## Release verification — November 6, 2026
+
+Implementation `e4884da688a53d1532c3c523dc13647f6a4b36ae` passed 949 backend
+checks (92.83% coverage), 78 frontend checks, build/types/lint/formatting, a
+100-file secret scan and 60 isolated container checks with matching source hashes.
+GitHub CI passed. The initially flagged secret was an existing deterministic
+webhook test vector; it is now constructed explicitly from `bytes(range(32))`.
+
+Terraform applied three additions and six updates with zero destruction. Readback
+confirmed the certificate is ISSUED, the domain AVAILABLE, both functions Active
+with successful updates, and their environments match the reviewed migration.
+The original tracker's image, environment and modification time were preserved.
+
+All 45 live browser/account checks passed, including 15 accessibility scans, normal
+signup without an invitation, secure sessions, API-key lifecycle, 20-tool MCP
+discovery, preference persistence, login and account deletion. The temporary
+account was deleted; tests created no monitors or external notifications. No
+runtime, CSP, asset or server errors were recorded.
+
+Public resolvers and Route 53 delegation resolve the new domain correctly. This
+Mac retained an earlier negative DNS result, so browser verification used a local
+CONNECT relay to a published DNS address. HTTPS certificate/hostname validation
+remained enabled end to end; no certificate checks were bypassed. Other cached
+resolvers may need time to refresh.
+
+Immutable images:
+
+- API: `sha256:c315b6b4d9588244d82b7e372ef89bb7aac4f2081498c075d4e53e25dd691e0a`
+- Worker: `sha256:903ddfcadfbe7bd2fbafbcba34a07bda4f56aa048b312d950a62651052d233fc`
