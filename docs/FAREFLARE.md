@@ -53,10 +53,16 @@ the durable pipeline using clearly labeled synthetic prices without external cal
 
 ## Use the dashboard
 
-**Find a flight** searches the loaded monitors by airport, flight number, or date.
+Open **Filter flights**. **Find a flight** searches the loaded monitors by airport, flight number, or date.
 Combine it with the **Status** filter to find watching, paused, stopped/departed,
 or attention-needed monitors. If more pages exist, use **Load more monitors**;
 search, filters, and the loaded counts do not include pages you have not loaded.
+
+Each flight leads with its route, fare and most recent check. Open **Manage flight**
+for the collection schedule, delivery destination, alert editing and pause/stop
+controls. When adding a flight, **Collection and delivery** contains the optional
+check interval and destination. **API & MCP** separates connection instructions;
+the HTTP API view opens the API-key form, which can also be expanded in the MCP view.
 
 Open **Price history** on a monitor to compare **All loaded**, **Past 7 days**, or
 **Past 30 days**. Latest, lowest, highest, and change figures use only loaded
@@ -73,12 +79,12 @@ JPY uses whole yen (`19100` means ¥19,100). Spreadsheet formula-like text is
 prefixed with an apostrophe for safe import. CSV export is a browser download,
 not a new server endpoint or a complete-history export.
 
-**Account settings** saves your time zone, regional date/number format and clock
+**Account settings → Display** saves your time zone, regional date/number format and clock
 preference. With no saved zone, the website uses device time and Telegram uses
 UTC. Save a named zone to keep both consistent. Flight departure dates stay in
 the airport's calendar; fare amounts retain their original currency.
 
-Choose detailed or compact Telegram messages, optional flight/fare/timestamp
+Under **Notifications**, choose detailed or compact Telegram messages, optional flight/fare/timestamp
 details, and silent delivery. **Preview message** displays sample content without
 saving changes or sending a notification. Global and route muting stop outgoing
 alerts while collection continues. See [account preferences](ACCOUNT_PREFERENCES.md)

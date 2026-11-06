@@ -2,11 +2,10 @@
 
 Fareflare is available as a free, invite-only service and as MIT-licensed source.
 Billing remains disabled. The current hosted release includes native Telegram
-flight controls, personal settings and the softer Bootstrap theme. See
-[Telegram verification](TELEGRAM_VERIFICATION.md) for local/package checks and
-deployment evidence. All 33 live browser/account checks passed, including nine
-accessibility scans and disposable-account cleanup. Actual Telegram receipt has
-not been verified.
+flight controls, focused account settings and the refined Angular/Bootstrap
+workspace. See [workspace design verification](UI_REFINEMENT_VERIFICATION.md) for
+visual review and release evidence, and [Telegram verification](TELEGRAM_VERIFICATION.md)
+for the preceding bot release. Actual Telegram receipt has not been verified.
 
 ## Current development revision
 
@@ -24,27 +23,33 @@ not been verified.
   uses sample data without sending a notification. Existing global/route muting
   remains available. [Account preferences](ACCOUNT_PREFERENCES.md) documents
   defaults, partial updates, time-zone fallback and queue behavior.
-- **Interface:** softer sage surfaces, deep green text, centrally themed Bootstrap
-  buttons, plane icons for flight actions, underlined active navigation and a
-  grouped account/sign-out area. The workspace layout remains unchanged.
+- **Interface:** softer sage surfaces, deep green text and themed Bootstrap
+  controls. Flight buttons use a large clipped airplane texture. Route, price and
+  freshness lead; filters and management details open on demand. Airline artwork
+  is contained and spaced consistently. Settings use Display, Notifications,
+  Connections and Security sections that retain unsaved drafts. Native pickers,
+  mobile alerts and API reference margins follow the shared theme.
 - **Frontend stack:** Angular and Bootstrap remain the application stack. The
   standalone API now shares the portal's script-free HTML reference, removing its
   default Swagger/ReDoc applications. [The audit](STACK_AUDIT.md) distinguishes
   that change from the unverified browser-extension detection report.
 
-Local verification completed with **943 backend tests, 92.83% coverage and 72
-frontend checks**. The built images passed **78 isolated checks**: 60 API/worker
-checks with exact source/build hashes and 18 native-workflow checks through the
-packaged ASGI application with mocked Telegram transport. Pyright, Ruff,
-frontend build/types/formatting and the changed-file secret scan passed.
+Local verification completed with **943 backend tests, 92.83% coverage and 78
+frontend checks**. The API image passed 39 isolated checks with 63 matching
+source/build hashes. Pyright, Ruff, frontend build/types/formatting and the changed
+implementation secret scan passed. Actual Playwright MCP review covered desktop
+and mobile public, authentication and workspace states; 66 normal-color axe scans
+were clean. Two forced-colors contrast flags are documented separately.
+All 45 live browser/account checks passed, including 15 accessibility scans and
+disposable-account deletion. No browser runtime, CSP, asset or server errors were
+recorded.
 
-The reviewed deployment changed only the API and worker Lambda images. Both
-functions report Active with Successful updates; their environment and reserved
-concurrency match the pre-deployment state. Billing stays disabled and registration
-invite-only. Callback configuration preserved existing message update types and
-the four-connection limit; readback showed no pending updates or webhook error.
-No live Telegram test messages were sent. The [prior settings release](SETTINGS_VERIFICATION.md)
-retains its separate production verification record.
+The reviewed design release changed only the API Lambda image. Readback confirms
+its update succeeded, environment and concurrency were preserved, and the worker
+and original tracker retained their images and modification times. Billing stays
+disabled and registration invite-only. This release did not change bot routing or
+send live Telegram messages. Prior [bot](TELEGRAM_VERIFICATION.md) and
+[settings](SETTINGS_VERIFICATION.md) releases retain separate verification records.
 
 ## Previously verified capabilities
 

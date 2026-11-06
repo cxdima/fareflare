@@ -13,7 +13,7 @@
 @if (items().length) {
   <section class="panel table-panel">
     <div class="table-responsive">
-      <table class="table mb-0">
+      <table class="table mb-0" role="table">
         <caption class="visually-hidden">
           Price alerts and delivery status
         </caption>
@@ -27,16 +27,16 @@
         </thead>
         <tbody>
           @for (item of items(); track item.id) {
-            <tr>
-              <td>
+            <tr role="row">
+              <td class="alert-flight" role="cell">
                 <strong>{{ route(item.monitor_id) }}</strong
                 ><span class="table-subtext">{{ reasonLabel(item.reason) }}</span
                 ><span class="table-subtext">{{ timestamp(item.observation.observed_at) }}</span>
               </td>
-              <td class="text-nowrap">
+              <td class="alert-price text-nowrap" role="cell">
                 {{ money(item.observation.amount_minor, item.observation.currency) }}
               </td>
-              <td>
+              <td class="alert-delivery" role="cell">
                 <span [class]="'status status-' + item.status">{{ statusLabel(item.status) }}</span
                 ><span class="table-subtext"
                   >{{ item.webhook_id ? 'Webhook' : 'Account notification' }}<br />{{
@@ -45,7 +45,7 @@
                   {{ item.attempts === 1 ? 'attempt' : 'attempts' }}</span
                 >
               </td>
-              <td>
+              <td class="alert-actions" role="cell">
                 @if (item.status === 'dead_letter') {
                   <button
                     type="button"

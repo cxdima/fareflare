@@ -44,6 +44,10 @@ test('history shows actual totals and supports pause, resume and stop', async ({
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Price history' })).toBeFocused();
+  const manage = page.getByText('Manage flight', { exact: true });
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeHidden();
+  await manage.focus();
+  await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.getByRole('article').getByText('Paused', { exact: true })).toBeVisible();
   await expect(page.getByText(/check delayed|checks delayed/)).toHaveCount(0);
@@ -98,6 +102,7 @@ test('API keys are shown once and revocable, with MCP connection details', async
   await mock(page);
   await page.goto('/app#developer');
   await expect(page.getByLabel('Remote MCP server')).toHaveValue('http://127.0.0.1:8007/mcp');
+  await page.getByText('Create an API key', { exact: true }).click();
   await page.getByLabel('Key name').fill('My local client');
   await page.getByRole('button', { name: 'Create key' }).click();
   await expect(page.getByRole('textbox', { name: 'Your API key', exact: true })).toHaveValue(
@@ -201,6 +206,7 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   await page.getByRole('button', { name: 'Start watching' }).click();
   await expect(page.getByRole('heading', { name: 'DEN → DFW', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'API & MCP' }).click();
+  await page.getByText('Create an API key', { exact: true }).click();
   await page.getByLabel('Key name').fill('Browser test');
   await page.getByRole('button', { name: 'Create key' }).click();
   const key = await page.getByRole('textbox', { name: 'Your API key', exact: true }).inputValue();
@@ -238,6 +244,7 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
     ).status(),
   ).toBe(401);
   await page.getByRole('link', { name: 'Account settings' }).click();
+  await page.getByRole('button', { name: 'Security', exact: true }).click();
   await page.getByRole('button', { name: 'Delete my account' }).click();
   await page.getByLabel('Confirm password', { exact: true }).fill('second-private-password');
   await page.getByRole('button', { name: 'Permanently delete account' }).click();
@@ -277,6 +284,7 @@ test('edit alerts, retry a failed delivery, mute notifications, and revoke MCP a
 }) => {
   const calls = await mock(page);
   await page.goto('/app');
+  await page.getByText('Manage flight', { exact: true }).click();
   await page.getByRole('button', { name: 'Edit alerts' }).click();
   await page.getByLabel('Notify me when').selectOption('below_price');
   await page.getByLabel('Target total (USD)').fill('199.95');
@@ -289,6 +297,7 @@ test('edit alerts, retry a failed delivery, mute notifications, and revoke MCP a
     calls.some((item) => item.path === '/v1/alerts/alert/retry' && item.csrf === 'csrf-test'),
   ).toBe(true);
   await page.getByRole('link', { name: 'Account settings' }).click();
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
   await page.getByLabel('Mute all notifications').check();
   await page.getByLabel('Muted routes', { exact: true }).fill('den-dfw');
   await page.getByRole('button', { name: 'Save preferences' }).click();
@@ -296,6 +305,7 @@ test('edit alerts, retry a failed delivery, mute notifications, and revoke MCP a
   expect(
     calls.find((item) => item.path === '/v1/preferences' && item.method === 'PUT')?.body,
   ).toEqual({ muted: true, muted_routes: ['DEN-DFW'] });
+  await page.getByRole('button', { name: 'Connections', exact: true }).click();
   await page.getByRole('button', { name: 'Revoke access for Travel helper' }).click();
   await page.getByRole('button', { name: 'Revoke access', exact: true }).click();
   await expect(page.getByText('No connected applications.')).toBeVisible();
@@ -433,4 +443,55 @@ test('airline identity has readable fallbacks for missing artwork and unknown ca
   await expect(page.locator('ff-airline').getByText('ZZ', { exact: true }).last()).toBeVisible();
   await expect(page.locator('ff-airline img')).toHaveCount(0);
   await expect(page.getByText('ZZ 414', { exact: true })).toBeVisible();
+});
+
+test('the first mobile fare is visible without opening filters or management controls', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await mock(page);
+  await page.goto('/app');
+  await expect(page.getByText('$245.00', { exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(page.getByLabel('Find a flight')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeHidden();
+  const airline = page.locator('ff-airline').first();
+  const mark = await airline.locator('.airline-mark').boundingBox();
+  const name = await airline.getByText('United Airlines', { exact: true }).boundingBox();
+  expect(mark).not.toBeNull();
+  expect(name).not.toBeNull();
+  expect(mark!.width).toBeLessThanOrEqual(32);
+  expect(mark!.height).toBeLessThanOrEqual(32);
+  expect(name!.x - mark!.x - mark!.width).toBeGreaterThanOrEqual(6);
+  expect(name!.x - mark!.x - mark!.width).toBeLessThanOrEqual(12);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('collection and delivery choices survive collapsing their disclosure before saving', async ({
+  page,
+}) => {
+  const calls = await mock(page);
+  await page.route(/\/v1\/webhooks(?:\?|$)/, (route) =>
+    route.fulfill({
+      json: {
+        items: [{ id: 'receiver', url: 'https://example.com/prices', status: 'active' }],
+      },
+    }),
+  );
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Watch a flight', exact: true }).click();
+  await expect(page.getByLabel('Google Flights link')).toBeVisible();
+  await expect(page.getByLabel('Check interval')).toBeHidden();
+  await page.getByLabel('Google Flights link').fill(flightUrl);
+  const options = page.getByText('Collection and delivery', { exact: true });
+  await options.focus();
+  await page.keyboard.press('Enter');
+  await page.getByLabel('Check interval').selectOption('1800');
+  await page.getByLabel('Alert destination').selectOption('receiver');
+  await options.click();
+  await expect(page.getByLabel('Check interval')).toBeHidden();
+  await page.getByRole('button', { name: 'Start watching', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const creation = calls.find((call) => call.path === '/v1/monitors' && call.method === 'POST');
+  expect(creation?.body.interval_seconds).toBe(1800);
+  expect(creation?.body.webhook_id).toBe('receiver');
 });

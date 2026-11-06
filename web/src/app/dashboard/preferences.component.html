@@ -7,7 +7,11 @@
   </div>
 }
 @if (store.loaded()) {
-  <section class="panel mb-4" aria-labelledby="display-heading">
+  <section
+    class="panel preference-panel"
+    aria-labelledby="display-heading"
+    [hidden]="section() !== 'display'"
+  >
     <div class="settings-heading">
       <i class="bi bi-globe2" aria-hidden="true"></i>
       <div>
@@ -84,10 +88,14 @@
           ><span>{{ priceExample() }} <span class="example-note">example USD amount</span></span>
         </div>
       }
-      <p class="settings-note">
-        Flight departure dates stay in the airport’s local calendar. Fares keep their original
-        currency; this setting does not convert prices. CSV timestamps stay in UTC for portability.
-      </p>
+      <details class="format-details">
+        <summary>How dates and currencies are displayed</summary>
+        <p class="settings-note">
+          Flight departure dates stay in the airport’s local calendar. Fares keep their original
+          currency; this setting does not convert prices. CSV timestamps stay in UTC for
+          portability.
+        </p>
+      </details>
       @if (!store.value().time_zone) {
         <p class="settings-note">
           The website currently uses your device time. Save a time zone here to use it in Telegram
@@ -109,7 +117,11 @@
       </div>
     </form>
   </section>
-  <section class="panel mb-4" aria-labelledby="telegram-message-heading">
+  <section
+    class="panel preference-panel"
+    aria-labelledby="telegram-message-heading"
+    [hidden]="section() !== 'notifications'"
+  >
     <div class="settings-heading">
       <i class="bi bi-telegram" aria-hidden="true"></i>
       <div>
@@ -239,7 +251,11 @@
       </div>
     </form>
   </section>
-  <section class="panel mb-4" aria-labelledby="notification-preferences-heading">
+  <section
+    class="panel preference-panel notification-panel"
+    aria-labelledby="notification-preferences-heading"
+    [hidden]="section() !== 'notifications'"
+  >
     <div class="settings-heading">
       <i class="bi bi-bell" aria-hidden="true"></i>
       <div>

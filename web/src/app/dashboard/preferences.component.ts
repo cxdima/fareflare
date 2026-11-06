@@ -4,6 +4,7 @@ import {
   OnInit,
   computed,
   inject,
+  input,
   signal,
 } from '@angular/core';
 import { FormField, disabled, form, required, submit, validate } from '@angular/forms/signals';
@@ -41,6 +42,7 @@ type Preview = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PreferencesComponent implements OnInit {
+  readonly section = input<'display' | 'notifications' | 'connections' | 'security'>('display');
   readonly store = inject(PreferencesFacade);
   private readonly api = inject(ApiService);
   readonly loading = new ActionState();

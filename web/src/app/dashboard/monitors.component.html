@@ -12,71 +12,71 @@
     "
     (click)="creating.set(true)"
   >
-    <span class="flight-button-icon" aria-hidden="true"><i class="bi bi-airplane-fill"></i></span>
     Watch a flight
   </button>
 </div>
-<div class="monitor-summary" aria-label="Monitor summary">
-  @if (workspace.monitorsLoaded()) {
-    <span
-      ><strong>{{ workspace.activeCount() }}</strong> of
-      {{ workspace.session.config()!.limits.monitors }} monitors in use</span
-    >
-    <span
-      ><strong>{{ observed() }}</strong>
-      {{ workspace.monitorCursor() ? 'loaded with recorded prices' : 'with recorded prices' }}</span
-    >
-    @if (delayed()) {
-      <span class="summary-attention"
-        ><i class="bi bi-clock" aria-hidden="true"></i>{{ delayed() }}
-        {{ delayed() === 1 ? 'check delayed' : 'checks delayed' }}</span
+<div class="monitor-overview">
+  <div class="monitor-summary" aria-label="Monitor summary">
+    @if (workspace.monitorsLoaded()) {
+      <span
+        ><strong>{{ workspace.activeCount() }}</strong> of
+        {{ workspace.session.config()!.limits.monitors }} monitors in use</span
       >
     }
-  }
-  @if (workspace.refreshing()) {
-    <span class="summary-refresh" role="status">Refreshing…</span>
+    @if (workspace.refreshing()) {
+      <span class="summary-refresh" role="status">Refreshing…</span>
+    }
+  </div>
+  @if (workspace.monitors().length) {
+    <details class="monitor-filters">
+      <summary><i class="bi bi-sliders2" aria-hidden="true"></i>Filter flights</summary>
+      <div class="monitor-toolbar">
+        <div class="monitor-search">
+          <label for="monitor-search">Find a flight</label>
+          <div class="search-field">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input
+              id="monitor-search"
+              type="search"
+              class="form-control"
+              placeholder="Airport, flight number or date"
+              [value]="query()"
+              (input)="query.set(search.value)"
+              #search
+            />
+          </div>
+        </div>
+        <div class="monitor-filter">
+          <label for="monitor-filter">Status</label>
+          <select
+            id="monitor-filter"
+            class="form-select"
+            [value]="filter()"
+            (change)="filter.set(status.value)"
+            #status
+          >
+            <option value="all">All flights</option>
+            <option value="watching">Watching</option>
+            <option value="paused">Paused</option>
+            <option value="attention">Needs attention</option>
+            <option value="archived">Stopped or departed</option>
+          </select>
+        </div>
+      </div>
+    </details>
   }
 </div>
 @if (action.error()) {
   <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
 }
 @if (workspace.monitors().length) {
-  <div class="monitor-toolbar">
-    <div class="monitor-search">
-      <label for="monitor-search">Find a flight</label>
-      <div class="search-field">
-        <i class="bi bi-search" aria-hidden="true"></i>
-        <input
-          id="monitor-search"
-          type="search"
-          class="form-control"
-          placeholder="Airport, flight number or date"
-          [value]="query()"
-          (input)="query.set(search.value)"
-          #search
-        />
-      </div>
-    </div>
-    <div class="monitor-filter">
-      <label for="monitor-filter">Status</label>
-      <select
-        id="monitor-filter"
-        class="form-select"
-        [value]="filter()"
-        (change)="filter.set(status.value)"
-        #status
-      >
-        <option value="all">All flights</option>
-        <option value="watching">Watching</option>
-        <option value="paused">Paused</option>
-        <option value="attention">Needs attention</option>
-        <option value="archived">Stopped or departed</option>
-      </select>
-    </div>
-  </div>
   @if (query() || filter() !== 'all' || workspace.monitorCursor()) {
     <p class="filter-count" role="status">
-      {{ visible().length }} of {{ workspace.monitors().length }} loaded flights shown
+      {{ filterNames[filter()] }}
+      @if (query()) {
+        matching “{{ query() }}”
+      }
+      . {{ visible().length }} of {{ workspace.monitors().length }} loaded flights shown
     </p>
   }
   <div class="monitor-list">
@@ -97,7 +97,11 @@
               >
             }
           </div>
-          <span [class]="'status status-' + monitor.status">{{ statusLabel(monitor.status) }}</span>
+          @if (monitor.status !== 'pending') {
+            <span [class]="'status status-' + monitor.status">{{
+              statusLabel(monitor.status)
+            }}</span>
+          }
         </header>
         <div class="ticket-main">
           <div class="ticket-route">
@@ -110,6 +114,15 @@
             @if (presentation.match) {
               <p class="match-detail">Latest match: {{ presentation.match }}</p>
             }
+            <p class="ticket-rule">
+              <i class="bi bi-bell" aria-hidden="true"></i>
+              {{
+                monitor.policy.kind === 'below_price'
+                  ? 'Alert below ' +
+                    money(monitor.policy.threshold_minor || 0, monitor.target.currency)
+                  : 'Alert on a new low'
+              }}
+            </p>
           </div>
           <div class="ticket-price">
             @if (monitor.latest) {
@@ -119,6 +132,17 @@
                 >{{ monitor.target.adults }} {{ monitor.target.adults === 1 ? 'adult' : 'adults' }},
                 {{ monitor.latest.fare_name || 'Economy' }}</span
               >
+              <span class="ticket-observation"
+                >Last checked {{ timestamp(monitor.latest.observed_at) }}</span
+              >
+              @if (
+                monitor.stale &&
+                current(monitor) &&
+                monitor.status !== 'paused' &&
+                !monitor.last_error
+              ) {
+                <span class="freshness-note">Waiting for an updated price</span>
+              }
             } @else {
               <span class="pending-mark" aria-hidden="true"
                 ><i class="bi bi-hourglass-split"></i
@@ -128,45 +152,6 @@
             }
           </div>
         </div>
-        <div class="ticket-details">
-          <div class="ticket-detail">
-            <i class="bi bi-bell" aria-hidden="true"></i>
-            <div>
-              <strong>{{
-                monitor.policy.kind === 'below_price'
-                  ? 'Alert below ' +
-                    money(monitor.policy.threshold_minor || 0, monitor.target.currency)
-                  : 'Alert on a new low'
-              }}</strong>
-              <span>{{
-                monitor.webhook_id
-                  ? 'Delivered to your webhook'
-                  : 'Uses your account notification settings'
-              }}</span>
-            </div>
-          </div>
-          <div class="ticket-detail">
-            <i class="bi bi-clock" aria-hidden="true"></i>
-            <div>
-              <strong>Checks every {{ monitor.interval_seconds / 60 }} minutes</strong>
-              @if (monitor.status === 'paused') {
-                <span>Resume this monitor to check prices.</span>
-              } @else if (monitor.next_check_at && current(monitor)) {
-                <span>Next check {{ timestamp(monitor.next_check_at) }}</span>
-              } @else {
-                <span>No further checks scheduled.</span>
-              }
-            </div>
-          </div>
-        </div>
-        @if (monitor.latest) {
-          <p class="ticket-observation">
-            Last checked {{ timestamp(monitor.latest.observed_at) }}
-            @if (monitor.stale && current(monitor) && monitor.status !== 'paused') {
-              <span class="freshness-note">Waiting for an updated price</span>
-            }
-          </p>
-        }
         @if (monitor.last_error) {
           <p class="collection-note">
             <i class="bi bi-info-circle" aria-hidden="true"></i> The last check could not finish.
@@ -190,38 +175,62 @@
               >
             }
           </div>
-          <div class="ticket-manage-actions">
-            @if (current(monitor)) {
-              <button type="button" class="btn btn-sm btn-quiet" (click)="editing.set(monitor)">
-                Edit alerts
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-quiet"
-                [disabled]="action.busy()"
-                (click)="change(monitor, monitor.status === 'paused' ? 'active' : 'paused')"
-              >
-                {{ monitor.status === 'paused' ? 'Resume' : 'Pause' }}
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-quiet-danger"
-                (click)="stopping.set(monitor)"
-              >
-                Stop
-              </button>
-            }
-            @if (current(monitor) && monitor.collection_status === 'blocked') {
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-primary"
-                [disabled]="action.busy()"
-                (click)="retry(monitor)"
-              >
-                Retry collection
-              </button>
-            }
-          </div>
+          <details class="ticket-management">
+            <summary>Manage flight</summary>
+            <div class="ticket-management-body">
+              <dl class="ticket-details">
+                <div>
+                  <dt>Price checks</dt>
+                  <dd>Every {{ monitor.interval_seconds / 60 }} minutes</dd>
+                  @if (monitor.status === 'paused') {
+                    <dd class="detail-note">Resume this monitor to check prices.</dd>
+                  } @else if (monitor.next_check_at && current(monitor)) {
+                    <dd class="detail-note">Next check {{ timestamp(monitor.next_check_at) }}</dd>
+                  } @else {
+                    <dd class="detail-note">No further checks scheduled.</dd>
+                  }
+                </div>
+                <div>
+                  <dt>Alert delivery</dt>
+                  <dd>
+                    {{ monitor.webhook_id ? 'Your webhook' : 'Account notification settings' }}
+                  </dd>
+                </div>
+              </dl>
+              <div class="ticket-manage-actions">
+                @if (current(monitor)) {
+                  <button type="button" class="btn btn-sm btn-quiet" (click)="editing.set(monitor)">
+                    Edit alerts
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-quiet"
+                    [disabled]="action.busy()"
+                    (click)="change(monitor, monitor.status === 'paused' ? 'active' : 'paused')"
+                  >
+                    {{ monitor.status === 'paused' ? 'Resume' : 'Pause' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-quiet-danger"
+                    (click)="stopping.set(monitor)"
+                  >
+                    Stop
+                  </button>
+                }
+                @if (current(monitor) && monitor.collection_status === 'blocked') {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    [disabled]="action.busy()"
+                    (click)="retry(monitor)"
+                  >
+                    Retry collection
+                  </button>
+                }
+              </div>
+            </div>
+          </details>
         </footer>
       </article>
     } @empty {
@@ -248,7 +257,6 @@
     <h2>Which flight are you watching?</h2>
     <p>Paste a Google Flights link to start tracking its price.</p>
     <button type="button" class="btn btn-primary btn-flight" (click)="creating.set(true)">
-      <span class="flight-button-icon" aria-hidden="true"><i class="bi bi-airplane-fill"></i></span>
       Watch your first flight
     </button>
   </section>

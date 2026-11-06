@@ -34,6 +34,9 @@ units; for example, `19100` USD means $191.00. See the
 [dashboard guide](docs/FAREFLARE.md#use-the-dashboard) for scope and export details.
 See [account preferences](docs/ACCOUNT_PREFERENCES.md) for local time and message
 settings. Regional formatting preserves the original fare currency.
+The workspace groups secondary flight actions under **Manage flight** and account
+preferences into four focused sections. See the
+[design verification](docs/UI_REFINEMENT_VERIFICATION.md) for responsive review and checks.
 
 The [Telegram bot](docs/TELEGRAM.md) supports flight creation, recent prices,
 pause/resume controls, alert-rule editing and message settings inside the chat

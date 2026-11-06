@@ -1,8 +1,33 @@
+.preference-panel + .preference-panel {
+  margin-top: 1.25rem;
+}
+.preference-panel[hidden] {
+  display: none;
+}
+.preference-panel[hidden] + .preference-panel {
+  margin-top: 0;
+}
+.notification-panel .form-control {
+  max-width: 32rem;
+}
+.format-details {
+  font-size: 0.8rem;
+  color: var(--ff-muted);
+}
+.format-details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.format-details p {
+  max-width: 65ch;
+  margin-top: 0.5rem;
+}
 .settings-heading {
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 .settings-heading > .bi {
   color: var(--ff-accent);

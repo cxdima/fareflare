@@ -1,28 +1,11 @@
 <ff-dialog [title]="monitor() ? 'Edit price alerts' : 'Watch a flight'" (closed)="closed.emit()">
   @if (monitor(); as current) {
-    <p>
+    <p class="editor-intro">
       Choose what should trigger an alert for {{ routeName(current) }}. Amounts are totals for your
       selected party.
     </p>
   } @else {
-    <p>
-      Paste the Google Flights address after selecting the complete itinerary, or a supported
-      fixed-date route search.
-    </p>
-    <details class="supported-inputs mb-4">
-      <summary>Supported flights and searches</summary>
-      <p>
-        Selected nonstop itineraries: one way or round trip, economy, 1–2 adults, USD or JPY, and US
-        English.
-      </p>
-      @if (workspace.session.config()?.capabilities?.route_searches) {
-        <p>
-          Route searches: exact airports and date, one way, nonstop, 1 adult, economy excluding
-          Basic, USD, and US English.
-        </p>
-      }
-      <p>Flexible dates, connections, and nearby-airport searches are not supported yet.</p>
-    </details>
+    <p class="editor-intro">Paste a Google Flights link for your itinerary or route search.</p>
   }
   @if (action.error()) {
     <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
@@ -39,14 +22,20 @@
           spellcheck="false"
           placeholder="https://www.google.com/travel/flights?…"
         ></textarea>
-      </div>
-      <div>
-        <label class="form-label" for="interval">Check interval</label
-        ><select id="interval" class="form-select" [formField]="editor.interval">
-          @for (interval of intervals(); track interval) {
-            <option [value]="interval">Every {{ interval / 60 }} minutes</option>
+        <details class="supported-inputs">
+          <summary>Supported flights and searches</summary>
+          <p>
+            Selected nonstop itineraries: one way or round trip, economy, 1–2 adults, USD or JPY,
+            and US English.
+          </p>
+          @if (workspace.session.config()?.capabilities?.route_searches) {
+            <p>
+              Route searches: exact airports and date, one way, nonstop, 1 adult, economy excluding
+              Basic, USD, and US English.
+            </p>
           }
-        </select>
+          <p>Flexible dates, connections, and nearby-airport searches are not supported yet.</p>
+        </details>
       </div>
     }
     <div>
@@ -89,28 +78,42 @@
         /><label class="form-check-label" for="rebounds">Also alert when the price rises</label>
       </div>
     } @else {
-      <div>
-        <label class="form-label" for="destination">Alert destination</label
-        ><select id="destination" class="form-select" [formField]="editor.webhook">
-          <option value="">Telegram if connected; otherwise dashboard</option>
-          @for (webhook of workspace.webhooks(); track webhook.id) {
-            @if (webhook.status === 'active') {
-              <option [value]="webhook.id">{{ webhook.url }}</option>
-            }
-          }
-        </select>
-        <p class="form-text">
-          Connect Telegram in Account settings, or verify a receiver in Webhooks. A selected webhook
-          receives this monitor’s alerts instead of Telegram.
-        </p>
-      </div>
+      <details class="collection-options">
+        <summary>Collection and delivery</summary>
+        <div class="collection-fields">
+          <div>
+            <label class="form-label" for="interval">Check interval</label
+            ><select id="interval" class="form-select" [formField]="editor.interval">
+              @for (interval of intervals(); track interval) {
+                <option [value]="interval">Every {{ interval / 60 }} minutes</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="destination">Alert destination</label
+            ><select id="destination" class="form-select" [formField]="editor.webhook">
+              <option value="">Account notifications</option>
+              @for (webhook of workspace.webhooks(); track webhook.id) {
+                @if (webhook.status === 'active') {
+                  <option [value]="webhook.id">{{ webhook.url }}</option>
+                }
+              }
+            </select>
+            <p class="form-text">
+              Account notifications use Telegram when connected, otherwise the dashboard. Choose a
+              verified webhook to deliver this monitor’s alerts there instead.
+            </p>
+          </div>
+        </div>
+      </details>
       <p class="form-text">Checks may be delayed. A fare can change between observations.</p>
     }
-    <div class="d-flex justify-content-end flex-wrap gap-2">
+    <div class="dialog-actions d-flex justify-content-end flex-wrap gap-2">
       <button type="button" class="btn btn-outline-primary" (click)="closed.emit()">Cancel</button
       ><button
         type="submit"
         class="btn btn-primary"
+        [class.btn-flight]="!monitor()"
         [disabled]="action.busy()"
         [attr.aria-busy]="action.busy()"
       >

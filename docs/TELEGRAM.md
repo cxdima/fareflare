@@ -6,7 +6,7 @@ limits; see [operations](OPERATIONS.md#telegram-configuration) for self-hosted s
 
 ## Connect once
 
-Sign in to Fareflare, open **Account settings**, and choose **Connect Telegram**.
+Sign in to Fareflare, open **Account settings → Connections**, and choose **Connect Telegram**.
 Open the one-use link in a private chat with the bot and press **Start**. Connection
 links expire after ten minutes. You can then add flights, review recorded prices,
 change alert rules, and pause or stop tracking inside Telegram.

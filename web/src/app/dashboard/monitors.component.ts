@@ -36,6 +36,13 @@ export class MonitorsComponent {
   readonly stopping = signal<Monitor | null>(null);
   readonly query = signal('');
   readonly filter = signal('all');
+  readonly filterNames: Record<string, string> = {
+    all: 'All flights',
+    watching: 'Watching',
+    paused: 'Paused',
+    attention: 'Needs attention',
+    archived: 'Stopped or departed',
+  };
   readonly visible = computed(() => {
     const terms = this.query().trim().toLowerCase().split(/\s+/).filter(Boolean);
     return this.workspace.monitors().filter((item) => {
@@ -56,10 +63,6 @@ export class MonitorsComponent {
       return terms.every((term) => search.includes(term));
     });
   });
-  readonly observed = computed(() => this.workspace.active().filter((item) => item.latest).length);
-  readonly delayed = computed(
-    () => this.workspace.active().filter((item) => this.needsAttention(item)).length,
-  );
   current(item: Monitor): boolean {
     return !['cancelled', 'expired'].includes(item.status);
   }

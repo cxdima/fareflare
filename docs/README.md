@@ -26,6 +26,8 @@
 ## Status and evidence
 
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
+- [Workspace design verification](UI_REFINEMENT_VERIFICATION.md): visual review,
+  responsive controls, settings sections and release checks.
 - [Telegram verification](TELEGRAM_VERIFICATION.md): current local/package checks,
   deployment evidence and outstanding live checks.
 - [Personal settings verification](SETTINGS_VERIFICATION.md): the prior settings
