@@ -21,7 +21,7 @@ With no saved time zone, the website uses the device's zone and Telegram uses UT
 
 Observation timestamps are instants; departure dates remain the airport's calendar date. CSV timestamps stay ISO 8601 UTC. Regional formatting preserves the quoted currency and amount: it does not convert USD to EUR or change collection currency. Interface and Telegram prose remain English.
 
-Price and route remain in Telegram alerts. The current bot implementation moves validated flight/dashboard links into native buttons, removing raw booking URLs and internal IDs from the visible body. **Preview message** renders sample data using the selected message options and saved display settings, with noninteractive example button labels. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged. These presentation changes are [pending release verification](DEVELOPMENT_STATUS.md#current-development-revision).
+Price and route remain in Telegram alerts. Validated flight/dashboard links appear as native buttons, without raw booking URLs or internal IDs in the visible body. **Preview message** renders sample data using the selected message options and saved display settings, with noninteractive example button labels. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged. These changes are deployed; the [Telegram verification record](TELEGRAM_VERIFICATION.md) distinguishes completed checks from unverified human receipt.
 
 After connecting once through the website, the [Telegram bot](TELEGRAM.md) offers compact/detailed messages, sound and global muting through `/settings`. Time zone, regional format, individual detail fields and route muting remain in Account settings.
 

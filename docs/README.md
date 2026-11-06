@@ -9,7 +9,7 @@
 - [Account preferences](ACCOUNT_PREFERENCES.md): time zones, regional formatting,
   Telegram messages, muting and their API/MCP contract.
 - [Telegram guide](TELEGRAM.md): connect once, manage flights and alert rules,
-  review prices, and control messages in chat; implementation pending verification.
+  review prices, and control messages in chat.
 - [Operations](OPERATIONS.md): invitations, Terraform, image releases, Telegram,
   monitoring, and recovery.
 
@@ -26,8 +26,10 @@
 ## Status and evidence
 
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
-- [Personal settings verification](SETTINGS_VERIFICATION.md): current local tests,
-  packaged images, visual review and deployment status.
+- [Telegram verification](TELEGRAM_VERIFICATION.md): current local/package checks,
+  deployment evidence and outstanding live checks.
+- [Personal settings verification](SETTINGS_VERIFICATION.md): the prior settings
+  release's tests, packaged images, visual review and deployment status.
 - [Frontend stack audit](STACK_AUDIT.md): Angular/Bootstrap runtime checks and the
   shared script-free API reference.
 - [History release verification](HISTORY_RELEASE_VERIFICATION.md): recorded history,

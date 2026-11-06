@@ -111,8 +111,9 @@ has a permanent cap of 1,000 clients. Review retention before raising that cap.
 
 ## Telegram configuration
 
-The expanded bot controls and setup tools below are **implementation pending
-verification**. Deploy a verified API image supporting callbacks before enabling
+The expanded bot controls are deployed on the hosted service; see the
+[verification record](TELEGRAM_VERIFICATION.md) for checked behavior and limits.
+When self-hosting, deploy a verified API image supporting callbacks before enabling
 them. [The Telegram guide](TELEGRAM.md) documents commands and user workflows.
 
 Create a Telegram bot and store the following JSON in AWS Secrets Manager:

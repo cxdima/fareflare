@@ -1,9 +1,8 @@
 # Use Fareflare in Telegram
 
-**Release status: implementation pending verification.** This guide describes the
-bot controls in the current source revision. See [development status](DEVELOPMENT_STATUS.md)
-for hosted release status and [operations](OPERATIONS.md#telegram-configuration)
-for setup.
+Manage flight monitors from a private chat with Fareflare. The
+[verification record](TELEGRAM_VERIFICATION.md) documents release checks and their
+limits; see [operations](OPERATIONS.md#telegram-configuration) for self-hosted setup.
 
 ## Connect once
 

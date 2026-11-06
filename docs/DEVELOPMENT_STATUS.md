@@ -1,20 +1,24 @@
 # Fareflare development status
 
 Fareflare is available as a free, invite-only service and as MIT-licensed source.
-Billing remains disabled. The current hosted release includes personal settings
-and the softer Bootstrap theme. See [personal settings verification](SETTINGS_VERIFICATION.md)
-for image digests, local checks and the completed production verification.
+Billing remains disabled. The current hosted release includes native Telegram
+flight controls, personal settings and the softer Bootstrap theme. See
+[Telegram verification](TELEGRAM_VERIFICATION.md) for local/package checks and
+deployment evidence. All 33 live browser/account checks passed, including nine
+accessibility scans and disposable-account cleanup. Actual Telegram receipt has
+not been verified.
 
 ## Current development revision
 
-- **Telegram bot — implementation pending verification:** native private-chat
+- **Telegram bot — deployed:** native private-chat
   controls for adding Google Flights links with confirmation, paginated flights
   and recorded prices, pause/resume, retry, confirmed stopping, target-price and
   minimum-drop entry, new-low/rebound rules, muting and message settings. Alerts
   use concise formatted text and validated link buttons. Profile and webhook
   setup tools preserve private rollback snapshots. See the [Telegram guide](TELEGRAM.md)
   for user behavior and [operations](OPERATIONS.md#telegram-configuration) for
-  deployment steps. These changes are not covered by the prior release counts below.
+  deployment steps. The bot descriptions and private-chat command menu have been
+  applied and read back, and the webhook now accepts callback updates.
 - **Personal settings:** saved IANA time zones, six regional formats, 12/24-hour
   clocks, Telegram detail options and silent delivery. An explicit message preview
   uses sample data without sending a notification. Existing global/route muting
@@ -28,12 +32,19 @@ for image digests, local checks and the completed production verification.
   default Swagger/ReDoc applications. [The audit](STACK_AUDIT.md) distinguishes
   that change from the unverified browser-extension detection report.
 
-Local verification completed with **761 backend tests, 92.58% coverage and 72
-frontend checks**. The API and worker images passed 60 isolated checks with exact
-source/build hashes. All **32 production checks** passed, including nine
-accessibility scans, persistent preferences and disposable-account cleanup.
-Loading-state regressions cover accessible refresh labels and navigation while
-initial requests are pending.
+Local verification completed with **943 backend tests, 92.83% coverage and 72
+frontend checks**. The built images passed **78 isolated checks**: 60 API/worker
+checks with exact source/build hashes and 18 native-workflow checks through the
+packaged ASGI application with mocked Telegram transport. Pyright, Ruff,
+frontend build/types/formatting and the changed-file secret scan passed.
+
+The reviewed deployment changed only the API and worker Lambda images. Both
+functions report Active with Successful updates; their environment and reserved
+concurrency match the pre-deployment state. Billing stays disabled and registration
+invite-only. Callback configuration preserved existing message update types and
+the four-connection limit; readback showed no pending updates or webhook error.
+No live Telegram test messages were sent. The [prior settings release](SETTINGS_VERIFICATION.md)
+retains its separate production verification record.
 
 ## Previously verified capabilities
 
