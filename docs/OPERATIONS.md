@@ -45,6 +45,7 @@ base; reuse a verified immutable base digest for subsequent worker releases.
 make check
 npm --prefix web ci
 npm --prefix web run format:check
+npm --prefix web run test:types
 npm --prefix web run build
 npm --prefix web test
 

@@ -50,7 +50,7 @@
         @if (action.error()) {
           <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
         }
-        <form class="form-stack" (submit)="onSubmit($event)">
+        <form class="form-stack" novalidate (submit)="onSubmit($event)">
           <div>
             <label class="form-label" for="username">Username</label
             ><input
@@ -60,7 +60,13 @@
               autocomplete="username"
               autocapitalize="none"
               spellcheck="false"
+              [class.is-invalid]="fieldError('username')"
+              [attr.aria-invalid]="fieldError('username') ? 'true' : null"
+              [attr.aria-describedby]="fieldError('username') ? 'username-error' : null"
             />
+            @if (fieldError('username'); as error) {
+              <p class="field-error" id="username-error">{{ error }}</p>
+            }
           </div>
           @if (mode() === 'register' && config.registration_mode === 'invite') {
             <div>
@@ -71,7 +77,13 @@
                 [formField]="credentials.invite"
                 autocomplete="off"
                 spellcheck="false"
+                [class.is-invalid]="fieldError('invite')"
+                [attr.aria-invalid]="fieldError('invite') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('invite') ? 'invite-error' : null"
               />
+              @if (fieldError('invite'); as error) {
+                <p class="field-error" id="invite-error">{{ error }}</p>
+              }
             </div>
           }
           @if (mode() === 'recover') {
@@ -83,21 +95,54 @@
                 [formField]="credentials.recoveryCode"
                 autocomplete="off"
                 spellcheck="false"
+                [class.is-invalid]="fieldError('recoveryCode')"
+                [attr.aria-invalid]="fieldError('recoveryCode') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('recoveryCode') ? 'recovery-error' : null"
               />
+              @if (fieldError('recoveryCode'); as error) {
+                <p class="field-error" id="recovery-error">{{ error }}</p>
+              }
             </div>
           }
           <div>
             <label class="form-label" for="password">{{
               mode() === 'recover' ? 'New password' : 'Password'
-            }}</label
-            ><input
-              id="password"
-              type="password"
-              class="form-control"
-              [formField]="credentials.password"
-              [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
-              [attr.aria-describedby]="mode() === 'login' ? null : 'password-help'"
-            />
+            }}</label>
+            <div class="password-control">
+              <input
+                id="password"
+                [type]="passwordVisible() ? 'text' : 'password'"
+                class="form-control"
+                [formField]="credentials.password"
+                [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+                [class.is-invalid]="fieldError('password')"
+                [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+                [attr.aria-describedby]="
+                  fieldError('password')
+                    ? 'password-error'
+                    : mode() === 'login'
+                      ? null
+                      : 'password-help'
+                "
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                aria-controls="password"
+                [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+                (click)="passwordVisible.set(!passwordVisible())"
+              >
+                <i
+                  class="bi"
+                  [class.bi-eye]="!passwordVisible()"
+                  [class.bi-eye-slash]="passwordVisible()"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </div>
+            @if (fieldError('password'); as error) {
+              <p class="field-error" id="password-error">{{ error }}</p>
+            }
             @if (mode() !== 'login') {
               <p class="form-text" id="password-help">
                 Use 15–128 characters. A password manager works well.
@@ -110,30 +155,57 @@
             [disabled]="action.busy()"
             [attr.aria-busy]="action.busy()"
           >
-            {{
-              mode() === 'register'
-                ? 'Create account'
-                : mode() === 'recover'
-                  ? 'Reset password'
-                  : 'Sign in'
-            }}
+            @if (action.busy()) {
+              <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+              {{
+                mode() === 'register'
+                  ? 'Creating account…'
+                  : mode() === 'recover'
+                    ? 'Resetting password…'
+                    : 'Signing in…'
+              }}
+            } @else {
+              {{
+                mode() === 'register'
+                  ? 'Create account'
+                  : mode() === 'recover'
+                    ? 'Reset password'
+                    : 'Sign in'
+              }}
+              <i class="bi bi-arrow-right" aria-hidden="true"></i>
+            }
           </button>
         </form>
         <div class="auth-links">
           @if (mode() === 'login') {
-            <button class="btn btn-link p-0" type="button" (click)="changeMode('recover')">
+            <button
+              class="btn btn-link p-0"
+              type="button"
+              [disabled]="action.busy()"
+              (click)="changeMode('recover')"
+            >
               Forgot your password?
             </button>
             @if (config.registration_mode !== 'closed') {
               <p>
                 Have an invitation?
-                <button type="button" class="btn btn-link p-0" (click)="changeMode('register')">
+                <button
+                  type="button"
+                  class="btn btn-link p-0"
+                  [disabled]="action.busy()"
+                  (click)="changeMode('register')"
+                >
                   Create an account
                 </button>
               </p>
             }
           } @else {
-            <button type="button" class="btn btn-link p-0" (click)="changeMode('login')">
+            <button
+              type="button"
+              class="btn btn-link p-0"
+              [disabled]="action.busy()"
+              (click)="changeMode('login')"
+            >
               Already have an account? Sign in
             </button>
           }

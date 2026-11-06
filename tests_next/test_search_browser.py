@@ -122,3 +122,63 @@ def test_search_initial_sort_transition_waits_instead_of_selecting(search_browse
     detail.click.assert_not_called()
     select.click.assert_not_called()
     driver.quit.assert_called_once()
+
+
+@pytest.fixture
+def polling_wait(monkeypatch):
+    class PollingWait:
+        def __init__(self, browser, timeout):
+            self.browser = browser
+
+        def until(self, condition):
+            for _ in range(3):
+                value = condition(self.browser)
+                if value:
+                    return value
+            raise TimeoutException()
+
+    monkeypatch.setattr(public_browser, "WebDriverWait", PollingWait)
+
+
+@pytest.mark.parametrize("pending", [
+    {"matching_options": []},
+    {"summary_prices": ["190 US dollars"]},
+    {"body": "Getting prices"},
+])
+def test_search_waits_for_matching_booking_evidence_without_repeating_selection(search_browser, polling_wait, pending):
+    data, target, driver, _, detail, select, _, _ = search_browser
+    driver.execute_script.side_effect = [data["search"], data["search"],
+                                         {**data["booking"], **pending}, data["booking"]]
+    reading = PublicGoogleFlightsProvider(clock=lambda: 42).collect(target)
+    assert reading.amount_minor == 19100
+    assert reading.observed_offer.segments[0].legs[0].number == "2550"
+    assert driver.execute_script.call_count == 4
+    detail.click.assert_called_once()
+    select.click.assert_called_once()
+    driver.get.assert_called_once_with(target["url"])
+    driver.quit.assert_called_once()
+
+
+def test_search_price_change_is_not_recorded_without_agreement_with_results(search_browser, polling_wait):
+    data, target, driver, _, _, _, _, _ = search_browser
+    repriced = {**data["booking"], "summary_prices": ["190 US dollars"],
+                "matching_options": ["Continue to book with Frontier, Economy for 190 US dollars"]}
+    driver.execute_script.side_effect = [data["search"], data["search"], repriced, repriced, repriced]
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.execute_script.call_count == 5
+    driver.quit.assert_called_once()
+
+
+def test_search_challenge_after_selection_stops_before_booking_capture(search_browser):
+    data, target, driver, _, _, select, _, _ = search_browser
+
+    def challenge_after_selection():
+        driver.current_url = data["booking"]["url"]
+        driver.find_element.return_value.text = "Our systems detected unusual traffic"
+
+    select.click.side_effect = challenge_after_selection
+    with pytest.raises(QuoteUnavailable, match="challenge"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.execute_script.call_count == 2
+    driver.quit.assert_called_once()

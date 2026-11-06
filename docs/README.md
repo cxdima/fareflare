@@ -22,6 +22,8 @@
 ## Status and evidence
 
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
+- [History release verification](HISTORY_RELEASE_VERIFICATION.md): current history,
+  collection, onboarding and pagination checks.
 - [Website verification](WEBSITE_VERIFICATION.md): frontend and account-flow checks.
 - [Collector and integration verification](RELEASE_VERIFICATION.md): observed
   behavior and the limits of those checks.

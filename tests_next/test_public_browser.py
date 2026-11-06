@@ -225,3 +225,119 @@ def test_batches_on_one_provider_have_independent_lifetimes(browser):
         assert inner.browser_reuses == 0 and outer.browser_reuses == 1
     assert launch.call_count == 2
     driver.quit.assert_called_once()
+
+
+@pytest.fixture
+def polling_wait(monkeypatch):
+    """Exercise changing DOM snapshots without sleeping or contacting Google."""
+    timeouts = []
+
+    class PollingWait:
+        def __init__(self, driver, timeout):
+            self.driver = driver
+            timeouts.append(timeout)
+
+        def until(self, condition):
+            for _ in range(3):
+                result = condition(self.driver)
+                if result:
+                    return result
+            raise TimeoutException()
+
+    monkeypatch.setattr(public_browser, "WebDriverWait", PollingWait)
+    return timeouts
+
+
+@pytest.mark.parametrize("pending", [
+    {"summary_prices": []},
+    {"matching_options": []},
+    {"summary_prices": ["310 US dollars"]},
+    {"body": "Getting prices"},
+])
+def test_booking_updates_are_rechecked_until_the_whole_quote_is_verified(browser, polling_wait, pending):
+    driver, _, target = browser
+    complete = driver.execute_script.return_value
+    driver.execute_script.side_effect = [{**complete, **pending}, complete]
+    reading = PublicGoogleFlightsProvider(clock=lambda: 42).collect(target)
+    assert reading.amount_minor == 30900 and reading.evidence.identity_verified
+    assert driver.execute_script.call_count == 2
+    # Polling only reads the current document; it never reloads the page or books.
+    driver.get.assert_called_once_with(target["url"])
+    driver.find_elements.return_value[0].click.assert_called_once()
+    driver.quit.assert_called_once()
+
+
+@pytest.mark.parametrize("pending", [
+    {"summary_prices": []},
+    {"matching_options": []},
+    {"summary_prices": ["310 US dollars"]},
+])
+def test_a_booking_that_never_agrees_yields_no_price(browser, polling_wait, pending):
+    driver, _, target = browser
+    driver.execute_script.return_value = {**driver.execute_script.return_value, **pending}
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.execute_script.call_count == 3
+    driver.quit.assert_called_once()
+
+
+@pytest.mark.parametrize("changed,code", [
+    ({"flight_numbers": ["UA 415"]}, "flight_identity_mismatch"),
+    ({"summary_prices": ["309 Canadian dollars"]}, "unrecognized_price"),
+    ({"matching_options": ["Continue anyway"]}, "unrecognized_fare"),
+    ({"body": "Our systems detected unusual traffic"}, "challenge"),
+])
+def test_identity_currency_and_challenge_errors_do_not_wait_for_another_quote(browser, polling_wait, changed, code):
+    driver, _, target = browser
+    complete = driver.execute_script.return_value
+    driver.execute_script.side_effect = [{**complete, **changed}, complete]
+    with pytest.raises(QuoteUnavailable, match=code):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.execute_script.call_count == 1
+    driver.quit.assert_called_once()
+
+
+def test_selected_quote_deadline_includes_navigation_and_rejects_late_results(browser, polling_wait, monkeypatch):
+    driver, _, target = browser
+    clock = [0.0]
+    monkeypatch.setattr(public_browser.time, "monotonic", lambda: clock[0])
+    driver.get.side_effect = lambda _: clock.__setitem__(0, 97.0)
+    complete = driver.execute_script.return_value
+
+    def capture(_):
+        clock[0] = 101.0
+        return complete
+
+    driver.execute_script.side_effect = capture
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert polling_wait == [3.0, 3.0]
+    assert driver.set_page_load_timeout.call_args.args == (3.0,)
+    assert driver.set_script_timeout.call_args.args == (3.0,)
+    driver.quit.assert_called_once()
+
+
+def test_selected_quote_deadline_includes_browser_startup(browser, monkeypatch):
+    driver, launch, target = browser
+    clock = [0.0]
+    monkeypatch.setattr(public_browser.time, "monotonic", lambda: clock[0])
+
+    def slow_start(**kwargs):
+        clock[0] = 101.0
+        return driver
+
+    launch.side_effect = slow_start
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    driver.get.assert_not_called()
+    driver.execute_script.assert_not_called()
+    driver.quit.assert_called_once()
+
+
+def test_selected_details_disappearing_during_expansion_fail_with_a_safe_code(browser):
+    driver, _, target = browser
+    driver.find_elements.side_effect = [[Mock()], []]
+    with pytest.raises(QuoteUnavailable, match="browser_failed"):
+        PublicGoogleFlightsProvider().collect(target)
+    driver.execute_script.assert_not_called()
+    driver.quit.assert_called_once()

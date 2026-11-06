@@ -9,8 +9,10 @@ schema at `/openapi.json`.
 
 Both interfaces expose creation, listing, history, pause/resume/cancel, alert
 inspection/retry, collection retry, policy updates, and global/route muting.
-History and alert lists return `next_cursor`; follow it with the same endpoint.
-Lows mean lowest observed since monitoring began, or a verified imported baseline.
+Monitor, history and alert lists return `next_cursor`; follow it with the same endpoint.
+Monitor pages also include `active_count`: account quota usage across all pages,
+including paused monitors and excluding stopped or expired monitors with released quota.
+Lows mean lowest observed since that monitor began tracking.
 Collection timestamps do not prove when Google's upstream fare last refreshed.
 
 The local MCP adapter is stdio, using the official SDK; it calls the API and owns no scheduler.

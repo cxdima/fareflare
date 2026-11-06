@@ -101,6 +101,10 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                  Section("A new low has a starting point", (
                      "An observed low means the lowest eligible price recorded since this monitor started. It does not describe all previous fares, every airline, or every booking source in the market.",
                      "A selected-itinerary monitor compares the same supported itinerary over time. A route-search monitor can find a different matching flight as the cheapest result. Open the observed offer and check the flight number and times before deciding.")),
+                 Section("Explore the observations behind the price", (
+                     "Open Price history on a monitor and choose All loaded, Past 7 days, or Past 30 days. The latest, lowest, highest, and change figures apply only to loaded observations within that range. Load earlier observations when available to extend the comparison. Lowest in view is not a claim about every price the monitor has ever recorded.",
+                     "The chart places prices at their observation times and stops its line across gaps longer than twice the requested check interval. It does not estimate prices for missed checks. The table shows the recorded totals and, for route searches, the matching flight when recorded.",
+                     "Export CSV saves the rows currently in view, most recent first, with UTC timestamps and amounts in integer minor units. For USD, 19100 means $191.00; for JPY, 19100 means 19,100 yen. The currency and fare fields help you compare like for like.")),
                  Section("Compare the same thing", (
                      "Look at the currency, passenger count, fare name, and whether the displayed amount is the trip total. Two offers with different baggage or ticket conditions are not interchangeable just because their headline prices look close.",
                      "The supported route-search mode excludes Basic fares. That is one explicit selection rule, not a claim that every included fare has the same baggage, change, or refund terms. Read the airline’s actual conditions before booking."),
@@ -110,7 +114,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                      "A failed collection does not create a new price observation. Fareflare shows the last verified price with its age and the collection error. A stale price should not be interpreted as a fresh quote.",
                      "Choose alert preferences that fit your decision. You can watch observed lows, set a threshold, and mute alerts without pretending a monitoring tool can know when a fare will reach its final minimum."),
                      links=(Link("Choose a supported flight link", "/guides/choosing-a-flight-link"), Link("Open your watchlist", "/app"))),
-             ), "guide", PUBLISHED, PUBLISHED, 4),
+             ), "guide", PUBLISHED, PUBLISHED, 5),
         Page("/guides/choosing-a-flight-link", "Choose a Google Flights link to watch — Fareflare",
              "Learn when to use a selected itinerary or a supported route search, and which passenger, airport, currency, and fare settings Fareflare supports.",
              "Getting started", "Choose a flight link to monitor",

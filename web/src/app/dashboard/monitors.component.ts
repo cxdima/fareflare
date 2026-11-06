@@ -33,18 +33,47 @@ export class MonitorsComponent {
   readonly editing = signal<Monitor | null>(null);
   readonly history = signal<Monitor | null>(null);
   readonly stopping = signal<Monitor | null>(null);
+  readonly query = signal('');
+  readonly filter = signal('all');
+  readonly visible = computed(() => {
+    const terms = this.query().trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return this.workspace.monitors().filter((item) => {
+      const filter = this.filter();
+      if (filter === 'watching' && (!this.current(item) || item.status === 'paused')) return false;
+      if (filter === 'paused' && item.status !== 'paused') return false;
+      if (filter === 'archived' && this.current(item)) return false;
+      if (filter === 'attention' && !this.needsAttention(item)) return false;
+      const presentation = this.presenter.present(item);
+      const search = [
+        routeName(item),
+        presentation.description,
+        presentation.match,
+        ...item.target.segments.map((segment) => segment.date),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return terms.every((term) => search.includes(term));
+    });
+  });
   readonly observed = computed(() => this.workspace.active().filter((item) => item.latest).length);
   readonly delayed = computed(
-    () =>
-      this.workspace
-        .active()
-        .filter(
-          (item) =>
-            item.status !== 'paused' && ((item.latest && item.stale) || item.status === 'degraded'),
-        ).length,
+    () => this.workspace.active().filter((item) => this.needsAttention(item)).length,
   );
   current(item: Monitor): boolean {
     return !['cancelled', 'expired'].includes(item.status);
+  }
+  needsAttention(item: Monitor): boolean {
+    return (
+      this.current(item) &&
+      item.status !== 'paused' &&
+      ((!!item.latest && item.stale) ||
+        item.status === 'degraded' ||
+        item.collection_status === 'blocked')
+    );
+  }
+  clearFilters(): void {
+    this.query.set('');
+    this.filter.set('all');
   }
   dates(item: Monitor): string {
     return item.target.segments.map((segment) => tripDate(segment.date)).join(' – ');

@@ -1,24 +1,202 @@
-.history-summary {
-  display: flex;
-  gap: 3rem;
-  margin: 1.5rem 0;
+.history-intro,
+.history-scope,
+.history-pagination p,
+.history-figure figcaption {
+  color: var(--ff-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
-.history-summary strong {
-  display: block;
-  font-size: 1.8rem;
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+.range-control {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 0.6rem;
+  background: var(--ff-paper);
+}
+.range-button {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.75rem;
+  color: var(--ff-muted);
+  border: 1px solid transparent;
+  min-height: 44px;
+}
+.range-button[aria-pressed='true'] {
+  color: var(--ff-ink);
+  border-color: var(--ff-line);
+  background: var(--ff-surface);
+  box-shadow: 0 1px 3px rgb(21 43 67 / 6%);
+}
+.range-button:hover {
+  color: var(--ff-ink);
+  background: var(--ff-soft);
+}
+.export-button {
+  font-size: 0.8rem;
+}
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.25rem 0;
+  margin: 0;
+  border-top: 1px solid var(--ff-line);
+}
+.history-summary dt {
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--ff-muted);
+  margin-bottom: 0.35rem;
+}
+.history-summary dd {
+  font-size: clamp(1rem, 2.6vw, 1.6rem);
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.price-low,
+.price-decrease {
+  color: var(--ff-success);
+}
+.price-change {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+.history-figure {
+  margin: 0 0 1.5rem;
+}
+.chart-frame {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: stretch;
+}
+.chart-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2% 0;
+  color: var(--ff-muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.chart-scale-flat {
+  justify-content: center;
 }
 .price-chart {
   display: block;
   width: 100%;
-  margin-bottom: 1.5rem;
+  overflow: visible;
 }
-.chart-axis {
+.chart-grid {
   stroke: var(--ff-line);
+  stroke-dasharray: 3 5;
 }
 .chart-line {
   fill: none;
-  stroke: var(--ff-accent);
-  stroke-width: 3;
+  stroke: var(--ff-link);
+  stroke-width: 2.5;
   stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.chart-dot {
+  fill: var(--ff-link);
+  stroke: var(--ff-surface);
+  stroke-width: 1.5;
+}
+.chart-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--ff-muted);
+  font-size: 0.7rem;
+  margin: 0.5rem 0 0.75rem;
+}
+.chart-dates span:last-child {
+  text-align: right;
+}
+.history-table-wrap {
+  max-height: 20rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 0.6rem;
+}
+.history-table {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.history-table th {
+  position: sticky;
+  top: 0;
+  background: var(--ff-paper);
+  color: var(--ff-muted);
+  font-weight: 600;
+}
+.history-table td,
+.history-table th {
+  padding: 0.8rem;
+  vertical-align: middle;
+}
+.history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.history-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.history-scope {
+  margin: 0.75rem 0 0;
+}
+.history-pagination {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ff-line);
+}
+.history-empty {
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--ff-muted);
+}
+.history-empty > .bi {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--ff-link);
+}
+.history-empty h3 {
+  color: var(--ff-ink);
+  font-size: 1rem;
+}
+.history-empty p {
+  font-size: 0.85rem;
+  margin-bottom: 0;
+}
+@media (max-width: 575px) {
+  .history-toolbar {
+    align-items: stretch;
+  }
+  .range-control {
+    flex: 1 0 100%;
+  }
+  .range-button {
+    flex: 1;
+  }
+  .export-button {
+    width: 100%;
+  }
+  .history-summary {
+    gap: 0.5rem;
+  }
 }

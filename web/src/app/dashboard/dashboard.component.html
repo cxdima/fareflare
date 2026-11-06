@@ -22,8 +22,8 @@
             ><i [class]="'bi ' + item.icon" aria-hidden="true"></i
             ><span class="nav-label">{{ item.label }}</span
             ><span class="nav-label-short" aria-hidden="true">{{ item.shortLabel }}</span>
-            @if (item.id === 'monitors') {
-              <span class="nav-count" aria-hidden="true">{{ workspace.active().length }}</span>
+            @if (item.id === 'monitors' && workspace.monitorsLoaded()) {
+              <span class="nav-count" aria-hidden="true">{{ workspace.activeCount() }}</span>
             }
           </a>
         }

@@ -145,6 +145,7 @@ class MonitorView(BaseModel):
 class MonitorList(BaseModel):
     items: list[MonitorView]
     next_cursor: str | None = None
+    active_count: int
 
 
 class ObservationList(BaseModel):

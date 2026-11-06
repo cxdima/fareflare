@@ -1,76 +1,182 @@
 <ff-dialog [title]="routeName(monitor()) + ' price history'" (closed)="closed.emit()">
-  <p>
-    Observed totals for {{ monitor().target.adults }}
-    {{ monitor().target.adults === 1 ? 'adult' : 'adults' }}. Gaps mean no observation was recorded.
+  <p class="history-intro">
+    Recorded totals for {{ monitor().target.adults }}
+    {{ monitor().target.adults === 1 ? 'adult' : 'adults' }} in {{ monitor().target.currency }}.
+    Prices may change between checks.
   </p>
   @if (action.error()) {
-    <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+    <div class="alert alert-danger" role="alert">
+      {{ action.error() }}
+      @if (!loaded()) {
+        <button type="button" class="btn btn-link" [disabled]="action.busy()" (click)="load()">
+          Try again
+        </button>
+      }
+    </div>
   }
   @if (items().length) {
-    <div class="history-summary">
-      <div>
-        <span class="overline">Lowest shown</span
-        ><strong>{{ money(low(), monitor().target.currency) }}</strong>
+    <div class="history-toolbar">
+      <div class="range-control" role="group" aria-label="History date range">
+        @for (option of ranges; track option.value) {
+          <button
+            type="button"
+            class="btn range-button"
+            [attr.aria-pressed]="range() === option.value"
+            (click)="range.set(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        }
       </div>
-      <div>
-        <span class="overline">Observations</span><strong>{{ items().length }}</strong>
-      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary export-button"
+        [disabled]="!rows().length"
+        (click)="download()"
+      >
+        <i class="bi bi-download" aria-hidden="true"></i> Export CSV
+      </button>
     </div>
-    @if (items().length > 1) {
-      <svg class="price-chart" viewBox="0 0 700 180" role="img" [attr.aria-label]="chartLabel()">
-        <line class="chart-axis" x1="30" y1="155" x2="670" y2="155" />
-        <polyline class="chart-line" [attr.points]="points()" />
-      </svg>
-    }
-    <div class="table-responsive">
-      <table class="table">
-        <caption class="visually-hidden">
-          Price observations, most recent first
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Observed</th>
-            <th scope="col">Total price</th>
-            <th scope="col">Fare</th>
-            @if (monitor().target.kind === 'search') {
-              <th scope="col">Matching flight</th>
+    @if (view(); as data) {
+      <dl class="history-summary">
+        <div>
+          <dt>Latest in view</dt>
+          <dd>{{ money(data.latest.amount_minor, data.latest.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Lowest in view</dt>
+          <dd class="price-low">{{ money(data.low, data.latest.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Highest in view</dt>
+          <dd>{{ money(data.high, data.latest.currency) }}</dd>
+        </div>
+      </dl>
+      <p class="price-change" [class.price-decrease]="data.change < 0">
+        <i
+          [class]="
+            data.change < 0
+              ? 'bi bi-arrow-down-right'
+              : data.change > 0
+                ? 'bi bi-arrow-up-right'
+                : 'bi bi-dash-lg'
+          "
+          aria-hidden="true"
+        ></i>
+        {{ changeLabel() }}
+      </p>
+      <figure class="history-figure">
+        <div class="chart-frame">
+          <div
+            class="chart-scale"
+            [class.chart-scale-flat]="data.high === data.low"
+            aria-hidden="true"
+          >
+            <span>{{ money(data.high, data.latest.currency) }}</span>
+            @if (data.high !== data.low) {
+              <span>{{ money(data.low, data.latest.currency) }}</span>
             }
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of items(); track $index) {
+          </div>
+          <svg
+            class="price-chart"
+            viewBox="0 0 640 180"
+            role="img"
+            [attr.aria-label]="chartLabel()"
+          >
+            <line class="chart-grid" x1="0" y1="16" x2="640" y2="16" />
+            <line class="chart-grid" x1="0" y1="90" x2="640" y2="90" />
+            <line class="chart-grid" x1="0" y1="164" x2="640" y2="164" />
+            @for (path of data.paths; track $index) {
+              <polyline class="chart-line" [attr.points]="path" />
+            }
+            @for (point of data.endpoints; track $index) {
+              <circle class="chart-dot" [attr.cx]="point.x" [attr.cy]="point.y" r="4" />
+            }
+          </svg>
+        </div>
+        <div class="chart-dates" aria-hidden="true">
+          <span>{{ timestamp(data.first.observed_at) }}</span
+          ><span>{{ timestamp(data.latest.observed_at) }}</span>
+        </div>
+        <figcaption>
+          {{ data.items.length }}
+          {{ data.items.length === 1 ? 'observation' : 'observations' }} shown. Lines stop where
+          checks are more than {{ monitor().interval_seconds / 30 }} minutes apart.
+        </figcaption>
+      </figure>
+      <div
+        class="table-responsive history-table-wrap"
+        tabindex="0"
+        role="region"
+        aria-label="Price observations"
+      >
+        <table class="table history-table">
+          <caption class="visually-hidden">
+            Price observations, most recent first
+          </caption>
+          <thead>
             <tr>
-              <td>{{ timestamp(item.observed_at) }}</td>
-              <td class="text-nowrap">{{ money(item.amount_minor, item.currency) }}</td>
-              <td>{{ item.fare_name || 'Not specified' }}</td>
+              <th scope="col">Observed</th>
+              <th scope="col">Total price</th>
+              <th scope="col">Fare</th>
               @if (monitor().target.kind === 'search') {
-                <td>
-                  {{
-                    item.observed_offer
-                      ? flightNumbers(item.observed_offer.segments)
-                      : 'Not recorded'
-                  }}
-                </td>
+                <th scope="col">Matching flight</th>
               }
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (item of rows(); track item.observed_at) {
+              <tr>
+                <td>{{ timestamp(item.observed_at) }}</td>
+                <td class="text-nowrap history-amount">
+                  {{ money(item.amount_minor, item.currency) }}
+                </td>
+                <td>{{ item.fare_name || 'Not specified' }}</td>
+                @if (monitor().target.kind === 'search') {
+                  <td>
+                    {{
+                      item.observed_offer
+                        ? flightNumbers(item.observed_offer.segments)
+                        : 'Not recorded'
+                    }}
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="history-empty" role="status">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <h3>No observations in this date range</h3>
+        <p>Choose All loaded to see older prices.</p>
+      </div>
+    }
+    <p class="history-scope">
+      Comparisons and CSV exports use the loaded observations in your selected date range.
+    </p>
+  } @else if (action.busy()) {
+    <div class="history-empty" role="status"><h3>Loading observations…</h3></div>
+  } @else if (loaded()) {
+    <div class="history-empty">
+      <i class="bi bi-graph-up" aria-hidden="true"></i>
+      <h3>No price recorded yet</h3>
+      <p>Your history will appear after the first successful check.</p>
     </div>
-    @if (cursor(); as next) {
+  }
+  @if (cursor(); as next) {
+    <div class="history-pagination">
+      <p>Earlier observations are available. Load them to extend this comparison.</p>
       <button
         type="button"
         class="btn btn-outline-primary"
         [disabled]="action.busy()"
         (click)="load(next)"
       >
-        Load earlier observations
+        <i class="bi bi-clock-history" aria-hidden="true"></i
+        >{{ action.busy() ? 'Loading earlier prices…' : 'Load earlier observations' }}
       </button>
-    }
-  } @else {
-    <div class="empty-state">
-      <h3>{{ action.busy() ? 'Loading observations…' : 'No price recorded yet' }}</h3>
-      <p>A price history will appear after the first successful check.</p>
     </div>
   }
 </ff-dialog>

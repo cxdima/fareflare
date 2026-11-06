@@ -71,6 +71,7 @@ jobs:
         working-directory: web
         run: |
           npm run format:check
+          npm run test:types
           npm run build
       - name: Install Chromium and system dependencies
         working-directory: web
