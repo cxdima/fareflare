@@ -186,6 +186,16 @@
           </div>
           @if (preview(); as sample) {
             <pre>{{ sample.text }}</pre>
+            @if (sample.buttons?.length) {
+              <div class="preview-actions" role="group" aria-label="Example Telegram buttons">
+                @for (button of sample.buttons; track button.text) {
+                  <span class="preview-action"
+                    ><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i
+                    >{{ button.text }}</span
+                  >
+                }
+              </div>
+            }
             <p class="settings-note">
               {{ sample.silent ? 'Silent delivery' : 'Standard notification' }}. Time zone:
               {{ sample.time_zone }}.

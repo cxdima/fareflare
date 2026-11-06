@@ -54,8 +54,6 @@ def environment(tmp_path):
             return httpx.Response(200, json={"ok": True, "result": copy.deepcopy(info)})
         assert method == "setWebhook"
         assert snapshot.is_file(), "Rollback snapshot must be durable before mutation"
-        saved = json.loads(snapshot.read_text())
-        assert saved["previous_webhook"]["url"] == OLD_URL
         assert os.stat(snapshot).st_mode & 0o777 == 0o600
         assert TOKEN not in snapshot.read_text() and SECRET not in snapshot.read_text()
         assert payload["secret_token"] == SECRET
@@ -73,6 +71,7 @@ def test_cutover_and_idempotent_rollback_preserve_pending_updates_and_credential
     kwargs, snapshot, info, calls, clients, _, secrets = environment
     with caplog.at_level(logging.INFO, logger="httpx"):
         module.route(**kwargs, url=NEW_URL, snapshot=snapshot)
+        assert json.loads(snapshot.read_text())["previous_webhook"]["url"] == OLD_URL
         assert [call[0] for call in calls] == ["getWebhookInfo", "setWebhook", "getWebhookInfo"]
         assert info["url"] == NEW_URL and info["max_connections"] == 4
         assert info["allowed_updates"] == ["message", "edited_message"]
@@ -203,3 +202,78 @@ def test_readback_mismatch_reports_failure_without_automatic_second_mutation(env
         module.route(**{**kwargs, "transport": httpx.MockTransport(transport)}, url=NEW_URL, snapshot=snapshot)
     assert snapshot.exists()
     assert sum(method == "setWebhook" for method, _ in calls) == 1
+
+
+def test_enable_callbacks_on_existing_route_preserves_filters_connections_and_is_reversible(environment):
+    kwargs, snapshot, info, calls, _, _, _ = environment
+    info["url"], info["max_connections"] = NEW_URL, 17
+    module.route(**kwargs, url=NEW_URL, snapshot=snapshot, enable_callbacks=True)
+    assert info["url"] == NEW_URL and info["max_connections"] == 17
+    assert info["allowed_updates"] == ["message", "edited_message", "callback_query"]
+    assert info["pending_update_count"] == 3
+    saved = json.loads(snapshot.read_text())
+    assert saved["version"] == 2
+    assert saved["previous_webhook"]["url"] == NEW_URL
+    assert saved["target_webhook"]["allowed_updates"] == info["allowed_updates"]
+    module.route(**kwargs, restore=snapshot)
+    assert info["url"] == NEW_URL and info["max_connections"] == 17
+    assert info["allowed_updates"] == ["message", "edited_message"]
+    assert sum(method == "setWebhook" for method, _ in calls) == 2
+
+
+@pytest.mark.parametrize("updates", [[], ["message", "callback_query"]])
+def test_callback_enable_is_read_only_when_already_allowed(environment, updates):
+    kwargs, snapshot, info, calls, _, _, _ = environment
+    info["url"], info["allowed_updates"] = NEW_URL, updates
+    module.route(**kwargs, url=NEW_URL, snapshot=snapshot, enable_callbacks=True)
+    assert info["allowed_updates"] == updates and not snapshot.exists()
+    assert [method for method, _ in calls] == ["getWebhookInfo"]
+
+
+@pytest.mark.parametrize("change", [{"max_connections": 11}, {"allowed_updates": ["message"]}])
+def test_new_snapshot_refuses_rollback_over_unrelated_webhook_configuration(environment, change):
+    kwargs, snapshot, info, calls, _, _, _ = environment
+    module.route(**kwargs, url=NEW_URL, snapshot=snapshot, enable_callbacks=True)
+    info.update(change)
+    calls.clear()
+    with pytest.raises(module.RouteError, match="changed after this snapshot"):
+        module.route(**kwargs, restore=snapshot)
+    assert [method for method, _ in calls] == ["getWebhookInfo"]
+
+
+def test_legacy_route_snapshot_still_restores(environment):
+    kwargs, snapshot, info, _, _, _, _ = environment
+    module.route(**kwargs, url=NEW_URL, snapshot=snapshot)
+    saved = json.loads(snapshot.read_text())
+    saved["version"] = 1
+    saved.pop("target_webhook")
+    snapshot.write_text(json.dumps(saved))
+    module.route(**kwargs, restore=snapshot)
+    assert info["url"] == OLD_URL and info["max_connections"] == 40
+
+
+def test_callbacks_cannot_be_combined_with_restore(environment):
+    kwargs, snapshot, _, calls, clients, _, _ = environment
+    with pytest.raises(module.RouteError, match="Choose"):
+        module.route(**kwargs, restore=snapshot, enable_callbacks=True)
+    assert not calls and not clients
+
+
+def test_update_filter_readback_ignores_telegram_list_order(environment):
+    kwargs, snapshot, info, _, _, _, _ = environment
+    info["allowed_updates"] = ["message", "my_chat_member"]
+    original_transport = kwargs["transport"]
+
+    def reordered(request):
+        response = original_transport.handle_request(request)
+        if request.url.path.endswith("/getWebhookInfo"):
+            body = response.json()
+            body["result"]["allowed_updates"] = list(reversed(body["result"]["allowed_updates"]))
+            return httpx.Response(200, json=body)
+        return response
+
+    module.route(**{**kwargs, "transport": httpx.MockTransport(reordered)},
+                 url=NEW_URL, snapshot=snapshot, enable_callbacks=True)
+    assert set(info["allowed_updates"]) == {"message", "my_chat_member", "callback_query"}
+    module.route(**{**kwargs, "transport": httpx.MockTransport(reordered)}, restore=snapshot)
+    assert set(info["allowed_updates"]) == {"message", "my_chat_member"}

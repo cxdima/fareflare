@@ -68,7 +68,8 @@ def test_private_one_use_link_hashes_credentials_and_routes_delivery(telegram, s
     assert sent[0]["chat_id"] == "123"
     assert connections.send(delivery(tenant))
     assert "USD 120.00" in sent[-1]["text"]
-    assert "parse_mode" not in sent[-1]
+    assert sent[-1]["parse_mode"] == "HTML"
+    assert sent[-1]["link_preview_options"] == {"is_disabled": True}
     assert connections.handle_update(update("/start " + payload, chat=456, identifier=2))
     assert store.get("telegram-account:" + tenant).data["chat_id"] == "123"
 
@@ -140,7 +141,8 @@ def test_every_chat_has_the_same_connection_message_and_stop_behavior(telegram, 
     connections, _, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant, chat=chat)
-    assert sent[-1]["text"] == "Fareflare is connected. Price alerts will arrive here. Use /stop to disconnect."
+    assert "Your flight dashboard" in sent[-1]["text"]
+    assert any(button["text"] == "My flights" for row in sent[-1]["reply_markup"]["inline_keyboard"] for button in row)
     assert connections.handle_update(update("/stop", chat=chat, identifier=2))
     assert not connections.status(tenant)["connected"]
     assert "flights and alert history remain" in sent[-1]["text"]
@@ -151,7 +153,7 @@ def test_consumer_help_and_stop_preserve_dashboard_and_invalidate_old_alerts(tel
     tenant = user["account"]["id"]
     bind(connections, tenant)
     assert connections.handle_update(update("/help@fareflare_bot", identifier=2))
-    assert "https://fareflare.test" in sent[-1]["text"]
+    assert "/flights" in sent[-1]["text"] and "/stop" in sent[-1]["text"]
     assert connections.handle_update(update("/stop", identifier=3))
     assert not connections.status(tenant)["connected"]
     assert store.get("tenant:" + tenant).data["notification_epoch"] == 2
@@ -173,7 +175,7 @@ def test_unconnected_chat_gets_connection_instructions(telegram, command):
     assert connections.handle_update(update(command))
     assert len(sent) == 1
     assert "Connect Telegram" in sent[0]["text"]
-    assert "https://fareflare.test/app#settings" in sent[0]["text"]
+    assert sent[0]["reply_markup"]["inline_keyboard"][0][0]["url"] == "https://fareflare.test/app#settings"
 
 
 def test_stop_for_unconnected_chat_is_explicit_and_idempotent(telegram):
@@ -262,7 +264,7 @@ def test_deletion_cleanup_preserves_chat_rebound_to_another_account(telegram, st
     assert store.get("telegram-account:" + tenant).data == {"connected": False}
 
 
-def test_network_failure_is_retriable_for_alert_but_connection_confirmation_optional(telegram):
+def test_network_failure_retries_the_confirmation_without_rebinding(telegram, clock, store):
     connections, _, user, _ = telegram
     tenant = user["account"]["id"]
 
@@ -270,9 +272,16 @@ def test_network_failure_is_retriable_for_alert_but_connection_confirmation_opti
         raise httpx.ConnectError("unavailable", request=request)
 
     connections._transport = httpx.MockTransport(fail)
-    bind(connections, tenant)
+    payload = start(connections, tenant)
+    message = update("/start " + payload)
+    assert not connections.handle_update(message)
     assert connections.status(tenant)["connected"]
     assert not connections.send(delivery(tenant))
+    connected_at = store.get("telegram-account:" + tenant).data["connected_at"]
+    connections._transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True}))
+    clock[0] += 2
+    assert connections.handle_update(message)
+    assert store.get("telegram-account:" + tenant).data["connected_at"] == connected_at
 
 
 def test_httpx_logging_redacts_telegram_bot_credential(telegram, caplog):

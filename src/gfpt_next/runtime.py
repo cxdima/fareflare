@@ -37,7 +37,7 @@ def build_worker() -> Worker:
         sink = RoutedSink(service.webhooks, sink)
     if mode == "product":
         accounts = Accounts(store)
-        telegram = build_telegram(store, accounts, os.environ.get("GFPT_NEXT_PUBLIC_URL", ""))
+        telegram = build_telegram(store, accounts, os.environ.get("GFPT_NEXT_PUBLIC_URL", ""), service=service)
         sink = RoutedSink(service.webhooks, telegram.connections if telegram else InboxSink(accounts))
     provider = PublicGoogleFlightsProvider(os.environ.get("CHROME_BINARY"),
                                           os.environ.get("CHROMEDRIVER_PATH"))

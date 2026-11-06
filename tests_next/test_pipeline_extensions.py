@@ -176,7 +176,7 @@ def test_telegram_uses_server_destination_and_handles_failure():
     assert sink.send(delivery)
     assert seen[0]['chat_id'] == '111'
     assert 'JPY 48,706' in seen[0]['text']
-    assert 'parse_mode' not in seen[0]
+    assert seen[0]['parse_mode'] == 'HTML'
     assert not sink.send({**delivery, 'tenant': 'bob'})
     failure = TelegramSink('123:' + 'a' * 25, {'alice': '111'}, httpx.MockTransport(
         lambda request: httpx.Response(429, json={'ok': False})))
@@ -294,7 +294,7 @@ def test_telegram_alert_shows_the_flight_party_and_human_readable_time(service, 
         return httpx.Response(200, json={'ok': True})
     sink = TelegramSink('123:' + 'a' * 25, {'alice': '111'}, httpx.MockTransport(route))
     assert service.deliver_due(sink) == 1
-    assert 'DEN → DFW · 03/14/2027 · UA414' in messages[0]
+    assert '<b>DEN → DFW</b> · 03/14/2027 · UA414' in messages[0]
     assert 'Total for 1 adult' in messages[0]
     assert '11/02/2026' in messages[0] and 'UTC' in messages[0]
 

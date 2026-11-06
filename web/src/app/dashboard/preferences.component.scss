@@ -123,6 +123,23 @@
 .telegram-preview .btn {
   margin: 1rem 0 0.75rem;
 }
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: -0.5rem 0 1rem;
+}
+.preview-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--ff-line);
+  border-radius: var(--bs-border-radius);
+  background: var(--ff-surface);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
 .preview-placeholder {
   font-size: 0.85rem;
   line-height: 1.6;

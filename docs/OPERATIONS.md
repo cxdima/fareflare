@@ -111,6 +111,11 @@ has a permanent cap of 1,000 clients. Review retention before raising that cap.
 
 ## Telegram configuration
 
+The expanded bot controls are deployed on the hosted service; see the
+[verification record](TELEGRAM_VERIFICATION.md) for checked behavior and limits.
+When self-hosting, deploy a verified API image supporting callbacks before enabling
+them. [The Telegram guide](TELEGRAM.md) documents commands and user workflows.
+
 Create a Telegram bot and store the following JSON in AWS Secrets Manager:
 
 ```json
@@ -125,8 +130,11 @@ Use a strong random webhook secret and set `customer_telegram_secret_arn` in pri
 Terraform inputs. The API and worker read only that configured secret. Connect an
 account from **Account settings** using its one-use link; links expire in ten
 minutes and require a private chat whose sender matches the chat owner.
-`/help` shows connection guidance and `/stop` disconnects Telegram. Disconnecting
-does not cancel flight monitors or remove their history.
+After connecting, users can manage flights and alert rules through the private
+chat. `/help` shows guidance; `/stop` disconnects Telegram without cancelling
+monitors or removing history. No browser runs in the command handler. Collection
+continues through the scheduled worker, using the existing HTTP adapter without
+new paid APIs or bot-framework dependencies.
 
 Register the webhook after the API is reachable:
 
@@ -135,14 +143,49 @@ PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
   --url https://YOUR-API.execute-api.REGION.amazonaws.com/telegram/webhook \
-  --snapshot .next/telegram-before-UNIQUE.json
+  --snapshot .next/telegram-before-UNIQUE.json --enable-callbacks
 ```
 
 The script verifies AWS identity, saves a new private snapshot before changing
 routing, preserves pending updates, and reads the route back. It refuses custom
 certificate routes that cannot be restored from Telegram's API. It does not print
-bot credentials or configure the bot's public description and command menu.
-Test connection, help, disconnection, and an actual price notification.
+bot credentials. `--enable-callbacks` adds `callback_query` to a nonempty update
+filter, preserving existing update types and `max_connections`. An empty filter
+already includes callbacks and stays empty. Use the existing URL to enable
+callbacks without moving the route. An already-matching configuration is a
+read-only no-op and creates no snapshot.
+
+Configure the public Fareflare name, descriptions, private-chat command menu and
+default menu button separately. Preview reads the current settings without
+changing them:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/configure_telegram.py \
+  --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
+  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION
+```
+
+Apply the displayed profile after deploying the matching commands:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/configure_telegram.py \
+  --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
+  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
+  --apply --snapshot .next/telegram-profile-before-UNIQUE.json
+```
+
+The profile tool verifies AWS and bot identity, exclusively creates a mode-0600
+snapshot before mutation, and reads back each change. It updates default-language
+metadata and the `all_private_chats` command scope, preserving other languages,
+command scopes and per-chat menu overrides. It does not change the avatar,
+username or webhook. To restore, replace `--apply --snapshot FILE` with
+`--restore FILE`; restore refuses unrelated intervening edits and supports a
+partially applied configuration. Keep these snapshots private and use new names.
+
+Check initial connection, command menus, paginated views, link and rule
+confirmations, `/cancel`, expired controls, disconnect/reconnect, and an actual
+price notification. Confirm time-zone and sound settings with a disposable
+account before inviting users.
 
 Restore the saved route when rolling back:
 
@@ -154,9 +197,31 @@ PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
 ```
 
 The restore checks the bot identity, secret, snapshot permissions, and current
-route. Webhook routing controls incoming commands; outbound worker delivery is
-separate. See the [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook)
-for webhook behavior.
+route. New snapshots also guard update filters and connection limits so rollback
+cannot silently replace a newer configuration. Webhook routing controls incoming
+commands; outbound worker delivery is separate. See the
+[Telegram Bot API](https://core.telegram.org/bots/api#setwebhook) for webhook behavior.
+
+### Callback security and retry behavior
+
+The webhook secret authenticates ingress. Commands require the private-chat
+sender to match the chat owner; callbacks additionally require a message authored
+by the configured bot. Opaque controls expire after 15 minutes and are bound to
+the account, chat, authentication epoch and current connection. Mutations check
+current revisions and consume their action transactionally. Forwarded, expired,
+replayed or stale confirmation controls cannot authorize a new change.
+
+Update IDs deduplicate requests. Pending command replies can be cached for retry
+with a two-day expiry; they may contain account views and button data. DynamoDB
+TTL deletion is asynchronous, so expiry is not an immediate physical-deletion
+guarantee. Cached account views are rechecked against the current connection
+before delivery. Successful replies discard the cached content.
+
+Delivery remains at least once. Telegram can accept a message before an HTTP
+response is lost, so a retried send can produce a duplicate menu. The handler
+edits the existing menu when possible, honours Telegram retry delays and limits
+interactive commands. Account mutations are guarded separately from reply
+delivery. Do not interpret a duplicate message as permission to repeat a change.
 
 ## Monitoring and incidents
 

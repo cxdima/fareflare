@@ -35,6 +35,11 @@ units; for example, `19100` USD means $191.00. See the
 See [account preferences](docs/ACCOUNT_PREFERENCES.md) for local time and message
 settings. Regional formatting preserves the original fare currency.
 
+The [Telegram bot](docs/TELEGRAM.md) supports flight creation, recent prices,
+pause/resume controls, alert-rule editing and message settings inside the chat
+after an initial account connection. This revision is deployed; see the
+[verification record](docs/TELEGRAM_VERIFICATION.md) for completed checks and limits.
+
 The hosted service is **free and invite-only** while capacity is being measured.
 Billing is disabled. Self-hosting uses your own infrastructure and can incur costs.
 Prices are sampled periodically: Fareflare cannot guarantee the cheapest fare on

@@ -196,8 +196,10 @@ def test_regional_amounts_keep_original_currency_and_minor_unit_precision(locale
     assert regional_price(amount, currency, locale) == expected
 
 
-def test_compact_message_respects_independent_fields_and_keeps_trip_party():
+def test_compact_message_respects_independent_fields_and_keeps_trip_party(flight_url):
+    from gfpt_next.telegram_messages import alert_message
     value = sample()
+    value["itinerary"]["url"] = flight_url
     detailed = telegram_text(value, Preferences())
     compact = telegram_text(value, Preferences(telegram_style="compact", telegram_show_flight_numbers=False,
                                               telegram_show_fare=False, telegram_show_observed_time=False))
@@ -206,7 +208,9 @@ def test_compact_message_respects_independent_fields_and_keeps_trip_party():
     assert "Total for 2 adults" in compact
     assert all(text not in compact for text in ("UA414", "Fare:", "Observed", "Alert "))
     assert len(compact.splitlines()) < len(detailed.splitlines())
-    assert "https://www.google.com/travel/flights" in compact
+    assert "https://" not in compact
+    assert alert_message(value, Preferences()).reply_markup["inline_keyboard"][0][0]["url"].startswith(
+        "https://www.google.com/travel/flights/booking?")
 
 
 def test_preferences_do_not_accept_timezone_path_or_markup_settings():
@@ -216,7 +220,7 @@ def test_preferences_do_not_accept_timezone_path_or_markup_settings():
         Preferences(telegram_style="<b>compact</b>")
 
 
-def test_telegram_send_uses_plain_text_and_silent_transport_flag():
+def test_telegram_send_escapes_provider_text_and_honors_silent_transport_flag():
     from gfpt_next.delivery import TelegramSink
     sent = []
 
@@ -229,6 +233,6 @@ def test_telegram_send_uses_plain_text_and_silent_transport_flag():
                         preferences=Preferences(time_zone="America/Chicago", telegram_silent=True))
     assert sink.send({**sample(), "tenant": "alice"})
     assert sent[0]["disable_notification"] is True
-    assert "parse_mode" not in sent[0]
-    assert '<b>Economy & "basic"</b>' in sent[0]["text"]
+    assert sent[0]["parse_mode"] == "HTML"
+    assert '&lt;b&gt;Economy &amp; &quot;basic&quot;&lt;/b&gt;' in sent[0]["text"]
     assert "America/Chicago" in sent[0]["text"]

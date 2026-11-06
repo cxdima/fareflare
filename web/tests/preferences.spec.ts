@@ -72,6 +72,10 @@ test('actual account preferences persist and preview does not save or send', asy
   await expect(preview).toContainText('Asia/Tokyo (UTC+09:00)');
   await expect(preview).not.toContainText('UA414');
   await expect(preview).not.toContainText('Fare:');
+  const exampleButtons = page.getByRole('group', { name: 'Example Telegram buttons' });
+  await expect(exampleButtons).toContainText('View flight');
+  await expect(exampleButtons).toContainText('Open Fareflare');
+  await expect(exampleButtons.getByRole('link')).toHaveCount(0);
   saved = await (await page.request.get('/v1/preferences')).json();
   expect(saved.telegram_style).toBe('detailed');
   expect(saved.telegram_silent).toBe(false);
@@ -204,7 +208,12 @@ test('preview ignores an old response when draft options change and renders prov
       });
     }
     return route.fulfill({
-      json: { text: 'Example compact <b>literal text</b>', silent: false, time_zone: 'UTC' },
+      json: {
+        text: 'Example compact <b>literal text</b>',
+        silent: false,
+        time_zone: 'UTC',
+        buttons: [{ text: '<img src=x onerror=alert(1)>', url: 'javascript:alert(1)' }],
+      },
     });
   });
   await page.goto('/app#settings');
@@ -219,6 +228,8 @@ test('preview ignores an old response when draft options change and renders prov
   await page.getByRole('button', { name: 'Preview message' }).click();
   await expect(page.locator('.telegram-preview pre')).toContainText('<b>literal text</b>');
   await expect(page.locator('.telegram-preview b')).toHaveCount(0);
+  await expect(page.locator('.preview-actions')).toContainText('<img src=x onerror=alert(1)>');
+  await expect(page.locator('.preview-actions img, .preview-actions a')).toHaveCount(0);
   expect(state.writes).toEqual([]);
 });
 

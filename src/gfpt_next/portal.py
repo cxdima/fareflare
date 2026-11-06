@@ -112,7 +112,8 @@ def create_portal(service: MonitoringService, config: ProductConfig,
             return tenant
         return session(request)["account"]["id"]
 
-    app = create_app(service, principal_resolver=principal, limiter=limiter, live_collection=True)
+    app = create_app(service, principal_resolver=principal, limiter=limiter,
+                     live_collection=True, public_url=config.public_url)
     app.title = config.product_name + " API"
     # Use the same script-free API reference with the portal navigation and stylesheet.
     app.router.routes = [route for route in app.router.routes
