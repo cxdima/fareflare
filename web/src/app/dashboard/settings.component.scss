@@ -1,3 +1,47 @@
+:host {
+  display: block;
+  max-width: 64rem;
+}
+.settings-sections {
+  display: flex;
+  gap: 0.4rem 1.5rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--ff-line);
+}
+.settings-sections button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.65rem 0.15rem;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+  font-weight: 550;
+}
+.settings-sections button:hover {
+  color: var(--ff-ink);
+}
+.settings-sections button[aria-pressed='true'] {
+  color: var(--ff-ink);
+  border-bottom-color: var(--ff-accent);
+  font-weight: 700;
+}
+.settings-sections .bi {
+  font-size: 0.95rem;
+}
+.settings-content {
+  max-width: 56rem;
+}
+.settings-content > .panel > p {
+  max-width: 65ch;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
 .connection-list {
   list-style: none;
   margin: 0;
@@ -10,10 +54,28 @@
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.75rem 0;
+  font-size: 0.9rem;
 }
 .connection-list li + li {
   border-top: 1px solid var(--ff-line);
 }
+.connection-list strong {
+  overflow-wrap: anywhere;
+}
 .danger-zone {
-  border-left: 3px solid #a42f25;
+  border-color: color-mix(in srgb, var(--bs-danger) 30%, var(--ff-line));
+}
+@media (max-width: 575px) {
+  .settings-sections {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .settings-sections button {
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-block: 0.7rem;
+    font-size: 0.7rem;
+  }
 }

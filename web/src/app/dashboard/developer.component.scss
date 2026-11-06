@@ -35,7 +35,7 @@
 }
 .connection-options button[aria-pressed='true'] {
   background: var(--ff-surface);
-  box-shadow: inset 0 -3px var(--ff-accent);
+  box-shadow: inset 0 -2px var(--ff-accent);
 }
 .connection-options button:hover:not([aria-pressed='true']) {
   background: color-mix(in srgb, var(--ff-line) 35%, var(--ff-soft));
@@ -159,4 +159,43 @@ pre code {
   .endpoint-heading {
     gap: 0.5rem;
   }
+}
+
+.key-create summary {
+  font-size: 1rem;
+  font-weight: 650;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.key-create[open] summary {
+  margin-bottom: 0.75rem;
+}
+.key-create > p,
+.key-list > p {
+  font-size: 0.85rem;
+  color: var(--ff-muted);
+  line-height: 1.7;
+}
+.key-list {
+  padding: 0.5rem 0.25rem;
+}
+.key-list h2 {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 0 0 0.75rem;
+}
+.record-details {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ff-muted);
+}
+.record-details summary {
+  min-height: 28px;
+  width: fit-content;
+}
+.record-details code {
+  display: block;
+  max-width: 18rem;
+  padding-block: 0.4rem;
 }

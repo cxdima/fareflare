@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: 1.25rem 0;
+  margin: 1rem 0 1.25rem;
 }
 .range-control {
   display: inline-flex;
@@ -43,11 +43,11 @@
 }
 .history-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  padding: 1.25rem 0;
+  align-items: start;
+  padding: 0 0 0.75rem;
   margin: 0;
-  border-top: 1px solid var(--ff-line);
 }
 .history-summary dt {
   font-weight: 500;
@@ -56,12 +56,15 @@
   margin-bottom: 0.35rem;
 }
 .history-summary dd {
-  font-size: clamp(1rem, 2.6vw, 1.6rem);
+  font-size: clamp(1rem, 2vw, 1.25rem);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.035em;
   margin: 0;
   overflow-wrap: anywhere;
+}
+.history-summary > div:first-child dd {
+  font-size: clamp(1.6rem, 3vw, 2rem);
 }
 .price-low,
 .price-decrease {
@@ -72,7 +75,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 .history-figure {
   margin: 0 0 1.5rem;
@@ -130,8 +133,8 @@
 }
 .history-table-wrap {
   max-height: 20rem;
-  border: 1px solid var(--ff-line);
-  border-radius: 0.6rem;
+  border-top: 1px solid var(--ff-line);
+  border-bottom: 1px solid var(--ff-line);
 }
 .history-table {
   margin: 0;
@@ -156,8 +159,21 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.history-context {
+  margin-top: 0.75rem;
+}
+.history-context > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  min-height: 44px;
+  color: var(--ff-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
 .history-scope {
-  margin: 0.75rem 0 0;
+  margin: 0.25rem 0 0.75rem;
 }
 .history-pagination {
   margin-top: 1.25rem;
@@ -198,5 +214,8 @@
   }
   .history-summary {
     gap: 0.5rem;
+  }
+  .history-summary dt {
+    min-block-size: 3em;
   }
 }

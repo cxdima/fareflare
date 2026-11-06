@@ -89,3 +89,15 @@ Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans
 under the SIL Open Font License. The build includes its full copyright/license
 notice in the served `3rdpartylicenses.txt`. See the package's `LICENSE` and
 [Fontsource's provenance](https://fontsource.org/fonts/plus-jakarta-sans/about).
+
+## Interface vectors
+
+`web/public/assets/flight-watermark.svg` uses Bootstrap Icons' `airplane-fill`
+shape under the MIT license. It is served locally as a decorative CSS mask inside
+flight buttons, with no text alternative because the button already has a label.
+The build includes the Bootstrap Icons copyright and license in
+`3rdpartylicenses.txt`. Source: [Bootstrap Icons airplane-fill](https://icons.getbootstrap.com/icons/airplane-fill/).
+
+`web/public/assets/control-chevron.svg` is a project-authored, three-point
+chevron used by native select fields and disclosures. It shares the interface's
+teal color and is covered by the repository's MIT license.

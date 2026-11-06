@@ -90,8 +90,8 @@
 @if (secret()) {
   <ff-secret title="Your API key" [value]="secret()" (dismissed)="secret.set('')" />
 }
-<section class="panel key-create mb-4">
-  <h2>Create an API key</h2>
+<details class="panel key-create mb-4" [open]="connection() === 'api'">
+  <summary>Create an API key</summary>
   <p class="text-body-secondary">
     Give each application its own key so you can revoke access independently.
   </p>
@@ -112,8 +112,8 @@
       Create key
     </button>
   </form>
-</section>
-<section class="panel">
+</details>
+<section class="key-list">
   <h2>Your API keys</h2>
   @if (keys().length) {
     <div class="table-responsive">
@@ -133,8 +133,11 @@
           @for (key of keys(); track key.id) {
             <tr>
               <td>
-                <strong>{{ key.name || 'API key' }}</strong
-                ><span class="table-subtext key-id">{{ key.id }}</span>
+                <strong>{{ key.name || 'API key' }}</strong>
+                <details class="record-details">
+                  <summary>Key ID</summary>
+                  <code class="key-id">{{ key.id }}</code>
+                </details>
               </td>
               <td>{{ timestamp(key.expires_at) }}</td>
               <td>

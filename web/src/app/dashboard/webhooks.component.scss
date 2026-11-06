@@ -17,3 +17,35 @@
   margin-bottom: 1rem;
   color: var(--ff-ink);
 }
+
+.receiver-details {
+  font-size: 0.8rem;
+  color: var(--ff-muted);
+  margin-top: 0.75rem;
+}
+.receiver-details summary {
+  min-height: 32px;
+  width: fit-content;
+}
+.receiver-details code {
+  display: block;
+  padding-block: 0.4rem;
+}
+.receiver-empty {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 1rem 0;
+}
+.receiver-empty > .bi {
+  display: none;
+}
+.receiver-empty h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.receiver-empty p {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 0.85rem;
+}

@@ -34,6 +34,20 @@ async function preferencesMock(page: Page, initial: Partial<Preferences> = {}) {
   return { writes, value: () => value };
 }
 
+type SettingsSection = 'Display' | 'Notifications' | 'Connections' | 'Security';
+
+function sectionButton(page: Page, name: SettingsSection) {
+  return page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name, exact: true });
+}
+
+async function showSection(page: Page, name: SettingsSection) {
+  const button = sectionButton(page, name);
+  await button.click();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+}
+
 test('actual account preferences persist and preview does not save or send', async ({
   page,
 }, info) => {
@@ -61,6 +75,7 @@ test('actual account preferences persist and preview does not save or send', asy
   await page.reload();
   await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('Asia/Tokyo');
   await expect(page.getByLabel('Clock', { exact: true })).toHaveValue('h23');
+  await showSection(page, 'Notifications');
   await page.getByLabel('Message style').selectOption('compact');
   await page.getByLabel('Flight numbers', { exact: true }).uncheck();
   await page.getByLabel('Fare name', { exact: true }).uncheck();
@@ -93,6 +108,7 @@ test('actual account preferences persist and preview does not save or send', asy
     telegram_show_fare: false,
     muted: true,
   });
+  await showSection(page, 'Security');
   await page.getByRole('button', { name: 'Delete my account' }).click();
   await page.getByLabel('Confirm password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Permanently delete account' }).click();
@@ -177,9 +193,11 @@ test('pending saves protect draft edits and failed saves retain input for retry'
   await page.getByRole('button', { name: 'Save display settings' }).click();
   try {
     await expect(page.getByLabel('Time zone', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Use device time zone' })).toBeDisabled();
+    await showSection(page, 'Notifications');
     await expect(page.getByLabel('Message style')).toBeDisabled();
     await expect(page.getByLabel('Mute all notifications')).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Use device time zone' })).toBeDisabled();
+    await showSection(page, 'Display');
   } finally {
     release();
   }
@@ -217,6 +235,7 @@ test('preview ignores an old response when draft options change and renders prov
     });
   });
   await page.goto('/app#settings');
+  await showSection(page, 'Notifications');
   await page.getByRole('button', { name: 'Preview message' }).click();
   try {
     await page.getByLabel('Message style').selectOption('compact');
@@ -231,6 +250,62 @@ test('preview ignores an old response when draft options change and renders prov
   await expect(page.locator('.preview-actions')).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('.preview-actions img, .preview-actions a')).toHaveCount(0);
   expect(state.writes).toEqual([]);
+});
+
+test('settings sections work with the keyboard and retain unsaved drafts until saved', async ({
+  page,
+}) => {
+  const state = await preferencesMock(page);
+  await page.goto('/app#settings');
+  await expect(sectionButton(page, 'Display')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Message style')).toBeHidden();
+  await page.getByLabel('Time zone', { exact: true }).fill('Asia/Tokyo');
+  await page.getByLabel('Regional format', { exact: true }).selectOption('de-DE');
+
+  await sectionButton(page, 'Notifications').focus();
+  await page.keyboard.press('Enter');
+  await expect(sectionButton(page, 'Notifications')).toHaveAttribute('aria-pressed', 'true');
+  await expect(sectionButton(page, 'Display')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByLabel('Time zone', { exact: true })).toBeHidden();
+  await page.getByLabel('Message style').selectOption('compact');
+  await page.getByLabel('Send silently', { exact: true }).check();
+  await page.getByLabel('Mute all notifications').check();
+  await page.getByLabel('Muted routes').fill('DEN-DFW');
+
+  await sectionButton(page, 'Connections').focus();
+  await page.keyboard.press('Space');
+  await expect(sectionButton(page, 'Connections')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Connected applications' })).toBeVisible();
+  await expect(page.getByLabel('Message style')).toBeHidden();
+  await showSection(page, 'Security');
+  await expect(page.getByRole('button', { name: 'Delete my account' })).toBeVisible();
+
+  await showSection(page, 'Display');
+  await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('Asia/Tokyo');
+  await expect(page.getByLabel('Regional format', { exact: true })).toHaveValue('de-DE');
+  expect(state.writes).toEqual([]);
+  await page.getByRole('button', { name: 'Save display settings' }).click();
+  await expect(page.getByText('Display settings saved.')).toBeVisible();
+  await showSection(page, 'Notifications');
+  await expect(page.getByLabel('Message style')).toHaveValue('compact');
+  await expect(page.getByLabel('Send silently', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('Mute all notifications')).toBeChecked();
+  await expect(page.getByLabel('Muted routes')).toHaveValue('DEN-DFW');
+  expect(state.value()).toMatchObject({
+    time_zone: 'Asia/Tokyo',
+    locale: 'de-DE',
+    telegram_style: 'detailed',
+    telegram_silent: false,
+    muted: false,
+    muted_routes: [],
+  });
+  await page.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
+  await expect(page.getByLabel('Mute all notifications')).toBeChecked();
+  await expect(page.getByLabel('Muted routes')).toHaveValue('DEN-DFW');
+  expect(state.value()).toMatchObject({ telegram_style: 'compact', telegram_silent: true });
+  expect(state.value().muted).toBe(false);
+  expect(state.writes).toHaveLength(2);
 });
 
 test('personal settings remain accessible and usable on desktop and mobile', async ({ page }) => {
@@ -250,16 +325,33 @@ test('personal settings remain accessible and usable on desktop and mobile', asy
   ] as const) {
     await page.setViewportSize(viewport);
     await page.goto('/app#settings');
-    if (name === 'mobile') await page.reload();
-    await page.getByRole('button', { name: 'Preview message' }).click();
-    await expect(page.locator('.telegram-preview pre')).toBeVisible();
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBeTruthy();
-    await expect(page.locator('[style]')).toHaveCount(0);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `artifacts/preferences-${name}.png`, fullPage: true });
-    // Audit last: axe temporarily styles/focuses controls while measuring contrast.
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    for (const section of ['Display', 'Notifications', 'Connections', 'Security'] as const) {
+      await showSection(page, section);
+      if (section === 'Display') {
+        await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('America/Chicago');
+      } else if (section === 'Notifications') {
+        await page.getByRole('button', { name: 'Preview message' }).click();
+        await expect(page.locator('.telegram-preview pre')).toBeVisible();
+      } else if (section === 'Connections') {
+        await expect(
+          page.getByRole('button', { name: 'Revoke access for Travel helper', exact: true }),
+        ).toBeVisible();
+      } else {
+        await expect(page.getByRole('button', { name: 'Delete my account' })).toBeVisible();
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBeTruthy();
+      await expect(page.locator('[style]')).toHaveCount(0);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({
+        path: `artifacts/preferences-${name}-${section.toLowerCase()}.png`,
+        fullPage: true,
+      });
+      // Audit last: axe temporarily styles/focuses controls while measuring contrast.
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      // Start the next audit from a clean document without axe's temporary measurements.
+      await page.reload();
+    }
   }
 });

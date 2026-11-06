@@ -2,6 +2,15 @@
 
 Open **Account settings** to configure display formats, Telegram messages and muting. Settings belong to the signed-in account and apply on subsequent visits and devices. They do not change collection intervals or other accounts' monitors.
 
+Choose a section to focus on one task:
+
+- **Display:** time zone, regional format and clock style; this section opens by default.
+- **Notifications:** Telegram message detail, a sample preview, silent delivery and muting.
+- **Connections:** connect or disconnect Telegram and manage approved MCP applications.
+- **Security:** account recovery guidance and password-confirmed deletion.
+
+Section buttons work with the keyboard and indicate the current section. Switching sections keeps unsaved display, message and muting drafts while Account settings stays open. Use the relevant **Save** button to persist each group. Leaving Account settings or reloading discards unsaved drafts; saving one group does not save the others.
+
 ## Available settings
 
 | Field | Default | Behavior |

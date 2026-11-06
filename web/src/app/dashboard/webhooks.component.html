@@ -54,9 +54,7 @@
             : 'Disabled'
       }}</span>
     </div>
-    <p class="small text-body-secondary">
-      Added {{ timestamp(item.created_at) }}<br /><code>{{ item.id }}</code>
-    </p>
+    <p class="small text-body-secondary">Added {{ timestamp(item.created_at) }}</p>
     @if (item.status === 'pending' || item.status === 'disabled') {
       <p class="small">
         Send a signed challenge to your receiver, then paste <code>data.token</code> from its
@@ -88,6 +86,10 @@
         </button>
       </form>
     }
+    <details class="receiver-details">
+      <summary>Receiver ID</summary>
+      <code>{{ item.id }}</code>
+    </details>
     <div class="d-flex flex-wrap gap-2 mt-3">
       @if (item.status === 'active') {
         <button
@@ -108,7 +110,7 @@
     </div>
   </article>
 } @empty {
-  <section class="panel empty-state">
+  <section class="panel empty-state receiver-empty">
     <i class="bi bi-link-45deg" aria-hidden="true"></i>
     <h2>No receivers yet</h2>
     <p>Add an endpoint above. Verified receivers can be selected when you create a monitor.</p>

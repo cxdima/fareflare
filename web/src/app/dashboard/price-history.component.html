@@ -100,8 +100,7 @@
         </div>
         <figcaption>
           {{ data.items.length }}
-          {{ data.items.length === 1 ? 'observation' : 'observations' }} shown. Lines stop where
-          checks are more than {{ monitor().interval_seconds / 30 }} minutes apart.
+          {{ data.items.length === 1 ? 'observation' : 'observations' }} shown.
         </figcaption>
       </figure>
       <div
@@ -153,9 +152,13 @@
         <p>Choose All loaded to see older prices.</p>
       </div>
     }
-    <p class="history-scope">
-      Comparisons and CSV exports use the loaded observations in your selected date range.
-    </p>
+    <details class="history-context">
+      <summary>About this history</summary>
+      <p class="history-scope">
+        Comparisons and CSV exports use the loaded observations in your selected date range. Lines
+        stop where checks are more than {{ monitor().interval_seconds / 30 }} minutes apart.
+      </p>
+    </details>
   } @else if (action.busy()) {
     <div class="history-empty" role="status"><h3>Loading observations…</h3></div>
   } @else if (loaded()) {

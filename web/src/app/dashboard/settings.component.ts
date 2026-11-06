@@ -26,6 +26,13 @@ type Grant = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsComponent implements OnInit {
+  readonly sections = [
+    { id: 'display', label: 'Display', icon: 'bi-globe2' },
+    { id: 'notifications', label: 'Notifications', icon: 'bi-bell' },
+    { id: 'connections', label: 'Connections', icon: 'bi-link-45deg' },
+    { id: 'security', label: 'Security', icon: 'bi-shield-check' },
+  ] as const;
+  readonly section = signal<'display' | 'notifications' | 'connections' | 'security'>('display');
   readonly session = inject(SessionFacade);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);

@@ -115,12 +115,18 @@ test('monitor filters combine route and status without hiding the account quota'
   );
   await page.goto('/app');
   await expect(page.getByRole('article')).toHaveCount(3);
+  await page.getByText('Filter flights', { exact: true }).click();
   await page.getByLabel('Status', { exact: true }).selectOption('paused');
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('article')).toContainText('Paused');
   await expect(page.getByLabel('Monitor summary')).toContainText('2 of 3 monitors in use');
   await page.getByLabel('Find a flight').fill('den 414');
   await expect(page.getByRole('article')).toHaveCount(1);
+  await page.getByText('Filter flights', { exact: true }).click();
+  await expect(page.getByLabel('Find a flight')).toBeHidden();
+  await expect(page.locator('.filter-count')).toContainText('Paused matching “den 414”');
+  await page.getByText('Filter flights', { exact: true }).click();
+  await expect(page.getByLabel('Find a flight')).toHaveValue('den 414');
   await page.getByLabel('Find a flight').fill('JFK');
   await expect(page.getByRole('heading', { name: 'No matching flights' })).toBeVisible();
   await page.getByRole('button', { name: 'Clear filters' }).click();

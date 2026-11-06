@@ -1,13 +1,37 @@
+.editor-intro {
+  color: var(--ff-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  margin-bottom: 1.25rem;
+}
 .supported-inputs {
-  font-size: 0.9rem;
-  background: #f1eee6;
-  padding: 0.8rem 1rem;
-  border-radius: 0.25rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ff-muted);
 }
 summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: fit-content;
+  min-height: 44px;
+  color: var(--ff-link);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 550;
 }
 details p {
-  margin: 0.75rem 0 0;
+  margin: 0.5rem 0 0;
+  line-height: 1.6;
+}
+.collection-options {
+  border-top: 1px solid var(--ff-line);
+  padding-top: 0.5rem;
+}
+.collection-options > summary {
+  font-size: 0.85rem;
+}
+.collection-fields {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 0.75rem;
 }
