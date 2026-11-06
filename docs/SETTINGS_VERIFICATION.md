@@ -1,7 +1,8 @@
 # Personal settings and interface verification
 
-Verified locally on November 6, 2026. Implementation:
-`8b4b1c73b75f38d006464877a3719168e3d1b334`.
+Verified locally and in production on November 6, 2026. Settings implementation:
+`8b4b1c73b75f38d006464877a3719168e3d1b334`; loading-state corrections:
+`c8282186ef86510c7ef19fb8e3f1907021f908c5`.
 
 ## Changes
 
@@ -26,7 +27,7 @@ Verified locally on November 6, 2026. Implementation:
 | Python compilation, Pyright, Ruff | Pass |
 | Backend tests | 761 passed; 92.58% coverage |
 | Angular production build, formatting, test TypeScript | Pass |
-| Playwright | 69 passed: 37 browser scenarios and 32 model cases |
+| Playwright | 72 passed: 40 browser scenarios and 32 model cases |
 | Production npm dependency audit | No known vulnerabilities reported |
 | Staged secret scan | No findings |
 | API container | 39 isolated checks; 58 matching source/build files |
@@ -36,6 +37,9 @@ Tests cover real local account persistence, failed reads/saves, disabled control
 during saves, partial update races, tenant isolation, CSRF/origin enforcement,
 preview escaping and stale responses. Time cases include both DST transitions,
 the repeated Chicago hour, fractional-hour offsets and date-line boundaries.
+Three loading regressions use gated responses and virtual time to check the
+refresh button's accessible name, hash navigation before requests settle and
+teardown without late workspace reads or polling.
 
 Both containers ran without networking, AWS credentials or writable application
 files. Their IANA data supports Chicago and Kolkata. Telegram checks use a mock
@@ -56,13 +60,38 @@ between viewport audits.
 - [Desktop settings](design/preferences-desktop.png)
 - [Mobile settings](design/preferences-mobile.png)
 
-## Deployment status
+## Live release checks
 
-This revision is packaged and tested but **not yet deployed**. The AWS session
-expired before deployment; the available long-term profile lacks Lambda access.
-The live site remains on the [previous release](HISTORY_RELEASE_VERIFICATION.md).
-After refreshing the normal AWS session, deploy the verified API and worker
-images and run the disposable-account checks before recording a hosted release.
+The API and worker were deployed as immutable image digests. The reviewed first
+plan changed only those two Lambda images; the loading correction changed only
+the API image. Both functions are Active with Successful updates. Environment
+variables and reserved concurrency match the pre-deployment snapshot. Billing
+remains disabled and registration invite-only. The original tracker image,
+configuration and modification time are unchanged.
+
+The first live run caught a label-in-name failure while the refresh button was
+busy and a hash navigation timeout during initial loading. Both were corrected
+and covered by the deterministic regressions above. The final run passed all
+**32 production checks**, including nine accessibility scans, invitation signup,
+password login, API-key creation/revocation, 20-tool MCP discovery, settings
+persistence, script-free documentation and account deletion.
+
+The live preferences check saved Chicago time, German regional formatting and a
+24-hour clock, then previewed compact, silent Telegram options. Previewing did
+not persist the draft; saving and reloading retained the chosen values without
+changing muting. A clean authenticated browser found Angular and no React globals,
+mounted renderer markers or external scripts. This does not identify the cause
+of the original extension report.
+
+No runtime, CSP, asset-loading or server errors were recorded in the final run.
+Both disposable test accounts were deleted. Tests created no monitors, connected
+no Telegram account and sent no external notifications. Telegram delivery itself
+was checked with a mock transport in the packaged worker.
+
+Final image digests:
+
+- API: `sha256:83a369f3b6e856b58eed92e43b90f78e536defba412707665c6ec07e9e4c4e03`
+- Worker: `sha256:510a052b50f4dd1ec85b9c1ec8a67e7004d8812b8e9d4ae4b178d86c84f589bd`
 
 The regional and message settings are formatting controls, not interface
 translations. Scheduled quiet hours and automatic currency conversion are not
