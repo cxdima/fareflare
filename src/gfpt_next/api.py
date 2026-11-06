@@ -5,12 +5,15 @@ from collections.abc import Callable
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
+from gfpt_next.api_reference import render_api_reference
 from gfpt_next.credentials import Credentials, RateLimited, RateLimiter
 from gfpt_next.domain import AlertPolicy
+from gfpt_next.preferences import Preferences as PreferencesInput
+from gfpt_next.preferences import merge_preferences, telegram_text
 from gfpt_next.service import MonitoringService, NotFound
 from gfpt_next.store import Conflict
 
@@ -66,12 +69,6 @@ class WebhookChallengeView(BaseModel):
 class StatusInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     status: Literal["paused", "active", "cancelled"]
-
-
-class PreferencesInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    muted: bool = False
-    muted_routes: list[str] = Field(default_factory=list, max_length=100)
 
 
 class EvidenceView(BaseModel):
@@ -180,8 +177,12 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
                            for owner, key in api_keys.items())
             or len(set(api_keys.values())) != len(api_keys)):
         raise ValueError("Configure unique API keys of at least 32 characters per tenant")
-    app = FastAPI(title="Flight monitor API", version="0.2.0")
+    app = FastAPI(title="Fareflare API", version="0.2.0", docs_url=None, redoc_url=None)
     bearer = HTTPBearer(auto_error=False)
+
+    @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+    def reference():
+        return render_api_reference(app.openapi())
 
     def authenticate(request: Request, authorization: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> str:
         if principal_resolver:
@@ -319,6 +320,20 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
 
     @app.put("/v1/preferences", response_model=PreferencesInput)
     def update_preferences(body: PreferencesInput, tenant: Annotated[str, Depends(authenticate)]):
-        return service.set_preferences(tenant, body.muted, body.muted_routes)
+        return service.set_preferences(tenant, **body.model_dump(exclude_unset=True))
+
+    @app.post("/v1/preferences/telegram-preview")
+    def telegram_preview(body: PreferencesInput, tenant: Annotated[str, Depends(authenticate)]):
+        preferences = merge_preferences(service.preferences(tenant), body.model_dump(exclude_unset=True))
+        sample = {
+            "id": "example-alert", "reason": "new_low",
+            "observation": {"amount_minor": 19100, "currency": "USD", "price_basis": "total",
+                            "fare_name": "Economy", "observed_at": int(service.clock())},
+            "itinerary": {"adults": 1, "url": "https://www.google.com/travel/flights",
+                          "segments": [{"date": "2027-03-14", "legs": [{
+                              "origin": "DEN", "destination": "DFW", "airline": "UA", "number": "414"}]}]},
+        }
+        return {"text": "Example alert — sample data\n\n" + telegram_text(sample, preferences),
+                "silent": preferences.telegram_silent, "time_zone": preferences.time_zone or "UTC"}
 
     return app

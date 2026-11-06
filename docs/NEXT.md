@@ -8,7 +8,10 @@ schema at `/openapi.json`.
 ## API, MCP, and credentials
 
 Both interfaces expose creation, listing, history, pause/resume/cancel, alert
-inspection/retry, collection retry, policy updates, and global/route muting.
+inspection/retry, collection retry, policy updates, and account preferences.
+Preferences include global/route muting, regional formats and Telegram message
+options. `PUT /v1/preferences` preserves omitted fields; MCP exposes
+`get_preferences` and `set_preferences`. See the [complete preference contract](ACCOUNT_PREFERENCES.md).
 Monitor, history and alert lists return `next_cursor`; follow it with the same endpoint.
 Monitor pages also include `active_count`: account quota usage across all pages,
 including paused monitors and excluding stopped or expired monitors with released quota.
@@ -29,6 +32,10 @@ Creation requests require an 8–128 character `Idempotency-Key`. Reuse the same
 when retrying an unchanged request after a network failure. Deduplication records
 last 30 days. API limits do not replace public-ingress protection or measured
 collection capacity.
+
+The route reference is script-free HTML shared by the standalone API and hosted
+portal. `/openapi.json` remains available for clients and tooling; Swagger UI and
+ReDoc are not served. See the [frontend stack audit](STACK_AUDIT.md).
 
 ## Customer webhooks
 

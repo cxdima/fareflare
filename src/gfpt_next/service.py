@@ -21,6 +21,7 @@ from gfpt_next.contracts import (
 from gfpt_next.domain import AlertPolicy, evaluate
 from gfpt_next.links import import_link
 from gfpt_next.outbox import DeliveryOutbox
+from gfpt_next.preferences import merge_preferences
 from gfpt_next.store import Conflict, Document, Store
 from gfpt_next.webhooks import WebhookRegistry, WebhookTransport
 
@@ -500,21 +501,34 @@ class MonitoringService:
     def preferences(self, tenant: str) -> dict:
         self._tenant(tenant)
         doc = self.store.get("tenant:" + tenant)
-        return {"muted": False, "muted_routes": [], **(doc.data.get("preferences", {}) if doc else {})}
+        return merge_preferences(doc.data.get("preferences") if doc else None).model_dump()
 
-    def set_preferences(self, tenant: str, muted: bool, muted_routes: list[str]) -> dict:
+    def set_preferences(self, tenant: str, muted: bool | None = None,
+                        muted_routes: list[str] | None = None, **updates) -> dict:
         self._tenant(tenant)
-        if (type(muted) is not bool or len(muted_routes) > 100 or
-                any(not re.fullmatch(r"[A-Z]{3}-[A-Z]{3}", route) for route in muted_routes)):
-            raise ValueError("Invalid alert preferences")
-        doc = self.store.get("tenant:" + tenant) or Document("tenant:" + tenant, "tenants", {"monitors": 0})
-        preferences = {"muted": muted, "muted_routes": sorted(set(muted_routes))}
-        if self.preferences(tenant) == preferences:
-            return preferences
-        # A preference revision prevents queued alerts resurfacing after unmute.
-        self.store.commit([doc.update({**doc.data, "preferences": preferences,
-                                       "notification_epoch": doc.data.get("notification_epoch", 0) + 1})])
-        return preferences
+        # Preserve omitted fields, including when an older MCP client only edits muting.
+        if muted is not None:
+            updates["muted"] = muted
+        if muted_routes is not None:
+            updates["muted_routes"] = muted_routes
+        for _ in range(5):
+            doc = self.store.get("tenant:" + tenant) or Document("tenant:" + tenant, "tenants", {"monitors": 0})
+            current = merge_preferences(doc.data.get("preferences"))
+            preferences = merge_preferences(current.model_dump(), updates)
+            if current == preferences:
+                return preferences.model_dump()
+            muting_changed = (current.muted != preferences.muted or
+                              current.muted_routes != preferences.muted_routes)
+            # Presentation edits keep queued alerts valid. Muting revisions fence
+            # pending delivery so alerts do not reappear after later unmuting.
+            data = {**doc.data, "preferences": preferences.model_dump(),
+                    "notification_epoch": doc.data.get("notification_epoch", 0) + int(muting_changed)}
+            try:
+                self.store.commit([doc.update(data)])
+                return preferences.model_dump()
+            except Conflict:
+                continue
+        raise Conflict("Concurrent settings update; please retry")
 
     def notifications_muted(self, monitor: dict) -> bool:
         preferences = self.preferences(monitor["tenant"])

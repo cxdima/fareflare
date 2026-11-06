@@ -3,7 +3,6 @@ import hashlib
 import hmac
 import re
 import secrets
-from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
@@ -17,6 +16,7 @@ from starlette.routing import Route
 
 from gfpt_next.accounts import Accounts, AuthenticationFailed
 from gfpt_next.api import create_app
+from gfpt_next.api_reference import render_api_reference
 from gfpt_next.credentials import RateLimiter
 from gfpt_next.hosted_mcp import make_hosted_mcp
 from gfpt_next.oauth import OAuthProvider
@@ -114,10 +114,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     app = create_app(service, principal_resolver=principal, limiter=limiter, live_collection=True)
     app.title = config.product_name + " API"
-    # The default Swagger/ReDoc pages require remote scripts and inline code.
-    # Serve a small same-origin reference that works with the application CSP.
+    # Use the same script-free API reference with the portal navigation and stylesheet.
     app.router.routes = [route for route in app.router.routes
-                         if getattr(route, "path", "") not in ("/docs", "/docs/oauth2-redirect", "/redoc")]
+                         if getattr(route, "path", "") != "/docs"]
 
     @app.exception_handler(RequestValidationError)
     async def validation_failed(request, exc):
@@ -126,31 +125,8 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
     def reference():
-        routes = "".join("<tr><td><code>" + escape(method.upper()) + "</code></td><td><code>" +
-                         escape(path) + "</code></td><td>" + escape(operation.get("summary", "")) + "</td></tr>"
-                         for path, methods in app.openapi()["paths"].items()
-                         for method, operation in methods.items())
-        styles = "".join('<link rel="stylesheet" href="/' + escape(path.name, quote=True) + '">'
-                         for path in sorted(static_dir.glob("styles-*.css"))) if static_dir else ""
-        return ("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>"
-                "<meta name='robots' content='noindex, follow'><title>" + escape(config.product_name) + " API reference</title>" + styles +
-                "</head><body><a class='skip-link' href='#main-content'>Skip to content</a><header class='site-header'>"
-                "<div class='public-container site-header-inner'><a class='brand' href='/'>" + escape(config.product_name) +
-                "</a><nav class='site-nav' aria-label='Main navigation'><a href='/developers'>Developers</a>"
-                "<a href='/guides'>Guides</a><a href='/app'>Dashboard</a></nav></div></header>"
-                "<main id='main-content' class='public-container public-article'><h1>" + escape(config.product_name) +
-                " API reference</h1><p>Create a revocable API key in the dashboard and send it as "
-                "<code>Authorization: Bearer YOUR_KEY</code>. Creating monitors and webhooks also requires a unique "
-                "<code>Idempotency-Key</code> header (8–128 characters); reuse it when retrying the same request.</p>"
-                "<p>Prices use integer minor units: USD 123.45 is <code>12345</code>. History and alerts are paginated "
-                "using <code>limit</code> and <code>cursor</code>. Honor <code>Retry-After</code> on HTTP 429.</p>"
-                "<p><a href='/openapi.json'>Download the OpenAPI schema</a> for request fields and response types. "
-                "Connect an MCP client to <code>" + escape(public_url) + "/mcp</code> using OAuth or a bearer API key.</p>"
-                "<div class='table-responsive'><table class='table table-striped align-middle'><caption>Available endpoints</caption>"
-                "<thead><tr><th scope='col'>Method</th><th scope='col'>Path</th><th scope='col'>Purpose</th>"
-                "</tr></thead><tbody>" + routes + "</tbody></table></div><p><a href='/app'>Open the dashboard</a></p></main>"
-                "<footer class='public-footer'><div class='public-container'><nav class='footer-links' aria-label='Footer'><a href='/privacy'>Privacy</a>"
-                "<a href='/terms'>Terms</a></nav></div></footer></body></html>")
+        return render_api_reference(app.openapi(), config.product_name,
+                                    static_dir=static_dir, public_url=public_url)
 
     @app.exception_handler(AuthenticationFailed)
     async def authentication_failed(request, exc):

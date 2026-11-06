@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { ApiService } from '../core/api.service';
-import { money, timestamp } from '../core/format';
+import { RegionalFormat } from '../core/regional-format';
 import type { Alert, Page } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -19,8 +19,9 @@ export class AlertsComponent implements OnInit {
   readonly action = new ActionState();
   readonly items = signal<Alert[]>([]);
   readonly cursor = signal<string | null>(null);
-  readonly money = money;
-  readonly timestamp = timestamp;
+  readonly money = (amount: number, currency: string) => this.regional.money(amount, currency);
+  readonly regional = inject(RegionalFormat);
+  readonly timestamp = this.regional.timestamp;
   readonly reasonLabel = reasonLabel;
   readonly statusLabel = statusLabel;
   ngOnInit(): void {

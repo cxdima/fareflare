@@ -3,9 +3,10 @@ import { Router } from '@angular/router';
 import { FormField, form, required, submit } from '@angular/forms/signals';
 import { ApiService } from '../core/api.service';
 import { SessionFacade } from '../core/session.facade';
-import type { Page, Preferences } from '../core/types';
+import type { Page } from '../core/types';
 import { ActionState } from './shared/action-state';
 import { DialogComponent } from './shared/dialog.component';
+import { PreferencesComponent } from './preferences.component';
 
 type Telegram = { enabled: boolean; connected: boolean; bot_username?: string };
 type Grant = {
@@ -19,7 +20,7 @@ type Grant = {
 @Component({
   selector: 'ff-settings',
   standalone: true,
-  imports: [FormField, DialogComponent],
+  imports: [FormField, DialogComponent, PreferencesComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,14 +29,9 @@ export class SettingsComponent implements OnInit {
   readonly session = inject(SessionFacade);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
-  readonly action = new ActionState();
   readonly telegramAction = new ActionState();
   readonly grantAction = new ActionState();
   readonly deleteAction = new ActionState();
-  readonly preferencesLoaded = signal(false);
-  readonly saved = signal(false);
-  readonly model = signal({ muted: false, routes: '' });
-  readonly preferences = form(this.model);
   readonly telegram = signal<Telegram | null>(null);
   readonly telegramUrl = signal('');
   readonly grants = signal<Grant[]>([]);
@@ -45,11 +41,6 @@ export class SettingsComponent implements OnInit {
   readonly deletion = form(this.deletionModel, (path) => required(path.password));
 
   ngOnInit(): void {
-    void this.action.run(async () => {
-      const preferences = await this.api.request<Preferences>('/v1/preferences');
-      this.model.set({ muted: preferences.muted, routes: preferences.muted_routes.join(', ') });
-      this.preferencesLoaded.set(true);
-    });
     void this.telegramAction.run(() => this.loadTelegram());
     void this.grantAction.run(() => this.loadGrants());
   }
@@ -64,25 +55,6 @@ export class SettingsComponent implements OnInit {
         (grant) => !grant.revoked,
       ),
     );
-  }
-  async save(event: Event): Promise<void> {
-    event.preventDefault();
-    this.saved.set(false);
-    await this.action.run(async () => {
-      const model = this.model();
-      const result = await this.api.request<Preferences>('/v1/preferences', {
-        method: 'PUT',
-        body: {
-          muted: model.muted,
-          muted_routes: model.routes
-            .split(',')
-            .map((value) => value.trim().toUpperCase())
-            .filter(Boolean),
-        },
-      });
-      this.model.set({ muted: result.muted, routes: result.muted_routes.join(', ') });
-      this.saved.set(true);
-    });
   }
   async connectTelegram(): Promise<void> {
     await this.telegramAction.run(async () => {

@@ -16,6 +16,7 @@ import httpx
 from gfpt_next.accounts import Accounts, AuthenticationFailed
 from gfpt_next.credentials import RateLimiter
 from gfpt_next.delivery import TelegramSink, install_telegram_log_redaction
+from gfpt_next.preferences import merge_preferences
 from gfpt_next.store import Conflict, Document, Store
 
 _START = re.compile(r"/start(?:@([A-Za-z0-9_]+))?\s+ff_([A-Za-z0-9_-]{43})\Z")
@@ -252,4 +253,5 @@ class TelegramConnections:
         if not binding or delivery.get("tenant_epoch", 0) != current_epoch:
             return True  # Inbox history already exists; no stale alert is sent to a newly connected chat.
         return TelegramSink(self._token, {tenant: binding.data["chat_id"]},
-                            transport=self._transport).send(delivery)
+                            transport=self._transport,
+                            preferences=merge_preferences(preferences.data.get("preferences") if preferences else None)).send(delivery)

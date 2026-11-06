@@ -6,6 +6,8 @@
   account configuration, and deployment prerequisites.
 - [API, MCP, and webhooks](NEXT.md): integration contracts, authentication,
   signatures, and delivery behavior.
+- [Account preferences](ACCOUNT_PREFERENCES.md): time zones, regional formatting,
+  Telegram messages, muting and their API/MCP contract.
 - [Operations](OPERATIONS.md): invitations, Terraform, image releases, Telegram,
   monitoring, and recovery.
 
@@ -22,7 +24,11 @@
 ## Status and evidence
 
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
-- [History release verification](HISTORY_RELEASE_VERIFICATION.md): current history,
+- [Personal settings verification](SETTINGS_VERIFICATION.md): current local tests,
+  packaged images, visual review and deployment status.
+- [Frontend stack audit](STACK_AUDIT.md): Angular/Bootstrap runtime checks and the
+  shared script-free API reference.
+- [History release verification](HISTORY_RELEASE_VERIFICATION.md): recorded history,
   collection, onboarding and pagination checks.
 - [Website verification](WEBSITE_VERIFICATION.md): frontend and account-flow checks.
 - [Collector and integration verification](RELEASE_VERIFICATION.md): observed

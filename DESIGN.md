@@ -9,11 +9,11 @@ product history.
 
 | Role | Decision |
 | --- | --- |
-| Background | Cool white `#f4f7fa`; white content surfaces |
-| Text | Navy `#152b43`; secondary slate `#53657b` |
-| Action | Orange `#b44223` for primary actions; blue `#234f80` for links/focus |
+| Background | Muted sage `#e9ede8`; content `#f4f6f1`; sidebar `#e1e7df` |
+| Text | Deep green `#243b3b`; secondary `#53645e` |
+| Action | Burnt orange `#aa4428` for primary actions; teal `#315e60` for links/focus |
 | State | Green `#16765f` for observed savings; amber for delayed collection |
-| Borders | `#d7e0e8`, used to group information rather than decorate it |
+| Borders | `#cbd4ca`, used to group information rather than decorate it |
 | Type | Self-hosted Plus Jakarta Sans; upright text throughout |
 | Icons | Bootstrap Icons, with labels for actions and hidden decorative icons |
 | Shape | 8–9px controls, 12–16px panels, circular airline marks |
@@ -23,6 +23,17 @@ Flight rows align route details with their price, keep airline identity visible,
 and show collection state once. A pending first check is not a failure. API and
 MCP setup show the selected connection method, a complete endpoint, and a copy
 action. Credentials remain distinct from ordinary configuration.
+
+Keep the established sidebar and workspace layout. An underline and stronger type
+identify the current navigation item; avoid a colored pill or repeated monitor
+count. Group the account link and sign-out action in a compact panel, with GitHub
+separate. Primary flight actions use a labeled plane icon, a defined edge and
+pressed state. Keep movement brief and respect reduced-motion preferences.
+
+Settings use three groups: time/region, Telegram message and notification muting.
+Show a format example before saving and label sample message content explicitly.
+Keep unsaved preview options distinct from persisted settings. Disable editing
+during saves and preserve drafts when a request fails.
 
 Use sentence-case headings and direct action labels. Avoid decorative overlines,
 italic slogans, numbered sections without a real sequence, and repeated status
@@ -37,7 +48,12 @@ primitives. Theme custom buttons centrally and name classes by purpose. No inlin
 style attributes, remote font requests, or CDN scripts.
 
 `ApiService` owns HTTP/CSRF, `SessionFacade` owns account state, and
-`WorkspaceFacade` owns refreshes. `MonitorPresenter` uses the GoF Strategy pattern
+`WorkspaceFacade` owns refreshes. Dashboard-scoped `PreferencesFacade` owns account
+display/message settings; `RegionalFormat` formats observations and fares through
+cached native `Intl` formatters. Airport calendar dates never shift with the
+account time zone. See the [preference contract](docs/ACCOUNT_PREFERENCES.md).
+
+`MonitorPresenter` uses the GoF Strategy pattern
 for selected itineraries and route searches, both returning one display contract.
 Airline identity is a separate reusable component with a text fallback.
 

@@ -99,7 +99,7 @@
   gap: 1rem;
   padding-top: 1.25rem;
   margin-top: 1.35rem;
-  border-top: 1px solid #c7d6e1;
+  border-top: 1px solid var(--ff-line);
 }
 .preview-price > div {
   display: flex;
@@ -225,7 +225,7 @@
 .signal-options {
   display: inline-flex;
   gap: 0.3rem;
-  background: #e3ebf2;
+  background: var(--ff-soft);
   padding: 0.3rem;
   border-radius: 0.6rem;
   margin-top: 0.7rem;
@@ -294,7 +294,7 @@
   overflow: visible;
 }
 .chart-grid {
-  stroke: #e2e8ee;
+  stroke: var(--ff-line);
   stroke-width: 1;
   fill: none;
 }

@@ -22,6 +22,8 @@ import { WebhooksComponent } from './webhooks.component';
 import { DeveloperComponent } from './developer.component';
 import { SettingsComponent } from './settings.component';
 import { ConsentComponent } from './consent.component';
+import { PreferencesFacade } from '../core/preferences.facade';
+import { RegionalFormat } from '../core/regional-format';
 
 const navigation = [
   { id: 'monitors', label: 'Flight monitors', shortLabel: 'Flights', icon: 'bi-airplane' },
@@ -47,7 +49,7 @@ function currentView(): string {
     SettingsComponent,
     ConsentComponent,
   ],
-  providers: [WorkspaceFacade],
+  providers: [WorkspaceFacade, PreferencesFacade, RegionalFormat],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,6 +57,7 @@ function currentView(): string {
 export class DashboardComponent implements OnInit, OnDestroy {
   readonly session = inject(SessionFacade);
   readonly workspace = inject(WorkspaceFacade);
+  readonly preferences = inject(PreferencesFacade);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -69,6 +72,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   );
   readonly main = viewChild<ElementRef<HTMLElement>>('main');
   private timer: ReturnType<typeof setInterval> | undefined;
+  private destroyed = false;
   private readonly hashChanged = () => {
     this.view.set(currentView());
     this.focusMain();
@@ -87,13 +91,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     if (!this.session.ready()) await this.session.bootstrap();
     if (!this.session.account()) return;
-    await this.workspace.refresh();
+    await Promise.allSettled([this.workspace.refresh(), this.preferences.load()]);
+    if (this.destroyed) return;
     this.timer = setInterval(() => {
       if (document.visibilityState === 'visible') void this.workspace.refresh();
     }, 60000);
     window.addEventListener('hashchange', this.hashChanged);
   }
   ngOnDestroy(): void {
+    this.destroyed = true;
     clearInterval(this.timer);
     window.removeEventListener('hashchange', this.hashChanged);
   }

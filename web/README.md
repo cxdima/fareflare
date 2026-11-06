@@ -24,7 +24,9 @@ the browser origin for account mutations.
 ## Code organization
 
 - `src/app/core/`: typed API transport, session facade, shared contracts, formatters,
-  and the public content client.
+  and the public content client. `PreferencesFacade` owns dashboard-scoped settings;
+  `RegionalFormat` caches native `Intl` formatters, with pure factories in
+  `regional-formatting.ts`.
 - `src/app/dashboard/`: feature components, workspace facade, dialogs, and selected
   itinerary/route-search presentation strategies.
 - `src/app/auth/`: login, invitation signup, and recovery using Angular signal forms.
@@ -37,6 +39,10 @@ Use component classes with OnPush, signals, and dependency injection. Keep HTML 
 SCSS separate. Use semantic classes; do not introduce style attributes or style
 bindings. Follow [DESIGN.md](../DESIGN.md) for visual rules and the Strategy pattern.
 Do not use raw HTML rendering or bypass Angular sanitization for user content.
+Use regional formatting for observation timestamps and fare amounts; keep departure
+dates in the airport's calendar and CSV timestamps in UTC. The
+[account preference contract](../docs/ACCOUNT_PREFERENCES.md) specifies defaults,
+partial updates and Telegram preview behavior.
 
 ## Verification
 
@@ -51,7 +57,12 @@ Playwright runs the built application against an ephemeral Python/SQLite portal
 on port 8007. It never starts a collector or contacts AWS/Google. Tests cover the
 real signup/recovery/deletion session flow, mocked feature cases under the real
 CSP, keyboard dialogs, mobile layout, axe checks, public HTML/SEO, and strict style
-rules. Browser tests use installed Chrome by default; CI sets
+rules. Preference scenarios cover persistence, partial saves, errors and account
+isolation; pure formatter cases cover DST, calendar dates and currency semantics.
+The stack regression inspects loaded scripts and mounted runtimes on public and
+authenticated routes, plus the script-free API reference. See the
+[stack audit](../docs/STACK_AUDIT.md) for the limits of these checks.
+Browser tests use installed Chrome by default; CI sets
 `PLAYWRIGHT_CHROME_CHANNEL=chromium` after `npx playwright install --with-deps chromium`
 inside `web/`. Reports and temporary credentials remain ignored.
 

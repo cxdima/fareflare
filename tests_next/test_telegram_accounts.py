@@ -346,3 +346,20 @@ def test_concurrent_disconnect_retries_and_always_invalidates_pending(telegram, 
     connections.disconnect(tenant)
     assert raced and not connections.status(tenant)["connected"]
     assert store.get("tenant:" + tenant).data["notification_epoch"] == 2
+
+
+def test_delivery_reads_current_account_presentation_without_invalidating_queue(telegram, service):
+    connections, _, user, sent = telegram
+    tenant = user["account"]["id"]
+    bind(connections, tenant)
+    queued = delivery(tenant)
+    service.set_preferences(tenant, time_zone="America/Chicago", locale="de-DE", hour_cycle="h23",
+                            telegram_silent=True, telegram_style="compact")
+    assert service.tenant_notification_epoch(tenant) == queued["tenant_epoch"]
+    assert connections.send(queued)
+    assert "America/Chicago" in sent[-1]["text"] and "USD 120,00" in sent[-1]["text"]
+    assert sent[-1]["disable_notification"] is True
+    assert "Alert " not in sent[-1]["text"]
+    service.set_preferences(tenant, telegram_show_observed_time=False)
+    assert connections.send(queued)
+    assert "Observed " not in sent[-1]["text"]

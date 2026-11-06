@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { FormField, form, maxLength, required, submit } from '@angular/forms/signals';
 import { ApiService } from '../core/api.service';
-import { timestamp } from '../core/format';
+import { RegionalFormat } from '../core/regional-format';
 import type { ApiKey, Page } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -38,7 +38,8 @@ export class DeveloperComponent implements OnInit {
     required(path.name);
     maxLength(path.name, 80);
   });
-  readonly timestamp = timestamp;
+  readonly regional = inject(RegionalFormat);
+  readonly timestamp = this.regional.timestamp;
   readonly mcp = computed(
     () => this.workspace.session.config()?.mcp_url ?? `${location.origin}/mcp`,
   );

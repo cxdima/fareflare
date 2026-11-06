@@ -107,3 +107,21 @@ def test_reference_and_validation_do_not_need_remote_scripts_or_echo_passwords(p
     invalid = client.post("/auth/login", json={"username": "alice", "password": oversized_password})
     assert invalid.status_code == 422
     assert oversized_password not in invalid.text
+
+
+def test_unsaved_telegram_preview_requires_session_csrf_and_never_persists(portal):
+    client, accounts, service = portal
+    identity = signup(client, accounts).json()
+    account_id = identity["account"]["id"]
+    original = service.preferences(account_id)
+    body = {"time_zone": "America/Chicago", "telegram_silent": True}
+    assert client.post("/v1/preferences/telegram-preview", json=body).status_code == 403
+    headers = {"X-CSRF-Token": identity["csrf_token"]}
+    response = client.post("/v1/preferences/telegram-preview", headers=headers, json=body)
+    assert response.status_code == 200
+    assert response.json()["silent"] is True
+    assert "America/Chicago" in response.json()["text"]
+    assert service.preferences(account_id) == original
+    rejected = client.post("/v1/preferences/telegram-preview", json=body, headers={
+        **headers, "Origin": "https://attacker.example"})
+    assert rejected.status_code == 403

@@ -27,10 +27,11 @@ flowchart LR
 | `contracts.py` | Immutable values and provider-independent contracts |
 | `service.py` | Monitoring facade, lifecycle, collection, and event evaluation |
 | `accounts.py`, `oauth.py`, `portal.py` | Account lifecycle, authorization, sessions, HTTP interface |
+| `preferences.py`, `api_reference.py` | Validated account settings, plain-text message rendering, shared script-free reference |
 | `public_browser.py`, `public_quotes.py` | Browser lifecycle, supported capabilities, quote extraction and validation |
 | `store.py` | SQLite and DynamoDB transactions, indexes, leases, retention |
 | `outbox.py`, `webhooks.py`, `product_telegram.py` | Ordered durable delivery and channel adapters |
-| `web/src/app/core/` | Typed API client, session state, and shared frontend contracts |
+| `web/src/app/core/` | Typed API client, session/preferences facades, regional formatters and shared contracts |
 | `web/src/app/dashboard/` | Feature views and monitor presentation strategies |
 
 Dependencies point from external adapters toward application contracts. Wire
@@ -86,6 +87,14 @@ Leases fence late workers. Strong reads make newly committed work available with
 an invocation; indexed queries recover pending work after a restart. Tenant checks
 protect account reads and mutations. Explicit webhook destinations never silently
 fall back to Telegram.
+
+Display and message preferences belong to the tenant, not the shared collection
+target. Partial updates merge with the latest record under optimistic concurrency.
+Presentation changes retain queued alerts; changes to muting advance the delivery
+revision. Telegram reads current preferences at delivery without changing the
+structured webhook payload. The dashboard scopes its preferences facade to the
+session's workspace and cancels requests at teardown. See
+[account preferences](ACCOUNT_PREFERENCES.md) for the complete contract.
 
 ## Cost and operational boundaries
 

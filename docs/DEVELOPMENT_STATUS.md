@@ -1,10 +1,32 @@
 # Fareflare development status
 
 Fareflare is available as a free, invite-only service and as MIT-licensed source.
-Billing remains disabled. The current interface and release checks are documented
-in [the current release verification](HISTORY_RELEASE_VERIFICATION.md).
+Billing remains disabled. The most recent recorded hosted release is documented
+in [the history release verification](HISTORY_RELEASE_VERIFICATION.md). Source
+changes described below are verified locally and packaged; deployment awaits a
+renewed AWS session. See [personal settings verification](SETTINGS_VERIFICATION.md).
 
-## Available
+## Current development revision
+
+- **Personal settings:** saved IANA time zones, six regional formats, 12/24-hour
+  clocks, Telegram detail options and silent delivery. An explicit message preview
+  uses sample data without sending a notification. Existing global/route muting
+  remains available. [Account preferences](ACCOUNT_PREFERENCES.md) documents
+  defaults, partial updates, time-zone fallback and queue behavior.
+- **Interface:** softer sage surfaces, deep green text, centrally themed Bootstrap
+  buttons, plane icons for flight actions, underlined active navigation and a
+  grouped account/sign-out area. The workspace layout remains unchanged.
+- **Frontend stack:** Angular and Bootstrap remain the application stack. The
+  standalone API now shares the portal's script-free HTML reference, removing its
+  default Swagger/ReDoc applications. [The audit](STACK_AUDIT.md) distinguishes
+  that change from the unverified browser-extension detection report.
+
+Local verification completed with **761 backend tests, 92.58% coverage and 69
+frontend checks**. The API and worker images passed 60 isolated checks with exact
+source/build hashes. Hosted verification awaits deployment; earlier release
+results below apply to their recorded builds.
+
+## Previously verified capabilities
 
 - **Accounts:** invitations, password login, HttpOnly sessions, recovery codes,
   expiring/revocable API keys, and password-confirmed deletion.
