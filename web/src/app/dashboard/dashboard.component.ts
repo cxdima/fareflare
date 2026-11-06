@@ -89,14 +89,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
   async ngOnInit(): Promise<void> {
+    window.addEventListener('hashchange', this.hashChanged);
     if (!this.session.ready()) await this.session.bootstrap();
-    if (!this.session.account()) return;
+    if (this.destroyed || !this.session.account()) return;
     await Promise.allSettled([this.workspace.refresh(), this.preferences.load()]);
     if (this.destroyed) return;
     this.timer = setInterval(() => {
       if (document.visibilityState === 'visible') void this.workspace.refresh();
     }, 60000);
-    window.addEventListener('hashchange', this.hashChanged);
   }
   ngOnDestroy(): void {
     this.destroyed = true;
