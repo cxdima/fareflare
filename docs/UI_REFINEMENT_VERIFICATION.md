@@ -4,6 +4,9 @@ Reviewed on November 6, 2026. This release refines the existing Angular/Bootstra
 interface without changing collection, billing, account permissions or Telegram
 delivery behavior.
 
+Implementation: `f266e2219557c74c5663a373cca01b1d1fe0684c`. Production rollout
+and disposable-account verification passed.
+
 ## Changes
 
 - Flight buttons use a large, clipped airplane silhouette behind the label.
@@ -66,3 +69,21 @@ checks remain isolated from live credentials and delivery services.
 Automated accessibility scans do not establish complete WCAG conformance.
 Chromium screenshots do not verify every browser's native picker or screen reader.
 No new travel-date calendar or translated interface is claimed.
+
+## Production checks
+
+The reviewed Terraform plan updated only the API image. AWS readback confirmed
+Active/Successful state and unchanged environment and reserved concurrency. The
+worker and original tracker retained their images, configuration and modification
+times. Registration remains invite-only and billing disabled.
+
+All **45 live browser/account checks** passed, including **15 accessibility
+scans**, invitation signup, secure sessions, API-key creation/revocation, 20-tool
+MCP discovery, settings persistence, sign-out/sign-in and account deletion.
+The four settings sections passed desktop/mobile layout and accessibility checks.
+There were no browser runtime, CSP, asset-loading or server errors. The temporary
+account was deleted; no monitors were created, no Telegram account connected and
+no external notifications sent.
+
+Deployed API image:
+`sha256:57eccba693ec9ab8c6348082083bd3cc22b2b7f25e6b4edc8802bdd976e3bbb7`.
