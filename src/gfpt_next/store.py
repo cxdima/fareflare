@@ -162,15 +162,15 @@ class SQLiteStore:
 
 
 class DynamoStore:
-    """Only accepts new-development tables; never defaults to production names.
+    """Accept explicit Fareflare tables and existing gfpt-next deployments.
 
     Schema: string primary key id; GSI partition-due (partition S, due N).
     GSI discovery is eventually consistent; get/commit enforce revisions.
     """
 
     def __init__(self, table: str, region: str = "us-east-1", client=None):
-        if not re.fullmatch(r"gfpt-next-[a-z0-9-]{3,50}", table):
-            raise ValueError("Development table names must start with gfpt-next-")
+        if not re.fullmatch(r"(?:fareflare|gfpt-next)-[a-z0-9-]{3,50}", table):
+            raise ValueError("Table names must use a fareflare- or gfpt-next- prefix and a 3–50 character lowercase suffix")
         self.table = table
         self.client = client or boto3.client("dynamodb", region_name=region)
 

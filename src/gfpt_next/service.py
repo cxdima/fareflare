@@ -538,5 +538,7 @@ class MonitoringService:
     def monitors_page(self, tenant: str, limit: int = 100, cursor: str | None = None) -> dict:
         self._tenant(tenant)
         page = self.store.page("monitors:" + tenant, limit=limit, cursor=cursor)
+        tenant_doc = self.store.get("tenant:" + tenant)
         return {"items": [self.get_monitor(tenant, d.data["id"]) for d in page.items],
-                "next_cursor": page.cursor}
+                "next_cursor": page.cursor,
+                "active_count": tenant_doc.data.get("monitors", 0) if tenant_doc else 0}

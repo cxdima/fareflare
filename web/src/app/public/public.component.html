@@ -32,7 +32,9 @@
             Add a Google Flights link. Fareflare checks its price and alerts you when it finds a new
             low or reaches your target.
           </p>
-          <a class="btn btn-primary" href="/app">Start tracking a flight</a>
+          <a class="btn btn-primary" href="/app"
+            >Start tracking a flight <i class="bi bi-arrow-right" aria-hidden="true"></i
+          ></a>
           <p class="access-note">Free access with an invitation.</p>
         </div>
       </div>
@@ -61,10 +63,10 @@
         </div>
         <figure class="window-photo">
           <img
-            src="/assets/window-seat.jpg"
+            src="/assets/coastal-approach.webp"
             width="1280"
             height="853"
-            alt="Morning light through an aircraft window, above a mountain range"
+            alt="Illustration of a sunlit coastline and blue sea viewed from the air"
             fetchpriority="high"
           />
         </figure>
@@ -197,7 +199,8 @@
           application or connect an MCP client.
         </p>
         <div class="developer-links">
-          <a class="btn btn-outline-primary" href="/developers">Developer guide</a
+          <a class="btn btn-outline-primary" href="/developers"
+            ><i class="bi bi-code-slash" aria-hidden="true"></i> Developer guide</a
           ><a class="quiet-link" [href]="github">Browse the source</a>
         </div>
       </div>
@@ -227,19 +230,67 @@
         }
       </div>
     </section>
+    <section class="faq-section public-container" aria-labelledby="faq-title">
+      <div class="section-heading">
+        <h2 id="faq-title">Before you add a flight</h2>
+        <p>A few things to know about tracking with Fareflare.</p>
+      </div>
+      <div class="faq-list">
+        <details>
+          <summary>
+            Do I need to connect my Google account?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </summary>
+          <p>
+            No. Paste a supported Google Flights link. Fareflare checks the public price without
+            accessing your Google account.
+          </p>
+        </details>
+        <details>
+          <summary>
+            Will I catch every price change?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </summary>
+          <p>
+            Checks start at 15-minute intervals, so a fare can change between observations. Your
+            dashboard shows the last recorded price and when it was checked. Always confirm the
+            price before booking.
+          </p>
+        </details>
+        <details>
+          <summary>
+            How do I receive an alert?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </summary>
+          <p>
+            Choose a new observed low or a target price. Alerts appear in your dashboard. Connect
+            Telegram in Account settings for messages, or configure a signed webhook for your own
+            application.
+          </p>
+        </details>
+        <details>
+          <summary>
+            Can I book tickets through Fareflare?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </summary>
+          <p>
+            Fareflare tracks prices. When you find a fare you like, open the flight link to review
+            availability and book with your chosen provider.
+          </p>
+        </details>
+      </div>
+    </section>
     <section class="start-section public-container">
       <div>
         <h2>Track the flight you have in mind</h2>
         <p>Have an invitation? Your first monitor starts with a link.</p>
       </div>
-      <a class="btn btn-primary" href="/app">Open Fareflare</a>
+      <a class="btn btn-primary" href="/app"
+        >Open Fareflare <i class="bi bi-arrow-right" aria-hidden="true"></i
+      ></a>
     </section>
   } @else if (page(); as current) {
     <div class="public-container">
       <article class="public-article">
         <a class="quiet-link breadcrumb-link" [href]="current.kind === 'guide' ? '/guides' : '/'"
           >{{ current.kind === 'guide' ? 'Guides' : 'Fareflare' }}
-          <i class="bi bi-arrow-right" aria-hidden="true"></i
+          <i class="bi bi-arrow-up-left" aria-hidden="true"></i
         ></a>
         <h1>{{ current.headline }}</h1>
         <p class="article-intro">{{ current.intro }}</p>
@@ -250,8 +301,20 @@
             ><span>{{ current.read_minutes }} minute read</span>
           </div>
         }
-        @for (section of current.sections; track section.heading) {
-          <section>
+        @if (current.kind === 'guide' && current.sections.length > 1) {
+          <nav class="article-contents" aria-label="On this page">
+            <p>On this page</p>
+            <ol>
+              @for (section of current.sections; track section.heading; let index = $index) {
+                <li>
+                  <a [href]="path + '#section-' + index">{{ section.heading }}</a>
+                </li>
+              }
+            </ol>
+          </nav>
+        }
+        @for (section of current.sections; track section.heading; let index = $index) {
+          <section [id]="'section-' + index">
             <h2>{{ section.heading }}</h2>
             @for (paragraph of section.paragraphs; track $index) {
               <p>{{ paragraph }}</p>

@@ -23,7 +23,12 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
     .poll(async () =>
       page
         .locator('img')
-        .evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0)),
+        .evaluateAll((images) =>
+          images.every(
+            (image) =>
+              image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+          ),
+        ),
     )
     .toBe(true);
   expect(await page.locator('img').count()).toBeGreaterThan(0);

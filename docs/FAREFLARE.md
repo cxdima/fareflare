@@ -51,6 +51,34 @@ worker periodically; each invocation collects only due monitors. Local delivery
 supports the dashboard inbox and verified HTTPS webhooks. `make next-demo` and `make next-webhook-demo` exercise
 the durable pipeline using clearly labeled synthetic prices without external calls.
 
+## Use the dashboard
+
+**Find a flight** searches the loaded monitors by airport, flight number, or date.
+Combine it with the **Status** filter to find watching, paused, stopped/departed,
+or attention-needed monitors. If more pages exist, use **Load more monitors**;
+search, filters, and the loaded counts do not include pages you have not loaded.
+
+Open **Price history** on a monitor to compare **All loaded**, **Past 7 days**, or
+**Past 30 days**. Latest, lowest, highest, and change figures use only loaded
+observations inside that range. **Load earlier observations** extends the data
+available for those comparisons. The chart positions observations by time and
+breaks its line across gaps longer than twice the monitor's requested interval.
+The table retains each recorded total and, for route searches, the matching flight
+when recorded. The chart does not fill missing checks with estimated prices.
+
+**Export CSV** downloads the rows currently in view, most recent first. Columns
+include an ISO 8601 UTC timestamp, integer `amount_minor`, `currency`, price basis,
+fare name, matching flights, and source. USD uses cents (`19100` means $191.00);
+JPY uses whole yen (`19100` means ¥19,100). Spreadsheet formula-like text is
+prefixed with an apostrophe for safe import. CSV export is a browser download,
+not a new server endpoint or a complete-history export.
+
+Collection waits for verified fare evidence within a shared 100-second budget,
+leaving time inside the 120-second lease for cleanup and persistence. A transient
+page update can be retried within that budget; an unsupported or mismatched fare
+is not accepted. A timeout leaves the previous observation visible with its age
+and collection status.
+
 ## Product configuration
 
 | Environment variable | Default | Purpose |

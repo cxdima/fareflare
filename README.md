@@ -17,11 +17,19 @@ when a price meets your rule.
 
 - Tracks selected itineraries and supported route searches without a customer
   Google login or a paid flight-data API.
-- Records price history, observed lows, timestamps, and collection failures.
+- Explores recorded prices by date range, with scoped comparisons, visible gaps,
+  and CSV exports.
+- Finds loaded monitors by airport, flight number, date, or status; loads further
+  pages when available.
 - Supports new-low, target-price, and optional rebound alerts, with pause and mute controls.
 - Provides the same monitors through the dashboard, REST API, and remote MCP.
 - Delivers alerts through Telegram or signed HTTPS webhooks with durable retries.
 - Shares collection for equivalent searches while keeping accounts and alert rules private.
+
+History comparisons use the observations loaded in the selected range, not every
+fare ever offered. CSV files include UTC timestamps, currency, and integer minor
+units; for example, `19100` USD means $191.00. See the
+[dashboard guide](docs/FAREFLARE.md#use-the-dashboard) for scope and export details.
 
 The hosted service is **free and invite-only** while capacity is being measured.
 Billing is disabled. Self-hosting uses your own infrastructure and can incur costs.

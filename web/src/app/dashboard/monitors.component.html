@@ -6,25 +6,31 @@
   <button
     type="button"
     class="btn btn-primary"
-    [disabled]="workspace.active().length >= workspace.session.config()!.limits.monitors"
+    [disabled]="
+      !workspace.monitorsLoaded() ||
+      workspace.activeCount() >= workspace.session.config()!.limits.monitors
+    "
     (click)="creating.set(true)"
   >
     <i class="bi bi-plus-lg" aria-hidden="true"></i> Watch a flight
   </button>
 </div>
 <div class="monitor-summary" aria-label="Monitor summary">
-  <span
-    ><strong>{{ workspace.active().length }}</strong> of
-    {{ workspace.session.config()!.limits.monitors }} monitors in use</span
-  >
-  <span
-    ><strong>{{ observed() }}</strong> with recorded prices</span
-  >
-  @if (delayed()) {
-    <span class="summary-attention"
-      ><i class="bi bi-clock" aria-hidden="true"></i>{{ delayed() }}
-      {{ delayed() === 1 ? 'check delayed' : 'checks delayed' }}</span
+  @if (workspace.monitorsLoaded()) {
+    <span
+      ><strong>{{ workspace.activeCount() }}</strong> of
+      {{ workspace.session.config()!.limits.monitors }} monitors in use</span
     >
+    <span
+      ><strong>{{ observed() }}</strong>
+      {{ workspace.monitorCursor() ? 'loaded with recorded prices' : 'with recorded prices' }}</span
+    >
+    @if (delayed()) {
+      <span class="summary-attention"
+        ><i class="bi bi-clock" aria-hidden="true"></i>{{ delayed() }}
+        {{ delayed() === 1 ? 'check delayed' : 'checks delayed' }}</span
+      >
+    }
   }
   @if (workspace.refreshing()) {
     <span class="summary-refresh" role="status">Refreshing…</span>
@@ -34,8 +40,46 @@
   <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
 }
 @if (workspace.monitors().length) {
+  <div class="monitor-toolbar">
+    <div class="monitor-search">
+      <label for="monitor-search">Find a flight</label>
+      <div class="search-field">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input
+          id="monitor-search"
+          type="search"
+          class="form-control"
+          placeholder="Airport, flight number or date"
+          [value]="query()"
+          (input)="query.set(search.value)"
+          #search
+        />
+      </div>
+    </div>
+    <div class="monitor-filter">
+      <label for="monitor-filter">Status</label>
+      <select
+        id="monitor-filter"
+        class="form-select"
+        [value]="filter()"
+        (change)="filter.set(status.value)"
+        #status
+      >
+        <option value="all">All flights</option>
+        <option value="watching">Watching</option>
+        <option value="paused">Paused</option>
+        <option value="attention">Needs attention</option>
+        <option value="archived">Stopped or departed</option>
+      </select>
+    </div>
+  </div>
+  @if (query() || filter() !== 'all' || workspace.monitorCursor()) {
+    <p class="filter-count" role="status">
+      {{ visible().length }} of {{ workspace.monitors().length }} loaded flights shown
+    </p>
+  }
   <div class="monitor-list">
-    @for (monitor of workspace.monitors(); track monitor.id) {
+    @for (monitor of visible(); track monitor.id) {
       @let presentation = presenter.present(monitor);
       <article
         class="flight-ticket"
@@ -179,7 +223,23 @@
           </div>
         </footer>
       </article>
+    } @empty {
+      <section class="empty-state panel">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <h2>No matching flights</h2>
+        <p>Try another airport or flight number, or clear your filters.</p>
+        <button type="button" class="btn btn-outline-primary" (click)="clearFilters()">
+          Clear filters
+        </button>
+      </section>
     }
+  </div>
+} @else if (workspace.refreshing()) {
+  <div class="empty-state panel" role="status"><p>Loading your flights…</p></div>
+} @else if (!workspace.monitorsLoaded() && workspace.error()) {
+  <div class="empty-state panel">
+    <h2>Your flights could not load</h2>
+    <p>Use Retry above to load your monitors.</p>
   </div>
 } @else {
   <section class="empty-state panel">
@@ -190,6 +250,23 @@
       Watch your first flight
     </button>
   </section>
+}
+@if (workspace.monitorLoadError()) {
+  <div class="alert alert-danger mt-3" role="alert">{{ workspace.monitorLoadError() }}</div>
+}
+@if (workspace.monitorCursor()) {
+  <div class="monitor-pagination">
+    <p>More flights are available. Search and status filters apply to the flights loaded so far.</p>
+    <button
+      type="button"
+      class="btn btn-outline-primary"
+      [disabled]="workspace.loadingMoreMonitors() || workspace.refreshing()"
+      (click)="workspace.loadMoreMonitors()"
+    >
+      <i class="bi bi-plus-lg" aria-hidden="true"></i
+      >{{ workspace.loadingMoreMonitors() ? 'Loading more flights…' : 'Load more monitors' }}
+    </button>
+  </div>
 }
 <p class="page-note">Prices are checked periodically and may change before you book.</p>
 @if (creating() || editing()) {

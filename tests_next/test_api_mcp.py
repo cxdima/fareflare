@@ -46,7 +46,7 @@ def test_api_monitor_ownership_and_policy_validation(client, flight_url):
     monitor = create(client, flight_url).json()
     assert client.get(f"/v1/monitors/{monitor['id']}", headers=auth("bob")).status_code == 404
     assert client.get(f"/v1/monitors/{monitor['id']}/history", headers=auth("bob")).status_code == 404
-    assert client.get("/v1/monitors", headers=auth("bob")).json() == {"items": [], "next_cursor": None}
+    assert client.get("/v1/monitors", headers=auth("bob")).json() == {"items": [], "next_cursor": None, "active_count": 0}
     response = client.post("/v1/monitors", headers={**auth(), "Idempotency-Key": "threshold-missing"},
                            json={"url": flight_url, "policy": {"kind": "below_price"}})
     assert response.status_code == 422

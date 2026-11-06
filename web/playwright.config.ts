@@ -5,8 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   timeout: 30000,
   expect: { timeout: 5000 },
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env['CI'],
+  retries: process.env['CI'] ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:8007',
@@ -18,7 +18,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        channel: process.env.PLAYWRIGHT_CHROME_CHANNEL || 'chrome',
+        channel: process.env['PLAYWRIGHT_CHROME_CHANNEL'] || 'chrome',
       },
     },
   ],

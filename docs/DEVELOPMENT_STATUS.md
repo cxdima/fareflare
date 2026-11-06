@@ -9,17 +9,26 @@ in [website verification](WEBSITE_VERIFICATION.md).
 - **Accounts:** invitations, password login, HttpOnly sessions, recovery codes,
   expiring/revocable API keys, and password-confirmed deletion.
 - **Monitoring:** selected itineraries and constrained route searches, price
-  history, observed lows, threshold and rebound rules, pause/mute controls, visible
-  collection failures, and retries.
+  history with 7-day/30-day filters, scoped low/high/change comparisons, CSV
+  export, observed-low/threshold/rebound rules, pause/mute controls, visible
+  collection failures, and retries. Monitor search/status filters apply to loaded
+  pages; more monitors can be loaded explicitly.
 - **Integrations:** HTTP API, hosted OAuth/PKCE MCP, Telegram connections, and
   verified HTTPS webhooks with Standard Webhooks signatures.
 - **Delivery:** durable per-monitor ordering, retries, stable event IDs, and
   dead-letter recovery. Delivery is at least once.
 - **Website:** Angular/Bootstrap dashboard, public guides, crawlable initial HTML,
-  matching JSON-LD, canonical/social metadata, sitemap, and RSS.
+  matching JSON-LD, canonical/social metadata, sitemap, and RSS. Account forms
+  provide inline validation, password visibility controls, and pending feedback.
 - **Operations:** separate API and browser-worker Lambdas, DynamoDB persistence,
   explicit Terraform state configuration, bounded browser reuse, worker health,
   sanitized diagnostics, and failure alarms.
+
+Collector navigation and evidence waits now share a 100-second budget within the
+120-second collection lease. Transiently incomplete fare evidence can settle
+within that budget; identity, currency, and fare checks still apply. This improves
+handling of page updates without expanding supported flight coverage or raising
+the configured polling frequency.
 
 The hosted configuration allows three monitors per account, a 900-second minimum
 requested interval, and 20 shared collection targets. These limits constrain work;

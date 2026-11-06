@@ -8,7 +8,8 @@ text in the interface so the product name remains accessible and sharp.
 | Asset | Saved path | Use |
 | --- | --- | --- |
 | Wing-shaped F mark | `web/public/assets/fareflare-mark.png` | Navigation and favicon |
-| Window-seat editorial image | `web/public/assets/window-seat.jpg` | Landing page and social preview |
+| Window-seat editorial image | `web/public/assets/window-seat.jpg` | Sign-in page and social preview |
+| Coastal approach editorial image | `web/public/assets/coastal-approach.webp` | Landing page |
 
 The final logo has a transparent background. It was refined from the original
 flat mark using a background-extraction edit, then resized to 192px. Original
@@ -42,6 +43,29 @@ generation files remain outside the repository; the website uses optimized asset
 > believable geometry, understated rather than spectacular. No people, no airline
 > branding, no logos, no words, no interface, no graphic overlays, no oversaturated
 > sunset.
+
+## Coastal image prompt
+
+Generated with the built-in image tool on November 5, 2026. The original is
+1536 × 1024; the deployed WebP is 1280 × 853 and approximately 115 KiB. It
+depicts an imagined coastline, not a destination associated with the example
+fare. The image has an explicit aspect ratio to reserve its layout space.
+
+> Use case: photorealistic-natural. Asset type: editorial travel photograph for
+> the Fareflare flight price tracker website, landscape 3:2, 1536 by 1024.
+> Create a quiet, believable aerial view of a rugged Mediterranean-style
+> coastline seen from an arriving aircraft: deep slate blue open water in the
+> foreground, a narrow headland with soft limestone cliffs and small pale
+> buildings set well back, muted green hills receding into a naturally hazy
+> horizon. No aircraft or window frame in the image. Natural late-afternoon
+> directional light, subtle warm stone against cool water. Premium independent
+> travel-magazine photography, restrained color, real fine water and terrain
+> texture, a slightly imperfect candid composition, soft atmospheric depth.
+> The coast runs diagonally across the frame with generous clean blue water
+> around it; readable at small sizes. Beautiful but ordinary enough to feel
+> real. No famous landmarks, no impossible cliffs, no dramatic oversaturated
+> sunset, no invented text, no people in foreground, no logos, no graphics,
+> no gradient overlays, no border, no watermark.
 
 ## Airline identification
 

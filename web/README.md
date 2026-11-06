@@ -42,6 +42,7 @@ Do not use raw HTML rendering or bypass Angular sanitization for user content.
 
 ```sh
 npm --prefix web run format:check
+npm --prefix web run test:types
 npm --prefix web run build
 npm --prefix web test
 ```

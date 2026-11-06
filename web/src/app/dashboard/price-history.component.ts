@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -14,6 +15,7 @@ import type { Monitor, Observation, Page } from '../core/types';
 import { ActionState } from './shared/action-state';
 import { DialogComponent } from './shared/dialog.component';
 import { flightNumbers, routeName } from './shared/presentation';
+import { historyCsv, priceHistory, type HistoryRange } from './price-history';
 
 @Component({
   selector: 'ff-price-history',
@@ -23,51 +25,76 @@ import { flightNumbers, routeName } from './shared/presentation';
   styleUrl: './price-history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PriceHistoryComponent implements OnInit {
+export class PriceHistoryComponent implements OnInit, OnDestroy {
   readonly monitor = input.required<Monitor>();
   readonly closed = output<void>();
   readonly action = new ActionState();
   readonly items = signal<Observation[]>([]);
   readonly cursor = signal<string | null>(null);
+  readonly loaded = signal(false);
+  readonly range = signal<HistoryRange>('all');
+  readonly ranges = [
+    { value: 'all' as const, label: 'All loaded' },
+    { value: '7' as const, label: 'Past 7 days' },
+    { value: '30' as const, label: 'Past 30 days' },
+  ];
   readonly money = money;
   readonly timestamp = timestamp;
   readonly routeName = routeName;
   readonly flightNumbers = flightNumbers;
   private readonly api = inject(ApiService);
-  readonly ordered = computed(() =>
-    [...this.items()].sort((a, b) => a.observed_at - b.observed_at),
+  private readonly controller = new AbortController();
+  private readonly openedAt = Math.floor(Date.now() / 1000);
+  readonly view = computed(() =>
+    priceHistory(this.items(), this.range(), this.openedAt, this.monitor().interval_seconds),
   );
-  readonly low = computed(() => Math.min(...this.items().map((item) => item.amount_minor)));
+  readonly rows = computed(() => [...(this.view()?.items ?? [])].reverse());
   readonly chartLabel = computed(() => {
-    const items = this.ordered();
-    return items.length
-      ? `Observed price history, from ${money(items[0].amount_minor, this.monitor().target.currency)} to ${money(items[items.length - 1].amount_minor, this.monitor().target.currency)}. All values are in the table below.`
+    const view = this.view();
+    return view
+      ? `Observed price history, from ${money(view.first.amount_minor, view.first.currency)} to ${money(view.latest.amount_minor, view.latest.currency)}. ${view.items.length} observations. Long gaps are not connected. All values are in the table below.`
       : '';
   });
-  readonly points = computed(() => {
-    const items = this.ordered();
-    if (!items.length) return '';
-    const low = this.low();
-    const high = Math.max(...items.map((item) => item.amount_minor));
-    const start = items[0].observed_at;
-    const end = items[items.length - 1].observed_at;
-    return items
-      .map(
-        (item) =>
-          `${30 + ((item.observed_at - start) / (end - start || 1)) * 640},${145 - ((item.amount_minor - low) / (high - low || 1)) * 115}`,
-      )
-      .join(' ');
+  readonly changeLabel = computed(() => {
+    const view = this.view();
+    if (!view || view.items.length < 2) return 'One observation so far';
+    if (view.change === 0) return 'Unchanged from the first price shown';
+    const percent = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
+      view.percent,
+    );
+    return `${view.change < 0 ? 'Down' : 'Up'} ${money(Math.abs(view.change), view.latest.currency)} (${percent}%) from the first price shown`;
   });
+
   ngOnInit(): void {
     void this.load();
+  }
+  ngOnDestroy(): void {
+    this.controller.abort();
   }
   async load(next?: string): Promise<void> {
     await this.action.run(async () => {
       const page = await this.api.request<Page<Observation>>(
         `/v1/monitors/${this.monitor().id}/history${next ? '?cursor=' + encodeURIComponent(next) : ''}`,
+        { signal: this.controller.signal },
       );
-      this.items.update((previous) => (next ? [...previous, ...page.items] : page.items));
+      const merged = next ? [...this.items(), ...page.items] : page.items;
+      this.items.set(
+        [...new Map(merged.map((item) => [item.observed_at, item])).values()].sort(
+          (a, b) => b.observed_at - a.observed_at,
+        ),
+      );
       this.cursor.set(page.next_cursor ?? null);
+      this.loaded.set(true);
     });
+  }
+  download(): void {
+    const url = URL.createObjectURL(
+      new Blob([historyCsv(this.rows())], { type: 'text/csv;charset=utf-8' }),
+    );
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `fareflare-${this.monitor().id}-prices.csv`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }

@@ -6,6 +6,7 @@ import {
   form,
   maxLength,
   minLength,
+  pattern,
   required,
   submit,
 } from '@angular/forms/signals';
@@ -29,23 +30,30 @@ export class AuthComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   readonly action = new ActionState();
   readonly mode = signal<'login' | 'register' | 'recover'>('login');
+  readonly passwordVisible = signal(false);
   readonly model = signal({ username: '', password: '', invite: '', recoveryCode: '' });
   readonly credentials = form(this.model, (path) => {
-    required(path.username);
-    minLength(path.username, 3);
-    maxLength(path.username, 80);
-    required(path.password);
-    maxLength(path.password, 128);
+    required(path.username, { message: 'Enter your username.' });
+    pattern(path.username, /^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}$/, {
+      message:
+        'Use 3–40 letters, numbers, periods, underscores or hyphens. Start with a letter or number.',
+    });
+    required(path.password, { message: 'Enter your password.' });
+    maxLength(path.password, 128, { message: 'Use no more than 128 characters.' });
     applyWhen(
       path.password,
       () => this.mode() !== 'login',
-      (p) => minLength(p, 15),
+      (p) => minLength(p, 15, { message: 'Use at least 15 characters.' }),
     );
     required(path.invite, {
       when: () =>
         this.mode() === 'register' && this.session.config()?.registration_mode === 'invite',
+      message: 'Enter the invitation code from your link.',
     });
-    required(path.recoveryCode, { when: () => this.mode() === 'recover' });
+    required(path.recoveryCode, {
+      when: () => this.mode() === 'recover',
+      message: 'Enter the recovery code you saved when you signed up.',
+    });
   });
 
   async ngOnInit(): Promise<void> {
@@ -64,13 +72,16 @@ export class AuthComponent implements OnInit {
   }
 
   changeMode(mode: 'login' | 'register' | 'recover'): void {
+    if (this.action.busy()) return;
     this.mode.set(mode);
+    this.passwordVisible.set(false);
     this.action.error.set('');
-    this.model.update((value) => ({ ...value, password: '', recoveryCode: '' }));
+    this.credentials().reset({ ...this.model(), password: '', recoveryCode: '' });
   }
 
   async onSubmit(event: Event): Promise<void> {
     event.preventDefault();
+    if (this.action.busy()) return;
     await submit(this.credentials, async () => {
       await this.action.run(async () => {
         const values = this.model();
@@ -96,6 +107,12 @@ export class AuthComponent implements OnInit {
         await this.enterWorkspace();
       });
     });
+    this.credentials().errorSummary()[0]?.fieldTree().focusBoundControl();
+  }
+
+  fieldError(field: 'username' | 'password' | 'invite' | 'recoveryCode'): string {
+    const state = this.credentials[field]();
+    return state.touched() ? (state.errors()[0]?.message ?? '') : '';
   }
 
   private async enterWorkspace(): Promise<void> {
