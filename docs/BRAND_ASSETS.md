@@ -10,6 +10,8 @@ text in the interface so the product name remains accessible and sharp.
 | Wing-shaped F mark | `web/public/assets/fareflare-mark.png` | Navigation and favicon |
 | Window-seat editorial image | `web/public/assets/window-seat.jpg` | Sign-in page and social preview |
 | Coastal approach editorial image | `web/public/assets/coastal-approach.webp` | Landing page |
+| Above-the-clouds editorial image | `web/public/assets/above-the-clouds.jpg` | First-run panel of the flights page |
+| Coastal runway editorial image | `web/public/assets/coastal-runway.jpg` | Sign-in page |
 
 The final logo has a transparent background. It was refined from the original
 flat mark using a background-extraction edit, then resized to 192px. Original
@@ -66,6 +68,30 @@ fare. The image has an explicit aspect ratio to reserve its layout space.
 > real. No famous landmarks, no impossible cliffs, no dramatic oversaturated
 > sunset, no invented text, no people in foreground, no logos, no graphics,
 > no gradient overlays, no border, no watermark.
+
+## First-run and sign-in image prompts
+
+Generated on November 9, 2026 with Higgsfield (`gpt_image_2_6`), then resized to
+1024 × 688 and encoded as JPEG (126 KiB and 146 KiB). Like the images above they
+are illustrations of imagined places, chosen to sit in the same quiet,
+early-light world as the window-seat image. The window-seat image now accompanies
+sign-up and recovery.
+
+> Photorealistic editorial travel photograph, 3:2 landscape. View from an airliner
+> cabin window seat looking along the aircraft wing, high above a calm sea of low
+> broken clouds shortly after sunrise. Soft warm light on the wing's upper
+> surface, muted sage and slate tones below, pale peach horizon. Restrained
+> natural color, fine film grain, independent travel-magazine photography,
+> off-center composition, calm and ordinary enough to feel real. No people, no
+> text, no logos, no airline livery or markings, no window frame, no watermark.
+
+> Photorealistic editorial travel photograph, 3:2 landscape. A small regional
+> airport seen from the air at early morning: a single pale runway crossing a
+> muted sage-green coastal plain, soft low mist in the hollows, a calm slate-teal
+> sea beyond, warm peach light on the horizon. Restrained natural color, fine
+> film grain, independent travel-magazine photography, off-center composition,
+> quiet and believable. No aircraft in the foreground, no people, no text, no
+> logos, no watermark.
 
 ## Airline identification
 

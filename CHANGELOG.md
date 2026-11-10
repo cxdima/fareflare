@@ -37,6 +37,29 @@ Notable changes to Fareflare. The format follows
 - `GET /v1/preferences/telegram-templates` lists templates, placeholders, presets
   and limits. `POST /v1/preferences/telegram-preview` accepts
   `?message=tracking_started|new_low|below_price|rebound|flight_list`.
+- **Sign in with an email address.** The sign-in name can be an email address
+  or a username, and one field labeled "Email or username" asks for it on every
+  page. Sign-in, sign-up and recovery each have an address (`/login`,
+  `/register`, `/recover`) and their fields are marked up for password managers,
+  so the login saved at sign-up is the one offered at sign-in. An address is only
+  a name: it is never verified and Fareflare still sends no email.
+- **Change your password, replace your recovery code.** Both are in
+  **Account settings → Security** and confirm the current password
+  (`POST /auth/password`, `POST /auth/recovery-code`). Changing a password signs
+  out other browsers and leaves API keys, connected applications and Telegram
+  alone. `/.well-known/change-password` points password managers to the page.
+- **A guided first visit.** The recovery code is a step of signing up, shown once
+  before the workspace opens. A new account is asked which flight it is watching
+  and shown where a link comes from; the add-flight dialog recognizes a Google
+  Flights link as it is pasted, and the first price appears without a refresh.
+- **Telegram where it is needed.** Someone watching a flight with nowhere to be
+  told is offered Telegram on the flights page. The page notices the connection
+  by itself; the "Check connection" button is gone.
+- **Price context on each flight.** `low_minor` on monitors is the lowest total a
+  monitor has recorded. Cards show "Lowest since Nov 3" or the low the price is
+  compared with, and "Checked 7 minutes ago" with the exact time on hover.
+- Settings sections have addresses (`/app#settings?section=security`), and
+  someone sent to sign in from a workspace page returns to it afterwards.
 - **Opt-in diagnostics.** The `diagnostics` preference shows failure codes on
   flights and sends a Telegram notice when price checks keep failing, stop, or
   recover. It is off by default; without it, people see only a short plain note.
@@ -58,6 +81,11 @@ Notable changes to Fareflare. The format follows
 
 - Flight numbers are written with a space everywhere (`UA 414`), matching the
   dashboard.
+- The website's main action leads to sign-up; "Sign in" is for returning
+  visitors. Invitation links open `/register`; older `/login?invite=` links are
+  forwarded there.
+- A wrong password when deleting an account is answered with 403 instead of 401.
+  Sign-in failures read "Incorrect email, username or password".
 - The `/flights` list orders flights on the same route and day by departure time.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
@@ -94,6 +122,10 @@ Notable changes to Fareflare. The format follows
   message.
 - A template containing a lone carriage return is stored with a normal line break
   instead of being rejected as containing a control character.
+- Mistyping the password while deleting an account signed the browser out,
+  because the refusal looked like an expired session.
+- An email address typed at sign-up was refused, although it is what most
+  password managers offer as the name to save.
 
 ### Removed
 
@@ -103,6 +135,10 @@ Notable changes to Fareflare. The format follows
 ### Upgrade notes
 
 - No data migration is needed. New preference fields take their defaults.
+  Existing usernames keep working unchanged.
+- An account whose sign-in name is an email address cannot sign in to an earlier
+  image, which accepts usernames only. Rolling back locks those accounts out
+  until the release is restored; nothing is lost.
 - Rolling back to an earlier image after an account has saved a new message style
   makes that account's preferences unreadable to the older code. Reset
   `telegram_style` to `detailed` or `compact` for affected accounts first.

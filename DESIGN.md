@@ -31,8 +31,33 @@ separate. Primary flight actions use an oversized plane silhouette as a subtly l
 clipped background texture behind a plain text label. Do not add a separate plane
 icon or divider. Retain a defined edge, visible focus and pressed state. Keep movement brief and respect reduced-motion preferences.
 
+Signing in asks for one name, labeled "Email or username", and a password. Each of
+sign-in, sign-up and recovery is a page with its own address (`/login`,
+`/register`, `/recover`) and its fields carry `autocomplete` and `passwordrules`,
+so a password manager saves and fills them without being told. New visitors are
+sent to sign-up; "Sign in" is for people who already have an account. The
+recovery code is a step of signing up, not a banner: it is shown once, before the
+workspace opens, and the browser confirms before the page is left.
+
+A new account sees one invitation, "Which flight are you watching?", with the three
+steps to get a link; the page header does not repeat the action. The add-flight
+dialog says at once whether a pasted link is a Google Flights link. A flight added
+moments ago shows its first price by itself. Loading shows the shape of a flight,
+not a sentence.
+
+Offer a connection where its absence is felt. Telegram is offered on the flights
+page once a flight is being watched and nothing can ring, and the page notices
+the connection without a "check" button. Declining is remembered in the browser
+(`fareflare.telegram-invite.<account>`), the only thing this application keeps
+there. A flight states where its price stands ("Lowest since Nov 3", or the low
+it is compared with) and how long ago it was checked, with the exact time one
+hover away.
+
 Account settings use four short sections: Display, Notifications, Connections and
-Security. Section changes preserve unsaved drafts. Show a format example before
+Security, each with its own address (`/app#settings?section=security`). Security
+changes the password and replaces a lost recovery code, both after confirming the
+current password. Someone sent to sign in from a workspace page returns to that
+page. Section changes preserve unsaved drafts. Show a format example before
 saving and label sample message content explicitly.
 Keep unsaved preview options distinct from persisted settings. Disable editing
 during saves and preserve drafts when a request fails.
@@ -50,7 +75,8 @@ primitives. Theme custom buttons centrally and name classes by purpose. No inlin
 style attributes, remote font requests, or CDN scripts.
 
 `ApiService` owns HTTP/CSRF, `SessionFacade` owns account state, and
-`WorkspaceFacade` owns refreshes. Dashboard-scoped `PreferencesFacade` owns account
+`WorkspaceFacade` owns refreshes. Dashboard-scoped `TelegramFacade` owns the
+Telegram connection, so the flights page and settings show one state. Dashboard-scoped `PreferencesFacade` owns account
 display/message settings; `RegionalFormat` formats observations and fares through
 cached native `Intl` formatters. Airport calendar dates never shift with the
 account time zone. See the [preference contract](docs/ACCOUNT_PREFERENCES.md).

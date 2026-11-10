@@ -37,7 +37,9 @@ credential: keep it private. The dashboard, API, and MCP share
 `http://127.0.0.1:8001`; the flight dashboard is at `/app`, and local customer data
 is stored in `.fareflare/product.sqlite3`. Public guides and landing pages are also
 served by Python, with crawlable initial HTML and matching structured data.
-Keep the recovery code shown at signup. There is no email reset service.
+Sign up with an email address or a username; either is only a sign-in name. Keep
+the recovery code shown at signup. There is no email reset service; a lost code
+can be replaced from **Account settings → Security** while signed in.
 
 The HTTP server never launches Chrome. With local Chromium and ChromeDriver installed,
 run a bounded worker against the same database:

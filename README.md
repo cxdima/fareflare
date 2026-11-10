@@ -74,7 +74,8 @@ make serve
 
 Open the signup URL saved in `.fareflare/invitation.json`. The application runs at
 `http://127.0.0.1:8001`, and local data stays in `.fareflare/product.sqlite3`.
-Save the recovery code shown at signup; account recovery does not use email.
+Sign up with an email address or a username. Save the recovery code shown at
+signup; account recovery does not use email.
 Invitation files contain credentials and must stay private.
 
 Live collection needs Chromium and a matching ChromeDriver. Run one bounded pass

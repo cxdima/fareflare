@@ -360,7 +360,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "Data needed to run the service",
                     (
-                        "Fareflare stores your username, password hash, account status, and authentication records. Session, invitation, recovery, API, and OAuth credentials are stored as hashes where they are used for authentication. A browser session uses an HttpOnly cookie.",
+                        "Fareflare stores your sign-in name, password hash, account status, and authentication records. The sign-in name is a username or, if you choose, an email address. An address is kept only as the name you sign in with: Fareflare does not verify it, does not send email to it, and does not share it. Session, invitation, recovery, API, and OAuth credentials are stored as hashes where they are used for authentication. A browser session uses an HttpOnly cookie.",
                         "Your monitors contain flight links, the selections derived from them, alert preferences, and notification history. Equivalent collection targets and price observations can be shared across subscribers; each account’s subscriptions and settings remain private.",
                     ),
                 ),

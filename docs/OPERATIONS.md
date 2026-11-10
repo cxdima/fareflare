@@ -13,7 +13,7 @@ private, encrypted, versioned S3 bucket for Terraform state.
 
 ```bash
 umask 077
-mkdir -p .next
+mkdir -p .fareflare
 cp infra/backend.hcl.example .fareflare/backend.hcl
 cp infra/terraform.tfvars.example infra/production.auto.tfvars
 ```
@@ -102,8 +102,16 @@ output with private permissions and refuses to overwrite a file. Share the signu
 URL only with its intended recipient. `make invite` uses local SQLite and
 cannot invite someone to a deployed instance.
 
-Recovery codes replace email resets. Recovery changes the password and invalidates
-sessions, API keys, OAuth grants, and Telegram bindings. Account deletion requires
+A sign-in name is a username or an email address. An address is stored as typed
+(lower-cased) and is never verified or written to; a taken name is reported at
+signup, so with open registration anyone can learn whether a given address has an
+account. Recovery codes replace email resets. Recovery changes the password and
+invalidates sessions, API keys, OAuth grants, and Telegram bindings. While signed
+in, an account can change its password (other browser sessions end; keys, grants
+and Telegram stay) or replace its recovery code; both confirm the current
+password and count against the sign-in rate limit. A wrong confirming password is
+answered with 403, so the browser does not mistake it for an expired session.
+`/.well-known/change-password` redirects password managers to that page. Account deletion requires
 the password and stops future work for that account. Shared observations may remain
 available to other subscribers.
 

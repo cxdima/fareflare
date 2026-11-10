@@ -1,7 +1,9 @@
 # Fareflare domain and public access
 
-The public application is https://fareflare.dev. Registration needs a username
-and password; keep the recovery code because recovery does not use email. Billing
+The public application is https://fareflare.dev. Registration needs a sign-in name
+(an email address or a username) and a password; keep the recovery code because
+recovery does not use email. An address is only a name: it is never verified or
+written to. Billing
 remains disabled. Each account may track 20 flights. Collection is shared and has
 an independent deployment capacity ceiling; reaching it rejects additional targets
 rather than starting unbounded browser work. Polling remains periodic.

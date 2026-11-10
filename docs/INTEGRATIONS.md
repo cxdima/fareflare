@@ -70,7 +70,9 @@ Alerts use `type: "flight.price_alert"`; `data` contains `monitor_id`, `reason`,
 `observation`, `itinerary`, and `previous`. `previous.price_minor` and
 `previous.low_minor` are the monitor's own last price and lowest price before this
 observation, or `null` for its first; an alert queued by an earlier release omits
-`previous`. Prices retain their currency, minor units, and timestamp.
+`previous`. Prices retain their currency, minor units, and timestamp. A monitor
+read from `GET /v1/monitors` carries the same running low as `low_minor`, `null`
+until its first price is recorded.
 `observation.schedule` lists the airport-local departure and arrival clock times
 for each direction (`departs`, `arrives` as 24-hour `HH:MM`, `arrival_day_offset`,
 `duration_minutes`), or is `null` when they could not be read with certainty.
