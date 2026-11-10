@@ -20,7 +20,7 @@ def test_local_invitation_is_private_single_use_and_not_overwritten(tmp_path, ca
     assert invitation["token"] not in capsys.readouterr().out
     accounts = Accounts(SQLiteStore(database))
     accounts.register("alice", "a very long account password", invitation["token"])
-    with pytest.raises(ValueError, match="invitation|Invitation|Invite|invite"):
+    with pytest.raises(ValueError, match=r"invitation|Invitation|Invite|invite"):
         accounts.register("bravo", "a very long account password", invitation["token"])
     with pytest.raises(FileExistsError):
         main(command)

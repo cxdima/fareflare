@@ -30,7 +30,7 @@ def validate_url(value: str, *, product: bool = False) -> str:
     try:
         normalized = normalize_webhook_url(value)
         parsed = urlsplit(normalized)
-        if parsed.query or product and parsed.path != "/telegram/webhook":
+        if parsed.query or (product and parsed.path != "/telegram/webhook"):
             raise ValueError
         if normalized != value:
             raise ValueError
@@ -129,11 +129,8 @@ def route(
         or len(arn[5]) <= 7
     ):
         raise RouteError("The secret ARN must belong to the expected account and region")
-    if (
-        restore is None
-        and (url is None or snapshot is None)
-        or restore is not None
-        and (url is not None or snapshot is not None or enable_callbacks)
+    if (restore is None and (url is None or snapshot is None)) or (
+        restore is not None and (url is not None or snapshot is not None or enable_callbacks)
     ):
         raise RouteError("Choose --url with --snapshot, or --restore")
     if url is not None:
@@ -209,10 +206,8 @@ def route(
             assert desired is not None
             if _same_settings(current, desired):
                 return  # A repeated rollback is an authenticated, read-only no-op.
-            if (
-                current["url"] != saved["target_url"]
-                or expected is not None
-                and not _same_settings(current, expected)
+            if current["url"] != saved["target_url"] or (
+                expected is not None and not _same_settings(current, expected)
             ):
                 raise RouteError(
                     "Webhook changed after this snapshot; refusing to replace a different route"

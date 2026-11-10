@@ -65,8 +65,7 @@ def import_search_target(message, params: dict[str, str]) -> dict:
         or market != "US"
         or params.get("hl", "en-US") not in ("en", "en-US")
         or params.get("gsas") != "1"
-        or message.currency
-        and message.currency != currency
+        or (message.currency and message.currency != currency)
         or not segment.HasField("max_stops")
         or segment.max_stops != 0
         or len(segment.origins) != 1

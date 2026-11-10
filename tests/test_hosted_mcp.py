@@ -158,21 +158,23 @@ def test_official_client_session_over_loopback_http(service, flight_url):
         url = f"http://127.0.0.1:{listener.getsockname()[1]}/mcp"
 
         async def exercise():
-            async with httpx2.AsyncClient(
-                headers={"Authorization": "Bearer " + KEYS["alice"]}, trust_env=False
-            ) as client:
-                async with streamable_http_client(url, http_client=client) as streams:
-                    async with ClientSession(*streams, read_timeout_seconds=5) as session:
-                        initialized = await session.initialize()
-                        assert initialized.server_info.name == "fareflare"
-                        assert len((await session.list_tools()).tools) == 21
-                        created = await session.call_tool(
-                            "create_monitor",
-                            {"url": flight_url, "idempotency_key": "real-sdk-http-create"},
-                        )
-                        assert not created.is_error
-                        listed = await session.call_tool("list_monitors", {})
-                        assert len(listed.structured_content["items"]) == 1
+            async with (
+                httpx2.AsyncClient(
+                    headers={"Authorization": "Bearer " + KEYS["alice"]}, trust_env=False
+                ) as client,
+                streamable_http_client(url, http_client=client) as streams,
+                ClientSession(*streams, read_timeout_seconds=5) as session,
+            ):
+                initialized = await session.initialize()
+                assert initialized.server_info.name == "fareflare"
+                assert len((await session.list_tools()).tools) == 21
+                created = await session.call_tool(
+                    "create_monitor",
+                    {"url": flight_url, "idempotency_key": "real-sdk-http-create"},
+                )
+                assert not created.is_error
+                listed = await session.call_tool("list_monitors", {})
+                assert len(listed.structured_content["items"]) == 1
 
         asyncio.run(exercise())
     finally:

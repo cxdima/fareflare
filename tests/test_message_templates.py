@@ -174,7 +174,7 @@ def test_emphasis_and_groups_must_close_on_their_own_line():
         parse_template("[{price}\n{fare}]", WORDS)
 
 
-@pytest.mark.parametrize("character", ["\t", "\r", "\x00", "\x7f", "‮", "⁦", "‏"])
+@pytest.mark.parametrize("character", ["\t", "\r", "\x00", "\x7f", "\u202e", "\u2066", "\u200f"])
 def test_control_and_direction_characters_are_rejected(character):
     with pytest.raises(TemplateError, match="control or text-direction"):
         parse_template("{price}" + character, WORDS)

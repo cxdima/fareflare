@@ -7,7 +7,7 @@ import os
 import tempfile
 import time
 from collections.abc import Callable
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from typing import Literal, TypeVar
 from urllib.parse import urlsplit
 
@@ -151,10 +151,8 @@ def anonymous_browser(chrome_binary: str | None = None, chromedriver: str | None
             yield driver
         finally:
             if driver is not None:
-                try:
+                with suppress(WebDriverException):
                     driver.quit()
-                except WebDriverException:
-                    pass
 
 
 def _check_page(driver) -> None:

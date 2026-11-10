@@ -14,6 +14,7 @@ import json
 import re
 from dataclasses import asdict
 from datetime import date
+from itertools import pairwise
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
@@ -171,7 +172,7 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
                 )
             if legs[0]["date"] != segment.date:
                 raise InvalidLink("The first leg does not match the departure date.")
-            for previous, following in zip(legs, legs[1:], strict=False):
+            for previous, following in pairwise(legs):
                 if (
                     previous["destination"] != following["origin"]
                     or previous["date"] > following["date"]

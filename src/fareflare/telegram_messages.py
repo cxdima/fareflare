@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from fareflare.airlines import airline_name
 from fareflare.links import import_link
-from fareflare.message_templates import Rendered, Run, Value, render
+from fareflare.message_templates import DIRECTIONAL, Rendered, Run, Value, render
 from fareflare.preferences import (
     Preferences,
     clock_time,
@@ -125,7 +125,9 @@ def safe_dashboard_url(value: str | None) -> str | None:
 def single_line(value: str, limit: int = 120) -> str:
     """Provider labels cannot inject new message sections or directional controls."""
     value = "".join(
-        char if ord(char) >= 32 and ord(char) != 127 else " " for char in value if char not in "‎‏‪‫‬‭‮⁦⁧⁨⁩"
+        char if ord(char) >= 32 and ord(char) != 127 else " "
+        for char in value
+        if char not in DIRECTIONAL
     )
     value = " ".join(value.split())
     return value if len(value) <= limit else value[: limit - 1] + "…"
@@ -506,8 +508,14 @@ def collection_notice(
     footer = "You receive this because diagnostic notices are on in Account settings."
     lines = [title, route, "", *body, "", footer]
     html = "\n".join(
-        [f"<b>{escape(title)}</b>", escape(route), "", *map(escape, body), ""]
-        + [f"<i>{escape(footer)}</i>"]
+        [
+            f"<b>{escape(title)}</b>",
+            escape(route),
+            "",
+            *map(escape, body),
+            "",
+            f"<i>{escape(footer)}</i>",
+        ]
     )
     button = safe_dashboard_url(public_url)
     markup = {"inline_keyboard": [[{"text": "Open Fareflare", "url": button}]]} if button else None

@@ -148,12 +148,9 @@ def configure(
     ):
         raise ConfigurationError("The secret ARN must belong to the expected account and region")
     if (
-        apply
-        and snapshot is None
-        or snapshot is not None
-        and not apply
-        or restore is not None
-        and (apply or snapshot is not None)
+        (apply and snapshot is None)
+        or (snapshot is not None and not apply)
+        or (restore is not None and (apply or snapshot is not None))
     ):
         raise ConfigurationError("Use --apply with --snapshot, --restore, or neither to preview")
     saved = _read_snapshot(restore) if restore is not None else None
@@ -247,7 +244,7 @@ def configure(
             "applied": False,
             "desired": desired,
         }
-        if not changed or not apply and saved is None:
+        if not changed or (not apply and saved is None):
             return result
         if saved is None:
             assert snapshot is not None

@@ -57,6 +57,8 @@ class Worker:
             event_ids.extend(batch.event_ids)
             for key, value in batch.counts.items():
                 counts[key] += value
+            # Finite codes only: this is what tells an operator why checks failed.
+            counts["failure_codes"] = dict(batch.failure_codes)
             if callable(batch_factory):
                 counts["browser_launches"] = getattr(provider, "browser_launches", 0)
                 counts["browser_reuses"] = getattr(provider, "browser_reuses", 0)

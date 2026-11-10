@@ -250,12 +250,12 @@ def test_round_trips_show_both_dates_and_a_two_way_route(flight_url):
 
 
 def test_provider_text_cannot_inject_markup_or_extra_lines_into_any_style(flight_url):
-    event = alert(flight_url, fare_name='<a href="https://evil.test">Economy</a>\nFREE‮')
+    event = alert(flight_url, fare_name='<a href="https://evil.test">Economy</a>\nFREE\u202e')
     for style in ("detailed", "compact", "classic"):
         message = alert_message(event, Preferences(telegram_style=style))
         markup = Markup(message.html)
         assert all("evil.test" not in link for link in markup.links)
-        assert "\nFREE" not in message.text and "‮" not in message.text
+        assert "\nFREE" not in message.text and "\u202e" not in message.text
 
 
 def test_classic_flight_list_groups_a_route_and_marks_the_low_with_fire():
@@ -416,7 +416,7 @@ def test_signed_amounts_and_short_dates():
 
 
 def test_every_preview_renders_for_every_style_without_sending_anything():
-    assert PREVIEW_KINDS == (*ALERT_KEYS, "flight_list")
+    assert (*ALERT_KEYS, "flight_list") == PREVIEW_KINDS
     for style in ("detailed", "compact", "classic", "custom"):
         prefs = Preferences(telegram_style=style)
         for kind in PREVIEW_KINDS:

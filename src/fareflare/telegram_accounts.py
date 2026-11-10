@@ -222,11 +222,18 @@ class TelegramConnections:
             ):
                 return "This connection link is no longer valid."
             chat = self.store.get("telegram-chat:" + chat_id)
-            if chat and chat.data.get("connected") and chat.data.get("tenant") != tenant:
-                if self.accounts.validate_account_active(
+            if (
+                chat
+                and chat.data.get("connected")
+                and chat.data.get("tenant") != tenant
+                and self.accounts.validate_account_active(
                     chat.data["tenant"], chat.data["auth_epoch"]
-                ):
-                    return "This Telegram chat is already connected to another account. Disconnect it first."
+                )
+            ):
+                return (
+                    "This Telegram chat is already connected to another account. "
+                    "Disconnect it first."
+                )
             chat = chat or Document("telegram-chat:" + chat_id, "telegram-chats", {})
             old_chat_id = binding.data.get("chat_id")
             old_chat = (

@@ -29,8 +29,9 @@ MAX_TEMPLATE_LINES = 20
 MAX_PLACEHOLDERS = 40
 
 _NAME = re.compile(r"[a-z][a-z_]{0,31}\Z")
-# Direction overrides and isolates can visually reorder a message around a price.
-_DIRECTIONAL = frozenset("‎‏‪‫‬‭‮⁦⁧⁨⁩")
+# Direction marks, overrides and isolates can visually reorder a message around a price.
+# Written as escapes: the characters themselves would be invisible in this file.
+DIRECTIONAL = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 _EMPHASIS = (("**", "bold"), ("__", "italic"), ("`", "code"))
 _LABELS = {"bold": "**bold**", "italic": "__italic__", "code": "`monospace`"}
 
@@ -185,7 +186,7 @@ def parse_template(template: str, vocabulary: frozenset[str]) -> tuple[tuple[_No
     if len(template) > MAX_TEMPLATE_LENGTH:
         raise TemplateError(f"A template can contain at most {MAX_TEMPLATE_LENGTH} characters")
     if any(
-        (ord(char) < 32 and char != "\n") or ord(char) == 127 or char in _DIRECTIONAL
+        (ord(char) < 32 and char != "\n") or ord(char) == 127 or char in DIRECTIONAL
         for char in template
     ):
         raise TemplateError("Templates cannot contain control or text-direction characters")

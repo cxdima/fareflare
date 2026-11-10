@@ -158,13 +158,14 @@ class SQLiteStore:
             clause = " AND (due,id) " + ("<" if reverse else ">") + " (?,?)"
             parameters.extend([position["due"], position["id"]])
         order = "DESC" if reverse else "ASC"
+        # Only fixed keywords are interpolated; every value is a bound parameter.
+        statement = (
+            "SELECT * FROM documents WHERE partition_key=? AND due<=?"  # noqa: S608
+            + clause
+            + f" ORDER BY due {order},id {order} LIMIT ?"
+        )
         with self._connect() as db:
-            rows = db.execute(
-                "SELECT * FROM documents WHERE partition_key=? AND due<=?"
-                + clause
-                + f" ORDER BY due {order},id {order} LIMIT ?",
-                [*parameters, limit + 1],
-            ).fetchall()
+            rows = db.execute(statement, [*parameters, limit + 1]).fetchall()
         items = [self._document(row) for row in rows[:limit]]
         next_cursor = (
             _cursor(partition, due_before, reverse, {"due": items[-1].due, "id": items[-1].key})

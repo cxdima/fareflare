@@ -415,7 +415,7 @@ def create_portal(
             )
             if path in pages and not secret_query:
                 page, indexable, status = pages[path], True, 200
-            elif path in PRIVATE_PATHS or path in pages and secret_query:
+            elif path in PRIVATE_PATHS or (path in pages and secret_query):
                 page, indexable, status = private_page(path), False, 200
             else:
                 page = Page(

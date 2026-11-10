@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import re
 import secrets
 import uuid
 from typing import TYPE_CHECKING, Protocol
 
 from fareflare.contracts import DeliverySink
+from fareflare.failures import describe_failure
 from fareflare.store import Conflict, Document
 from fareflare.webhook_http import (
     WebhookHTTPTransport,
@@ -21,6 +23,8 @@ from fareflare.webhook_http import (
 
 if TYPE_CHECKING:
     from fareflare.service import MonitoringService
+
+log = logging.getLogger(__name__)
 
 
 class WebhookTransport(Protocol):
@@ -166,7 +170,8 @@ class WebhookRegistry:
         headers = sign_webhook(endpoint.data["signing_secret"], event_id, now, payload)
         try:
             delivered = self.transport.send(endpoint.data["url"], payload, headers)
-        except Exception:
+        except Exception as error:  # noqa: BLE001 - a transport failure is an undelivered challenge
+            log.warning("Webhook challenge raised: %s", describe_failure(error))
             delivered = False
         # A successful HTTP response is not proof that this customer controls it.
         return {"delivered": bool(delivered), "expires_at": expires_at}
@@ -212,9 +217,8 @@ class WebhookRegistry:
     def _retire(self, tenant: str, identifier: str, *, delete: bool) -> dict:
         for _ in range(5):
             endpoint = self._document(tenant, identifier)
-            if (
-                endpoint.data["status"] == "deleted"
-                or endpoint.data["status"] == "disabled"
+            if endpoint.data["status"] == "deleted" or (
+                endpoint.data["status"] == "disabled"
                 and not delete
                 and not endpoint.data.get("challenge_hash")
             ):

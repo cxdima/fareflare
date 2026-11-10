@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import TYPE_CHECKING
 
 from fareflare.contracts import DeliverySink
+from fareflare.failures import describe_failure
 from fareflare.store import Conflict, Document
 
 if TYPE_CHECKING:
     from fareflare.service import MonitoringService
+
+log = logging.getLogger(__name__)
 
 
 class DeliveryOutbox:
@@ -142,7 +146,8 @@ class DeliveryOutbox:
                 continue
             try:
                 ok = sink.send(delivery.data) if sink else False
-            except Exception:
+            except Exception as error:  # noqa: BLE001 - a sink is a plugin; the alert is retried
+                log.warning("Alert delivery raised: %s", describe_failure(error))
                 ok = False
             current = self.store.get(delivery.key)
             if not current or current.data.get("lease_token") != token:

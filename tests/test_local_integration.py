@@ -49,22 +49,24 @@ def test_stdio_mcp_to_running_api(tmp_path, flight_url):
 
         async def exercise():
             parameters = StdioServerParameters(
-                command=sys.executable, args=command[1:] + ["mcp"], env=env
+                command=sys.executable, args=[*command[1:], "mcp"], env=env
             )
-            async with stdio_client(parameters) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    tools = await session.list_tools()
-                    assert "create_monitor" in {tool.name for tool in tools.tools}
-                    result = await session.call_tool(
-                        "create_monitor",
-                        {"url": flight_url, "idempotency_key": "stdio-integration"},
-                    )
-                    data = result.model_dump(by_alias=True)
-                    assert not data.get("isError", False)
-                    assert "pending" in json.dumps(data)
-                    listing = await session.call_tool("list_monitors", {})
-                    assert "414" in json.dumps(listing.model_dump(by_alias=True))
+            async with (
+                stdio_client(parameters) as (read, write),
+                ClientSession(read, write) as session,
+            ):
+                await session.initialize()
+                tools = await session.list_tools()
+                assert "create_monitor" in {tool.name for tool in tools.tools}
+                result = await session.call_tool(
+                    "create_monitor",
+                    {"url": flight_url, "idempotency_key": "stdio-integration"},
+                )
+                data = result.model_dump(by_alias=True)
+                assert not data.get("isError", False)
+                assert "pending" in json.dumps(data)
+                listing = await session.call_tool("list_monitors", {})
+                assert "414" in json.dumps(listing.model_dump(by_alias=True))
 
         asyncio.run(exercise())
     finally:

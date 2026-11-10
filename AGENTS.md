@@ -66,8 +66,10 @@ any configuration or data-format change. Add an entry to [CHANGELOG.md](CHANGELO
 - Never commit credentials, invitations, cookies, Terraform state or variable
   files. Local operator state belongs in the ignored `.fareflare/` directory.
 - Never log or persist provider exception text; use the finite failure codes in
-  `contracts.py`. Messages shown to people use plain language, and technical codes
-  appear only for accounts that enabled diagnostics.
+  `contracts.py`, and `failures.describe_failure` when an unexpected error needs a
+  log line (it reports the exception type and code location only). Messages shown
+  to people use plain language, and technical codes appear only for accounts that
+  enabled diagnostics.
 - Account-authored message templates are data, not code. Extend the placeholder
   vocabulary in `telegram_templates.py`; do not introduce an expression-evaluating
   template engine.

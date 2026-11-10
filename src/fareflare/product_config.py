@@ -56,8 +56,10 @@ class ProductConfig:
                 or parsed.fragment
                 or parsed.path not in ("", "/")
                 or parsed.scheme not in ("http", "https")
-                or parsed.scheme == "http"
-                and parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+                or (
+                    parsed.scheme == "http"
+                    and parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+                )
             ):
                 raise ValueError("Public URL must be an HTTPS origin, or local HTTP origin")
 

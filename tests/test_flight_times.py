@@ -277,7 +277,7 @@ def test_stored_times_that_do_not_fit_are_ignored_rather_than_shown(flight_url, 
     event = delivery(flight_url, schedule)
     for style in ("detailed", "compact", "classic"):
         text = alert_message(event, Preferences(telegram_style=style)).text
-        assert "→ 6:54" not in text and "→ 25" not in text and "Mar 14" in text or "03/14" in text
+        assert ("→ 6:54" not in text and "→ 25" not in text and "Mar 14" in text) or "03/14" in text
     assert recorded_times(schedule, event["itinerary"]["segments"]) == []
 
 

@@ -21,6 +21,7 @@ import ssl
 import threading
 import time
 from collections.abc import Mapping
+from contextlib import suppress
 from urllib.parse import quote, urlsplit, urlunsplit
 
 _MAX_PAYLOAD = 65536
@@ -258,10 +259,8 @@ class WebhookHTTPTransport:
         def abort() -> None:
             expired.set()
             if current_socket:
-                try:
+                with suppress(OSError):
                     current_socket[0].shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
 
         try:
             normalized = normalize_webhook_url(url)

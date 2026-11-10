@@ -51,7 +51,7 @@ def test_telegram_webhook_authentication_and_customer_csrf(service):
             client.post(
                 "/telegram/webhook",
                 json={},
-                headers=[(name, value) for name, value in headers.items()] * 2,
+                headers=list(headers.items()) * 2,
             ).status_code
             == 403
         )

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import random
 import re
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from contextlib import suppress
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from fareflare.contracts import (
@@ -21,12 +23,14 @@ from fareflare.contracts import (
     SliceTimes,
 )
 from fareflare.domain import AlertPolicy, evaluate
+from fareflare.failures import describe_failure
 from fareflare.links import import_link
 from fareflare.outbox import DeliveryOutbox
 from fareflare.preferences import merge_preferences, stored_preferences
 from fareflare.store import Conflict, Document, Store
 from fareflare.webhooks import WebhookRegistry, WebhookTransport
 
+log = logging.getLogger(__name__)
 # A burst of early retries is normal; only a sustained run is worth a notice.
 FAILURE_NOTICE_THRESHOLD = 5
 _NOTICE_LIFETIME = 2 * 86400
@@ -47,6 +51,8 @@ def _digest(value: str) -> str:
 class CollectionBatch:
     counts: dict[str, int]
     event_ids: tuple[str, ...]
+    # How many collections ended with each failure code, for operators.
+    failure_codes: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -75,8 +81,7 @@ class MonitoringService:
         if (
             not 1 <= monitor_limit <= 100
             or not 300 <= min_interval_seconds <= 86400
-            or global_target_limit is not None
-            and not 1 <= global_target_limit <= 1000
+            or (global_target_limit is not None and not 1 <= global_target_limit <= 1000)
         ):
             raise ValueError("Invalid development capacity limits")
         self.monitor_limit, self.min_interval_seconds = monitor_limit, min_interval_seconds
@@ -260,10 +265,8 @@ class MonitoringService:
         monitor = self._monitor(tenant, monitor_id)
         if monitor.data["status"] == "cancelled" and status != "cancelled":
             raise ValueError("A cancelled monitor cannot be reactivated")
-        if (
-            monitor.data["status"] == status
-            or status == "active"
-            and monitor.data["status"] in ("pending", "active", "degraded")
+        if monitor.data["status"] == status or (
+            status == "active" and monitor.data["status"] in ("pending", "active", "degraded")
         ):
             return self.get_monitor(tenant, monitor_id)
         if monitor.data["status"] == "expired" and status not in ("expired", "cancelled"):
@@ -372,10 +375,8 @@ class MonitoringService:
             if prior.data != observation:
                 raise Conflict("A run ID cannot be reused with a different observation")
             return False
-        if (
-            target.data.get("lease_token") != lease_token
-            or lease_token is not None
-            and target.data.get("lease_until", 0) <= self._now()
+        if target.data.get("lease_token") != lease_token or (
+            lease_token is not None and target.data.get("lease_until", 0) <= self._now()
         ):
             raise Conflict("Collector lease was superseded")
         if target.data.get("latest", {}).get("observed_at", -1) >= reading.observed_at:
@@ -498,7 +499,8 @@ class MonitoringService:
                     continue
                 try:
                     outcome = notify({**data, "monitor": monitor})
-                except Exception:
+                except Exception as error:  # noqa: BLE001 - a sink is a plugin; the notice is retried
+                    log.warning("Notice delivery raised: %s", describe_failure(error))
                     outcome = False
                 sent += int(outcome is True)
                 if outcome is False and attempts < _NOTICE_ATTEMPTS:
@@ -592,6 +594,7 @@ class MonitoringService:
     ) -> CollectionBatch:
         event_ids = []
         counts = {"collected": 0, "failed": 0, "skipped": 0}
+        codes: dict[str, int] = {}
         # Discover one bounded page. Re-querying its head after each collection
         # can return the same stale GSI row and starve other due targets.
         for candidate in self.store.page("targets", self._now(), limit=limit).items:
@@ -629,12 +632,11 @@ class MonitoringService:
                             continue
                 current = self.store.get(target.key)
                 if current and not current.data.get("subscribers"):
-                    try:
+                    # On a conflict, a later tick finishes the state transition.
+                    with suppress(Conflict):
                         self.store.commit(
                             [current.update(current.data, partition="targets_expired")]
                         )
-                    except Conflict:
-                        pass  # A later tick finishes the state transition.
                 continue
             token = uuid.uuid4().hex
             leased = {
@@ -655,12 +657,13 @@ class MonitoringService:
                 self.record(reading, token, lease_token=token)
                 event_ids.append(_digest(reading.target_id + ":" + token))
                 counts["collected"] += 1
-            except Exception as exc:
-                failure = (
-                    exc
-                    if isinstance(exc, CollectionFailure)
-                    else CollectionFailure("collection_failed")
-                )
+            except Exception as exc:  # noqa: BLE001 - any provider fault becomes a finite code
+                if isinstance(exc, CollectionFailure):
+                    failure = exc
+                else:
+                    # A fault outside the expected vocabulary is a defect worth finding.
+                    log.warning("Unexpected collection error: %s", describe_failure(exc))
+                    failure = CollectionFailure("collection_failed")
                 current = self.store.get(target.key)
                 if current and current.data.get("lease_token") == token:
                     failures = current.data.get("failures", 0) + 1
@@ -683,7 +686,8 @@ class MonitoringService:
                         )
                     if notices:
                         data["failure_noticed"] = True
-                    try:
+                    # A conflict means another worker already settled this lease.
+                    with suppress(Conflict):
                         self.store.commit(
                             [
                                 current.update(
@@ -695,10 +699,9 @@ class MonitoringService:
                                 *notices,
                             ]
                         )
-                    except Conflict:
-                        pass
                 counts["failed"] += 1
-        return CollectionBatch(counts, tuple(event_ids))
+                codes[failure.code] = codes.get(failure.code, 0) + 1
+        return CollectionBatch(counts, tuple(event_ids), codes)
 
     def process_events(self, limit: int = 100) -> int:
         return self.process_event_batch(limit).processed

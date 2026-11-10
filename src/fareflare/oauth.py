@@ -95,7 +95,7 @@ class OAuthProvider(OAuthAuthorizationServerProvider[AuthorizationCode, RefreshT
         if (
             not client.client_id
             or not _CLIENT.fullmatch(client.client_id)
-            or client.token_endpoint_auth_method != "none"
+            or client.token_endpoint_auth_method != "none"  # noqa: S105 - a protocol value
             or client.client_secret
             or set(client.grant_types) - {"authorization_code", "refresh_token"}
             or client.response_types != ["code"]
@@ -118,8 +118,10 @@ class OAuthProvider(OAuthAuthorizationServerProvider[AuthorizationCode, RefreshT
                 or parsed.password
                 or parsed.fragment
                 or parsed.scheme not in ("https", "http")
-                or parsed.scheme == "http"
-                and parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+                or (
+                    parsed.scheme == "http"
+                    and parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+                )
             ):
                 raise RegistrationError(
                     "invalid_redirect_uri",
@@ -157,7 +159,9 @@ class OAuthProvider(OAuthAuthorizationServerProvider[AuthorizationCode, RefreshT
             raise AuthorizeError("invalid_target", "Use this server's MCP resource URL")
         if set(params.scopes or []) != {"monitor"}:
             raise AuthorizeError("invalid_scope", "The monitor scope is required")
-        if not _TOKEN.fullmatch(params.code_challenge) or params.state and len(params.state) > 1024:
+        if not _TOKEN.fullmatch(params.code_challenge) or (
+            params.state and len(params.state) > 1024
+        ):
             raise AuthorizeError("invalid_request", "Invalid PKCE challenge or state")
         # The SDK checks the registered redirect before this hook. Repeat the
         # exact check so direct provider use cannot bypass that trust boundary.
@@ -322,7 +326,7 @@ class OAuthProvider(OAuthAuthorizationServerProvider[AuthorizationCode, RefreshT
         ]
         return OAuthToken(
             access_token=access,
-            token_type="Bearer",
+            token_type="Bearer",  # noqa: S106 - a protocol value
             expires_in=access_expiry - self._now(),
             refresh_token=refresh,
             scope=" ".join(scopes),

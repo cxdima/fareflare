@@ -31,9 +31,34 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
-# The formatter owns line length; long string literals are left intact.
-ignore = ["E501"]
+select = [
+    "E", "F", "W", "I", "B", "UP",
+    "S",      # security (bandit)
+    "BLE",    # no unexplained catch-all handlers
+    "SIM", "C4", "PIE", "PERF", "RUF",
+    "DTZ",    # no naive datetimes
+    "PLE",    # includes invisible text-direction characters in source
+    "T20",    # print belongs to the command-line entry points only
+    "ASYNC", "LOG",
+]
+ignore = [
+    "E501",    # The formatter owns line length; long string literals are left intact.
+    "S101",    # Asserts narrow types on established invariants, and are the test idiom.
+    "S311",    # random is used for retry jitter, never for secrets.
+    "RUF001",  # Typographic characters (→, –, ·) are intentional in text people read.
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/fareflare/cli.py" = ["T201"]
+"src/fareflare/product_cli.py" = ["T201"]
+"src/fareflare/runtime.py" = ["T201"]  # One structured metrics line per invocation.
+"scripts/*" = ["T201"]
+"examples/*" = ["T201"]
+"web/tests/serve_portal.py" = ["T201"]
+# Synthetic credentials, local subprocesses and parsing of our own output.
+"tests/*" = ["S105", "S106", "S314", "S603", "S607", "T201"]
 
 [tool.ruff.format]
 docstring-code-format = true

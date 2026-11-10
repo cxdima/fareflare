@@ -42,6 +42,11 @@ Notable changes to Fareflare. The format follows
   configuration; a code of conduct, `CODEOWNERS` and `.editorconfig`.
 - `make check` fails when a pinned requirement and its hash-locked file disagree,
   so a dependency bump cannot look tested while installing the old version.
+- The worker's log line and `health:worker` record carry `failure_codes`, a count
+  per failure code for the run. An error the collector did not expect is logged as
+  its exception type and the code location that raised it, never its message.
+- Stricter linting: Ruff's security, bare-exception, simplification, timezone,
+  logging and async rule sets now run in `make check`.
 
 ### Changed
 

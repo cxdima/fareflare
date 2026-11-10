@@ -232,6 +232,13 @@ HTTP 200 from `/health` does not prove that collection is fresh. Inspect
 starts/reuses, collection failures, skipped targets, delivery counts, and runtime.
 Monitor Lambda throttles and dead-letter deliveries as well as exceptions.
 
+Each worker log line and the `health:worker` record carry `failure_codes`, a count
+per failure code for that run, for example `{"layout_changed": 2}`. An error the
+collector did not expect is logged once as its exception type and the code location
+that raised it, such as `KeyError at public_quotes.py:98 verified_reading`. Exception
+messages are never logged or stored, because a provider error can quote a URL or a
+cookie.
+
 Terraform provisions Lambda and collection-failure alarms. Attach an operator
 notification destination before relying on unattended alerts. Handled provider
 failures require their collection metric; they do not always become Lambda errors.

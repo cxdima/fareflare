@@ -20,7 +20,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from fareflare.mcp_server import make_server
 
-Authenticator = Callable[[str], str | None | Awaitable[str | None]]
+Authenticator = Callable[[str], str | Awaitable[str | None] | None]
 MAX_BODY_BYTES = 16_384
 
 

@@ -139,8 +139,10 @@ class _BoundStore:
                     not monitor
                     or monitor.data.get("tenant") != ctx.tenant
                     or monitor.data.get("notification_epoch", 0) != params["monitor_epoch"]
-                    or "expected_policy" in params
-                    and monitor.data["policy"] != params["expected_policy"]
+                    or (
+                        "expected_policy" in params
+                        and monitor.data["policy"] != params["expected_policy"]
+                    )
                 ):
                     raise _Unavailable
                 guards.append(monitor)

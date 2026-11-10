@@ -22,7 +22,8 @@ clear documentation corrections can go directly to a pull request.
   Adapters translate external data into validated contracts; API and MCP share
   application services.
 - Use four-space Python indentation, type hints, `snake_case` functions, and
-  `PascalCase` classes. Ruff checks import order and correctness.
+  `PascalCase` classes. Ruff checks import order, correctness and common security
+  mistakes. A `# noqa` names its rule and says why.
 - Use Angular standalone component classes, OnPush, signals, and typed services.
   Keep templates and SCSS in separate files. Use semantic CSS classes and theme
   tokens; avoid inline styles and direct HTML injection.
