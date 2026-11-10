@@ -247,6 +247,20 @@ that raised it, such as `KeyError at public_quotes.py:98 verified_reading`. Exce
 messages are never logged or stored, because a provider error can quote a URL or a
 cookie.
 
+A `timeout` is the commonest code. When the page loaded but its price summary
+never appeared, the log says what the page held, using fixed labels and a rounded
+length instead of its text:
+
+```text
+Public browser timeout phase=summary page=selected_flights,booking_options chars=1200
+```
+
+`selected_flights` without `lowest_total` means the trip rendered and Google
+returned no booking options; `none` with a small length means the page stayed an
+empty shell; `lowest_total` without `cheapest_match` means the layout the
+collector waits for has changed. A failed check is retried after 30 seconds to a
+few minutes, so a run of timeouts delays a price rather than losing it.
+
 Terraform provisions Lambda and collection-failure alarms. Attach an operator
 notification destination before relying on unattended alerts. Handled provider
 failures require their collection metric; they do not always become Lambda errors.

@@ -189,6 +189,52 @@ def test_timeout_diagnostic_identifies_phase_without_page_data(browser, caplog):
     assert "private" not in caplog.text
 
 
+@pytest.mark.parametrize(
+    "body,signs,chars",
+    [
+        # The booking page rendered the trip but Google returned no booking options.
+        (
+            "Selected flights\nDenver to Dallas\nUA 414\nBooking options\n" + "x" * 280,
+            "selected_flights,booking_options",
+            300,
+        ),
+        # One of the two phrases the collector waits for, without the other.
+        (
+            "Selected flights\nBooking options\nLowest total price\n$309",
+            "selected_flights,booking_options,lowest_total",
+            0,
+        ),
+        ("Oops, something went wrong. Try again", "went_wrong,try_again", 0),
+        ("Prices are currently unavailable", "unavailable", 0),
+        ("Getting prices private customer details", "getting_prices", 0),
+        ("", "none", 0),
+        ("private customer details " * 20, "none", 500),
+    ],
+)
+def test_a_summary_timeout_names_what_the_page_held_without_quoting_it(
+    browser, caplog, body, signs, chars
+):
+    driver, _, target = browser
+    driver.find_element.return_value.text = body
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert f"Public browser timeout phase=summary page={signs} chars={chars}" in caplog.text
+    for private in ("Denver", "UA 414", "$309", "private", "customer", "Oops", "Prices are"):
+        assert private not in caplog.text
+
+
+def test_a_timeout_after_the_summary_keeps_its_own_phase(browser, polling_wait, caplog):
+    driver, _, target = browser
+    driver.execute_script.return_value = {
+        **driver.execute_script.return_value,
+        "flight_numbers": [],
+    }
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert "Public browser timeout phase=evidence" in caplog.text
+    assert "page=" not in caplog.text
+
+
 def test_batch_is_lazy_and_closes_before_reuse_outside_scope(browser):
     _, launch, target = browser
     provider = PublicGoogleFlightsProvider()

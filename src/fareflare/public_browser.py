@@ -54,6 +54,32 @@ def _browser_failure_reason(error: Exception) -> str:
     return "unclassified"
 
 
+# What a page showed when the price summary never appeared, as fixed labels. The
+# text itself can describe a trip and is never logged; these names say only which
+# parts of the booking page had rendered and whether it carried a known notice.
+_PAGE_SIGNS = (
+    ("selected_flights", "selected flights"),
+    ("booking_options", "booking options"),
+    ("lowest_total", "lowest total price"),
+    ("cheapest_match", "cheapest option matching your search"),
+    ("price_insights", "price insights"),
+    ("getting_prices", "getting prices"),
+    ("loading", "loading"),
+    ("no_results", "no results"),
+    ("no_options", "no booking options"),
+    ("unavailable", "unavailable"),
+    ("no_longer_available", "no longer available"),
+    ("sold_out", "sold out"),
+    ("went_wrong", "something went wrong"),
+    ("try_again", "try again"),
+)
+
+
+def _page_signs(text: str) -> str:
+    lowered = text.lower()
+    return ",".join(label for label, phrase in _PAGE_SIGNS if phrase in lowered) or "none"
+
+
 # Scope prices to the summary and the explicit eligibility marker. In particular,
 # never select the cheapest dollar amount from the page or click a booking button.
 _SNAPSHOT = r"""
@@ -235,6 +261,7 @@ class PublicGoogleFlightsProvider:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
         phase = "browser_start"
+        shown = ""  # The page text last seen while waiting for the price summary.
         try:
             driver = batch.browser_for(target)
             phase = "navigation"
@@ -242,8 +269,9 @@ class PublicGoogleFlightsProvider:
             driver.get(target["url"])
 
             def ready(browser):
+                nonlocal shown
                 _check_page(browser)
-                text = browser.find_element(By.TAG_NAME, "body").text
+                text = shown = browser.find_element(By.TAG_NAME, "body").text
                 if "unusual traffic" in text.lower():
                     raise QuoteUnavailable("challenge")
                 # Insights and unrelated offers can still be loading after
@@ -289,7 +317,16 @@ class PublicGoogleFlightsProvider:
         except QuoteUnavailable:
             raise
         except TimeoutException:
-            log.warning("Public browser timeout phase=%s", phase)
+            if phase == "summary":
+                # Says what the page held instead of a price, without quoting it:
+                # an empty shell, flights without booking options, or a notice.
+                log.warning(
+                    "Public browser timeout phase=summary page=%s chars=%d",
+                    _page_signs(shown),
+                    len(shown) // 100 * 100,
+                )
+            else:
+                log.warning("Public browser timeout phase=%s", phase)
             raise QuoteUnavailable("timeout") from None
         except (WebDriverException, TypeError, KeyError, IndexError) as exc:
             # WebDriver diagnostics can contain page data; return only stable codes.

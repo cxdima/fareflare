@@ -72,6 +72,9 @@ Notable changes to Fareflare. The format follows
 - The worker's log line and `health:worker` record carry `failure_codes`, a count
   per failure code for the run. An error the collector did not expect is logged as
   its exception type and the code location that raised it, never its message.
+- A price check that times out waiting for the price summary logs what the page
+  held instead (`page=selected_flights,booking_options chars=1200`), as fixed
+  labels and a rounded length, never the page text.
 - Stricter linting: Ruff's security, bare-exception, simplification, timezone,
   logging and async rule sets now run in `make check`.
 - Property-based tests (Hypothesis) for the template engine, the link importer
