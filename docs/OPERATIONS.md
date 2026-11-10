@@ -284,27 +284,44 @@ an occasional `provider_error` is the normal picture.
 local run of `python -m fareflare.cli quote <link>` before changing anything,
 because the cause is on Google's side.
 
-The first Chromium started in a new Lambda environment exits two to three seconds
-after it starts about one time in three. Over five days that was 26 of 69
-environments, and none of the 1,014 browsers started later in the same
-environments. It does not happen in local Docker, with one CPU, a cold file
-cache or a real page, so the cause inside Chromium is not known. The collector
-handles both moments the exit can land on. Before a session exists it starts
-Chromium again and logs the first line below; while the link is loading it does
-the same and logs the second, where `launch` counts browsers started in that
-environment:
+In Lambda, Chromium runs with `--no-sandbox` and `--no-zygote` and keeps its
+renderers in their own processes. It used to run with `--single-process`, and the
+first Chromium started in an environment crashed two to three seconds after it
+started about one time in three: over five days that was 26 of 69 environments,
+and none of the 1,014 browsers started later in the same environments.
+
+The crash was a segmentation fault in the browser process as chromedriver sent
+its first page commands, and it only happened when Chromium had been slow to
+start. Slow file reads are what make it slow. An environment that has been frozen
+between invocations reads Chromium's 300 MB of files in about 2.7 seconds, against
+0.6 in a new environment and 0.04 once they are cached, so the first launch after
+a freeze can take over 2.5 seconds instead of 1.3. In trials on environments
+frozen for five minutes, the first launch crashed 44 times in 559 with
+`--single-process`, every time after a slow start, and 0 times in 357 without it,
+28 slow starts included. A new environment can be slow in the same way: 4 of 19
+crashed in one trial.
+
+Do not bring `--single-process` back to save memory. A check peaks near 460 MB of
+the worker's 2,048 MB, about 40 MB more than before, and takes the same time.
+`--no-zygote` has to stay: with a zygote, all 12 of 12 launches in Lambda failed.
+
+The collector still handles a browser that dies at either moment. Before a
+session exists it starts Chromium again and logs the first line below; while the
+link is loading it does the same and logs the second, where `launch` counts
+browsers started in that environment:
 
 ```text
 Public browser startup retry attempt=2 reason=browser_start_failed elapsed_ms=2485
 Public browser restart attempt=2 reason=session_lost launch=1
 ```
 
-`browser_restarts` in the worker log line counts the second kind. A startup
-retry, or a restart with `launch=1`, a few times a day is this known behaviour
-and costs about three seconds. A restart with a high `launch` number means a
-browser died in an environment that had already run one, and a
-`Public browser failure` line straight after a restart means the replacement
-died as well; neither has been seen, and both point to something else.
+`browser_restarts` in the worker log line counts the second kind. Neither line
+appeared in the trials without `--single-process`, so several a day with
+`launch=1` would mean the first launch is crashing again for another reason. A
+restart with a high `launch` number means a browser died in an environment that
+had already run one, and a `Public browser failure` line straight after a restart
+means the replacement died as well; neither has been seen, and both point to
+something else.
 
 Terraform provisions Lambda and collection-failure alarms. Attach an operator
 notification destination before relying on unattended alerts. Handled provider

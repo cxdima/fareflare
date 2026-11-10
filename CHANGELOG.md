@@ -136,14 +136,20 @@ Notable changes to Fareflare. The format follows
   again, at most twice, without pressing anything on the page. A page that keeps
   failing is recorded as the new `provider_error` code and retried later. The
   worker reports `page_reloads` for each run.
-- **Price checks lost to a browser that died as it started.** The first Chromium
-  started in a new Lambda environment exits two to three seconds after it starts
-  about one time in three (26 of 69 environments over five days); a browser
-  started after it never did (0 of 1,014). A failed start was already tried
-  again, but the same exit a moment later, while the link was loading, ended the
-  check as `browser_failed`. The collector now starts a new browser once in that
-  case too, with its own empty profile, and the worker reports
-  `browser_restarts`.
+- **Price checks lost to a browser that crashed as it started.** The first
+  Chromium started in a Lambda environment crashed two to three seconds after it
+  started about one time in three (26 of 69 environments over five days); a
+  browser started after it never did (0 of 1,014). Chromium ran with
+  `--single-process`, and in that mode the browser process hits a segmentation
+  fault when it starts slowly, as it does when its files are slow to read after
+  the environment has been frozen. Renderers now run in their own processes, with
+  `--no-zygote` in place of `--single-process`. In environments frozen for five
+  minutes the first launch crashed 44 times in 559 before the change and 0 times
+  in 357 after it. A check takes the same time and about 40 MB more memory.
+- A browser that dies while the link is loading, a moment after a start that
+  looked successful, ended the check as `browser_failed`. The collector now
+  starts a new browser once in that case, with its own empty profile, as it
+  already did for a failed start. The worker reports `browser_restarts`.
 
 ### Removed
 

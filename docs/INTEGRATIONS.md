@@ -111,6 +111,8 @@ When Google shows its own error page in place of a flight, the collector loads t
 same link again, at most twice, and reports the count as `page_reloads`.
 A browser that dies as it starts or as the link loads is replaced once, with a new
 empty profile, and counted as `browser_restarts`.
+In Lambda, Chromium runs without its sandbox and zygote and with renderers in their
+own processes; `--single-process` crashed the first launch after a slow start.
 The time budget can stop a batch before its requested target limit.
 
 The bounded local experiment in [the batch evidence](research/collector-batch-2026-11-05.json)

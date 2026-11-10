@@ -173,12 +173,15 @@ def anonymous_browser(chrome_binary: str | None = None, chromedriver: str | None
         ):
             options.add_argument(argument)
         if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-            # Match the stable Lambda runtime's process constraints. Keep each
+            # Lambda cannot run Chromium's sandbox or zygote and has no /dev/shm.
+            # Renderers still get their own processes: --single-process crashed
+            # the browser whenever it started slowly, which is how the first
+            # launch goes after an environment has been frozen. Keep each
             # invocation's profile private; never kill other browser processes.
             for argument in (
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                "--single-process",
+                "--no-zygote",
                 "--disable-gpu",
                 "--disable-software-rasterizer",
                 "--disable-crash-reporter",

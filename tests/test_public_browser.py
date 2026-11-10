@@ -144,11 +144,13 @@ def test_lambda_browser_uses_container_process_settings_without_affecting_local_
     monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "fareflare-test")
     assert PublicGoogleFlightsProvider().collect(target).amount_minor == 30900
     options = launch.call_args.kwargs["options"]
-    assert {"--single-process", "--no-sandbox", "--disable-dev-shm-usage"} <= set(options.arguments)
+    assert {"--no-zygote", "--no-sandbox", "--disable-dev-shm-usage"} <= set(options.arguments)
+    # Single-process mode crashes a browser that starts slowly after a thaw.
+    assert "--single-process" not in options.arguments
     driver.quit.assert_called_once()
     monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME")
     PublicGoogleFlightsProvider().collect(target)
-    assert "--single-process" not in launch.call_args.kwargs["options"].arguments
+    assert "--no-zygote" not in launch.call_args.kwargs["options"].arguments
 
 
 def test_startup_failure_is_distinguishable_and_removes_its_profile(browser):
