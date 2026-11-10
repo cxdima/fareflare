@@ -28,6 +28,9 @@ when a price meets your rule.
 - Lets each person choose how alerts read: three built-in Telegram styles or
   their own [message templates](docs/ACCOUNT_PREFERENCES.md#message-styles-and-templates),
   with a preview that sends no notification.
+- Shows departure and arrival times beside each price, and keeps alerts silent
+  during the [quiet hours](docs/ACCOUNT_PREFERENCES.md#quiet-hours) you choose
+  without delaying them.
 - Stays quiet about its own problems: a failed price check shows a short plain
   note, and technical details are an explicit opt-in for developers.
 - Shares collection for equivalent searches while keeping accounts and alert rules private.
