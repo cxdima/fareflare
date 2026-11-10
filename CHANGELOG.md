@@ -47,6 +47,8 @@ Notable changes to Fareflare. The format follows
   its exception type and the code location that raised it, never its message.
 - Stricter linting: Ruff's security, bare-exception, simplification, timezone,
   logging and async rule sets now run in `make check`.
+- Property-based tests (Hypothesis) for the template engine, the link importer
+  and the flight-time parser. They found both defects listed under *Fixed*.
 
 ### Changed
 
@@ -77,6 +79,14 @@ Notable changes to Fareflare. The format follows
 
   To keep existing local data and operator records, rename the directory once:
   `mv .next .fareflare`. Both names stay in `.gitignore`.
+
+### Fixed
+
+- A Google Flights link whose itinerary token held bytes that are not valid text
+  caused a server error. It is now refused with the usual "could not be decoded"
+  message.
+- A template containing a lone carriage return is stored with a normal line break
+  instead of being rejected as containing a control character.
 
 ### Removed
 

@@ -105,6 +105,19 @@ def test_incomplete_or_unsupported_itinerary_is_rejected(flight_url, mutation):
         import_link(change_token(flight_url, mutation))
 
 
+@pytest.mark.parametrize("position", ["origin", "segment date", "currency"])
+def test_a_token_with_undecodable_text_is_refused_rather_than_crashing(flight_url, position):
+    # A proto2 text field holding bytes that are not UTF-8 parses, but as bytes.
+    token = parse_qs(urlsplit(flight_url).query)["tfs"][0]
+    raw = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4))
+    marker = {"origin": b"DEN", "segment date": b"2027", "currency": b"USD"}[position]
+    assert raw.count(marker) >= 1
+    damaged = raw.replace(marker, b"\x80" + marker[1:], 1)
+    url = flight_url.replace(token, base64.urlsafe_b64encode(damaged).decode().rstrip("="))
+    with pytest.raises(InvalidLink, match="could not be decoded"):
+        import_link(url)
+
+
 def test_round_trip_requires_return_selection(flight_url):
     def add_return(m):
         m.trip = 1

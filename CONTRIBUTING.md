@@ -47,6 +47,11 @@ applies Ruff's fixes and formatting. Add behavioral tests for changed
 rules, tenant isolation, retries, money handling, and failure paths. Backend tests
 must not read real credentials or contact AWS or Google.
 
+Code that reads text nobody on the project wrote (templates, pasted links, scraped
+pages) also has generated tests in `tests/test_properties.py`. Cases vary locally
+and are fixed in CI; `HYPOTHESIS_PROFILE=thorough make test` searches much harder.
+When one fails, keep the reported input as an ordinary example test beside the fix.
+
 Playwright runs the built portal with a temporary SQLite database. For Chromium:
 
 ```bash

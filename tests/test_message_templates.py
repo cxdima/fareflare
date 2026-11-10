@@ -205,6 +205,8 @@ def test_values_are_data_and_are_never_parsed_as_template_syntax():
 
 def test_stored_form_is_canonical():
     assert normalize_template("\r\n\r\n{price}  \r\n{fare}\n\n") == "{price}\n{fare}"
+    # A lone carriage return is a line break too, so normalizing twice changes nothing.
+    assert normalize_template("{price}\r{fare}\r \n") == "{price}\n{fare}"
     assert normalize_template("") == ""
     with pytest.raises(TemplateError):
         normalize_template(7)  # type: ignore[arg-type]

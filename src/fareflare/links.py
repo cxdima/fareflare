@@ -67,6 +67,24 @@ def _message_class() -> Any:
 
 
 ItineraryMessage = _message_class()
+
+
+def _text_is_valid(message: Any) -> bool:
+    """Whether every text field decoded as text.
+
+    The schema is proto2, where a text field holding bytes that are not UTF-8
+    is handed back as ``bytes`` instead of failing the parse.
+    """
+    for field, value in message.ListFields():
+        for item in value if field.is_repeated else (value,):
+            if field.type == field.TYPE_MESSAGE:
+                if not _text_is_valid(item):
+                    return False
+            elif field.type == field.TYPE_STRING and not isinstance(item, str):
+                return False
+    return True
+
+
 _AIRPORT = re.compile(r"[A-Z]{3}\Z")
 _AIRLINE = re.compile(r"[A-Z0-9]{2,3}\Z")
 _NUMBER = re.compile(r"[0-9]{1,5}[A-Z]?\Z")
@@ -124,6 +142,8 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
         message.ParseFromString(raw)
     except (ValueError, DecodeError) as exc:
         raise InvalidLink("The itinerary token could not be decoded.") from exc
+    if not _text_is_valid(message):
+        raise InvalidLink("The itinerary token could not be decoded.")
     trip = message.trip if message.HasField("trip") else {1: 2, 2: 1}.get(len(message.segments))
     if trip not in (1, 2) or len(message.segments) != (2 if trip == 1 else 1):
         raise InvalidLink("Currently supported: fixed-date one-way and round-trip itineraries.")

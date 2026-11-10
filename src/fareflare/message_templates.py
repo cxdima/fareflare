@@ -207,7 +207,9 @@ def normalize_template(template: str) -> str:
     """Canonical stored form: Unix newlines, no trailing spaces or outer blank lines."""
     if not isinstance(template, str):
         raise TemplateError("A template must be text")
-    lines = [line.rstrip(" ") for line in template.replace("\r\n", "\n").split("\n")]
+    # Every newline convention, so text pasted from any editor means the same thing.
+    unix = template.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.rstrip(" ") for line in unix.split("\n")]
     while lines and not lines[0]:
         lines.pop(0)
     while lines and not lines[-1]:
