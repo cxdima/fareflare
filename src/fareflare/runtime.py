@@ -10,12 +10,13 @@ import boto3
 
 from fareflare.accounts import Accounts
 from fareflare.delivery import TelegramSink
+from fareflare.health import record_run
 from fareflare.link_resolver import GoogleLinkResolver
 from fareflare.product_telegram import InboxSink, build_telegram
 from fareflare.public_browser import PublicGoogleFlightsProvider
 from fareflare.public_quotes import supported_target
 from fareflare.service import MonitoringService
-from fareflare.store import Document, DynamoStore
+from fareflare.store import DynamoStore
 from fareflare.webhooks import RoutedSink
 from fareflare.worker import Worker
 
@@ -61,8 +62,7 @@ def handler(event, context):
     result = worker.tick(
         max_targets=int(os.environ.get("FAREFLARE_MAX_TARGETS", "1")), budget_seconds=budget
     )
-    health = worker.service.store.get("health:worker") or Document("health:worker", "health", {})
-    worker.service.store.commit([health.update({"last_worker_at": int(time.time()), **result})])
+    record_run(worker.service.store, int(time.time()), result)
     # No itinerary, account, cookies, credentials, or provider exception messages.
     metrics = [
         {"Name": name, "Unit": "Milliseconds" if name == "runtime_ms" else "Count"}

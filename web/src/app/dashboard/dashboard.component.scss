@@ -159,9 +159,44 @@
   background: var(--ff-surface);
   font-size: 0.8rem;
 }
-.current-page {
+.system-status {
+  --tone: #6f8077;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
   color: var(--ff-muted);
   font-weight: 550;
+  text-decoration: none;
+}
+.system-status:hover {
+  color: var(--ff-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.system-status[data-status='operational'] {
+  --tone: #16765f;
+}
+.system-status[data-status='degraded'] {
+  --tone: #8a5a12;
+  color: #6f480d;
+}
+.system-status[data-status='major'] {
+  --tone: #a52d29;
+  color: #8a211e;
+}
+.system-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 18%, transparent);
+}
+/* Trouble is a different shape as well as a different colour. */
+.system-status[data-status='degraded'] .system-status-dot,
+.system-status[data-status='major'] .system-status-dot {
+  border-radius: 2px;
+  transform: rotate(45deg);
 }
 .refresh-button {
   font-size: 0.78rem;

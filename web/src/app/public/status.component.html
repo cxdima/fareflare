@@ -1,0 +1,129 @@
+<div class="public-container status-page">
+  <header class="status-heading">
+    <h1>System status</h1>
+    <p>Whether price checks, alerts and the website are working right now.</p>
+  </header>
+  @if (report(); as current) {
+    <section class="status-banner" [attr.data-status]="current.status" aria-live="polite">
+      <span class="status-mark" aria-hidden="true">
+        <i
+          class="bi"
+          [class.bi-check-lg]="current.status === 'operational'"
+          [class.bi-exclamation-lg]="current.status === 'degraded' || current.status === 'major'"
+          [class.bi-hourglass-split]="current.status === 'unknown'"
+        ></i>
+      </span>
+      <div>
+        <h2>{{ headline() }}</h2>
+        <p>
+          Updated at {{ time(current.updated_at) }}. This page refreshes every minute.
+          @if (failed()) {
+            <strong>The latest refresh did not get through.</strong>
+          }
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        [disabled]="loading()"
+        (click)="load()"
+      >
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
+        >{{ loading() ? 'Checking…' : 'Check again' }}
+      </button>
+    </section>
+
+    <section aria-labelledby="status-services">
+      <h2 id="status-services" class="status-section-title">Services</h2>
+      <ul class="status-list">
+        @for (item of current.components; track item.id) {
+          <li>
+            <div>
+              <h3>{{ name(item) }}</h3>
+              <p>{{ detail(item) }}</p>
+            </div>
+            <span class="status-pill" [attr.data-status]="item.status">{{
+              label(item.status)
+            }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="status-history" aria-labelledby="status-history">
+      <div class="status-history-heading">
+        <h2 id="status-history" class="status-section-title">Price checks, last 24 hours</h2>
+        @if (checks(); as item) {
+          <p>{{ item.succeeded ?? 0 }} of {{ item.checks ?? 0 }} recorded a price</p>
+        }
+      </div>
+      <ol class="status-hours">
+        @for (item of current.hours; track item.start) {
+          <li [attr.data-status]="item.status" [attr.title]="hourSummary(item)">
+            <span class="visually-hidden">{{ hourSummary(item) }}</span>
+          </li>
+        }
+      </ol>
+      <div class="status-axis" aria-hidden="true"><span>24 hours ago</span><span>Now</span></div>
+      <ul class="status-legend" aria-label="What the bars mean">
+        <li data-status="operational">Working</li>
+        <li data-status="degraded">Many checks failed</li>
+        <li data-status="major">Almost all failed</li>
+        <li data-status="none">No record</li>
+      </ul>
+      <details class="status-table">
+        <summary>Hour by hour</summary>
+        <div class="table-responsive">
+          <table class="table">
+            <caption class="visually-hidden">
+              Price checks in each of the last 24 hours
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Hour starting</th>
+                <th scope="col">Recorded a price</th>
+                <th scope="col">Could not finish</th>
+                <th scope="col">Alerts sent</th>
+                <th scope="col">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of current.hours; track item.start) {
+                <tr>
+                  <th scope="row">{{ hour(item) }}</th>
+                  <td>{{ item.runs ? item.collected : '–' }}</td>
+                  <td>{{ item.runs ? item.failed : '–' }}</td>
+                  <td>{{ item.runs ? item.alerts_sent : '–' }}</td>
+                  <td>{{ label(item.status) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+    <p class="status-note">
+      A price check that cannot finish is retried within a couple of minutes, so a few failed checks
+      an hour are normal. Trouble is reported when checks stop running or most of them fail. Times
+      are shown in your device’s time zone.
+    </p>
+  } @else if (failed()) {
+    <section class="status-banner" data-status="major" role="alert">
+      <span class="status-mark" aria-hidden="true"><i class="bi bi-exclamation-lg"></i></span>
+      <div>
+        <h2>The status could not be loaded</h2>
+        <p>That can mean the website itself is having trouble, or that you are offline.</p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        [disabled]="loading()"
+        (click)="load()"
+      >
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>Try again
+      </button>
+    </section>
+  } @else {
+    <p class="status-loading" role="status">Checking the systems…</p>
+  }
+</div>

@@ -8,6 +8,15 @@ Notable changes to Fareflare. The format follows
 
 ### Added
 
+- **System status.** A public page at `/status` says whether price checks, alerts
+  and the website are working, in plain words: *Everything is working*, *Some price
+  checks are failing*, *Price checks are not running*. It shows each of the last 24
+  hours as a bar (and as a table), how many checks recorded a price, and how many
+  alerts were sent, and refreshes itself every minute. The workspace header shows
+  the same answer in a few words and links to the page. `GET /v1/status` returns
+  the report without signing in; it holds counts and states only, never anything
+  about an account or a flight. The worker folds each run into hourly totals on
+  its `health:worker` record, kept for 48 hours.
 - **Message styles.** Telegram alerts and the flight list can use a built-in
   style or your own wording. *Classic with emoji* shows what changed at a glance,
   for example `📉 New low!  $246  (was $254, −$8 · −3%)`, and marks a flight that
@@ -106,6 +115,12 @@ Notable changes to Fareflare. The format follows
   `Alert activity · Fareflare`.
 - When every monitor is in use, the flights page says why **Watch a flight** is
   unavailable.
+- The workspace header no longer repeats the page title, and it has the only
+  **Refresh** button: on **Alert activity** it reloads the alerts as well, so the
+  separate *Refresh alerts* button is gone.
+- Lists with nothing in them yet (alerts, webhook receivers, API keys, a search
+  with no matches) share one look, and a field with a button beside it lines up:
+  the MCP server address is a single line joined to its **Copy URL** button.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.

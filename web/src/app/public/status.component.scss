@@ -1,0 +1,295 @@
+:host {
+  display: block;
+  /* State colours. Each is paired with a word or a shape, never colour alone. */
+  --status-operational: #16765f;
+  --status-degraded: #8a5a12;
+  --status-major: #a52d29;
+  --status-idle: #6f8077;
+}
+.status-page {
+  max-width: 880px;
+  padding-block: 3.5rem 1rem;
+}
+.status-heading h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  margin: 0 0 0.6rem;
+}
+.status-heading p {
+  color: var(--ff-muted);
+  margin: 0 0 2rem;
+}
+.status-banner {
+  --tone: var(--status-idle);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--ff-line));
+  border-radius: var(--bs-border-radius-lg);
+  background: color-mix(in srgb, var(--tone) 7%, var(--ff-surface));
+}
+[data-status='operational'] {
+  --tone: var(--status-operational);
+}
+[data-status='degraded'] {
+  --tone: var(--status-degraded);
+}
+[data-status='major'] {
+  --tone: var(--status-major);
+}
+[data-status='unknown'],
+[data-status='none'] {
+  --tone: var(--status-idle);
+}
+.status-mark {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--tone);
+  color: #fff;
+  font-size: 1.35rem;
+}
+.status-banner h2 {
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+}
+.status-banner p {
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+.status-banner strong {
+  color: var(--ff-ink);
+  font-weight: 600;
+}
+.status-section-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 2.5rem 0 0.75rem;
+}
+.status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ff-line);
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--ff-surface);
+}
+.status-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1.1rem 1.5rem;
+}
+.status-list li + li {
+  border-top: 1px solid var(--ff-line);
+}
+.status-list h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0 0 0.2rem;
+}
+.status-list p {
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 60ch;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 12%, var(--ff-surface));
+  color: color-mix(in srgb, var(--tone) 80%, var(--ff-ink));
+  font-size: 0.78rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.status-pill::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.status-history-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+}
+.status-history-heading p {
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.status-hours {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+  height: 3.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.status-hours li {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--tone);
+}
+/* Shape as well as colour: trouble is hatched and shorter, no record is hollow. */
+.status-hours li[data-status='degraded'] {
+  height: 72%;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--tone) 0 4px,
+    color-mix(in srgb, var(--tone) 55%, var(--ff-surface)) 4px 8px
+  );
+}
+.status-hours li[data-status='major'] {
+  height: 44%;
+}
+.status-hours li[data-status='none'] {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--tone) 60%, var(--ff-line));
+}
+.status-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  color: var(--ff-muted);
+  font-size: 0.75rem;
+}
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  color: var(--ff-muted);
+  font-size: 0.78rem;
+}
+.status-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.status-legend li::before {
+  content: '';
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  background: var(--tone);
+}
+.status-legend li[data-status='degraded']::before {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--tone) 0 2px,
+    color-mix(in srgb, var(--tone) 55%, var(--ff-surface)) 2px 4px
+  );
+}
+.status-legend li[data-status='none']::before {
+  background: transparent;
+  border: 1px dashed var(--tone);
+}
+.status-table {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--ff-line);
+}
+.status-table summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 48px;
+  color: var(--ff-link);
+  font-size: 0.85rem;
+  font-weight: 600;
+  list-style: none;
+}
+.status-table summary::-webkit-details-marker {
+  display: none;
+}
+.status-table summary::after {
+  content: '';
+  flex: 0 0 1rem;
+  width: 1rem;
+  height: 1rem;
+  background-color: currentColor;
+  mask: url('/assets/control-chevron.svg') center / contain no-repeat;
+}
+.status-table[open] summary::after {
+  transform: rotate(180deg);
+}
+.status-table .table {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  --bs-table-bg: transparent;
+}
+.status-table th {
+  color: var(--ff-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.status-table tbody th {
+  color: var(--ff-ink);
+  font-size: 0.85rem;
+}
+.status-note,
+.status-loading {
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  max-width: 68ch;
+  margin: 2rem 0 0;
+}
+@media (max-width: 575px) {
+  .status-page {
+    padding-top: 2rem;
+  }
+  .status-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 1rem;
+  }
+  .status-banner .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .status-list li {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1rem;
+  }
+  .status-hours {
+    gap: 2px;
+  }
+}
+@media (forced-colors: active) {
+  .status-hours li,
+  .status-mark,
+  .status-pill::before,
+  .status-legend li::before {
+    forced-color-adjust: none;
+  }
+  .status-table summary::after {
+    background-color: CanvasText;
+    forced-color-adjust: none;
+  }
+}

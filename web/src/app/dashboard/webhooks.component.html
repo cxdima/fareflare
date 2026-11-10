@@ -40,7 +40,9 @@
 </section>
 <div class="section-heading">
   <h2>Your receivers</h2>
-  <span class="small text-body-secondary">{{ items().length }} registered</span>
+  @if (items().length) {
+    <span class="small text-body-secondary">{{ items().length }} registered</span>
+  }
 </div>
 @for (item of items(); track item.id) {
   <article class="panel receiver-card mb-3">
@@ -110,7 +112,7 @@
     </div>
   </article>
 } @empty {
-  <section class="panel empty-state receiver-empty">
+  <section class="panel empty-state">
     <i class="bi bi-link-45deg" aria-hidden="true"></i>
     <h2>No receivers yet</h2>
     <p>Add an endpoint above. Verified receivers can be selected when you create a monitor.</p>

@@ -158,6 +158,25 @@ export async function mock(page: BrowserPage, signedIn = true) {
     if (path === '/v1/preferences')
       return reply(method === 'GET' ? { muted: false, muted_routes: [] } : body);
     if (path === '/v1/telegram') return reply({ enabled: false, connected: false });
+    if (path === '/v1/status')
+      return reply({
+        status: 'operational',
+        updated_at: now,
+        window_hours: 24,
+        components: [
+          { id: 'website', status: 'operational', reason: null },
+          {
+            id: 'price_checks',
+            status: 'operational',
+            reason: null,
+            last_run_at: now - 40,
+            checks: 96,
+            succeeded: 90,
+          },
+          { id: 'alerts', status: 'operational', reason: null, sent: 2 },
+        ],
+        hours: [],
+      });
     if (path === '/v1/oauth/grants') return reply({ items: grants });
     if (path.startsWith('/v1/oauth/grants/') && method === 'DELETE') {
       grants[0].revoked = true;

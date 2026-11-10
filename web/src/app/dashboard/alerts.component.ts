@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { ApiService } from '../core/api.service';
 import { RegionalFormat } from '../core/regional-format';
 import type { Alert, Page } from '../core/types';
@@ -13,7 +20,7 @@ import { reasonLabel, routeName, statusLabel } from './shared/presentation';
   styleUrl: './alerts.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AlertsComponent implements OnInit {
+export class AlertsComponent {
   readonly workspace = inject(WorkspaceFacade);
   private readonly api = inject(ApiService);
   readonly action = new ActionState();
@@ -24,8 +31,12 @@ export class AlertsComponent implements OnInit {
   readonly timestamp = this.regional.timestamp;
   readonly reasonLabel = reasonLabel;
   readonly statusLabel = statusLabel;
-  ngOnInit(): void {
-    void this.load();
+  constructor() {
+    // Loads once, and again whenever someone presses Refresh in the header.
+    effect(() => {
+      this.workspace.refreshRequests();
+      untracked(() => void this.load());
+    });
   }
   route(id: string): string {
     const monitor = this.workspace.monitors().find((item) => item.id === id);

@@ -61,7 +61,13 @@
     </aside>
     <div class="workspace-body">
       <header class="workspace-topbar">
-        <span class="current-page">{{ pageName() }}</span>
+        <a
+          class="system-status"
+          href="/status"
+          [attr.data-status]="health.report()?.status ?? 'unknown'"
+          ><span class="system-status-dot" aria-hidden="true"></span>{{ health.summary()
+          }}<span class="visually-hidden">. Open the system status page</span></a
+        >
         <div class="topbar-actions">
           <button
             type="button"
@@ -70,7 +76,7 @@
               workspace.refreshing() ? 'Refreshing dashboard' : 'Refresh dashboard'
             "
             [disabled]="workspace.refreshing()"
-            (click)="workspace.refresh()"
+            (click)="refresh()"
           >
             <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
             ><span>{{ workspace.refreshing() ? 'Refreshing…' : 'Refresh' }}</span>
@@ -108,7 +114,10 @@
       </main>
       <footer class="workspace-footer">
         <a href="/guides">Help &amp; guides</a>
-        <div class="footer-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+        <div class="footer-links">
+          <a href="/status">System status</a><a href="/privacy">Privacy</a
+          ><a href="/terms">Terms</a>
+        </div>
       </footer>
     </div>
   </div>

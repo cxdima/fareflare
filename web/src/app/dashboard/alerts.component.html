@@ -3,9 +3,6 @@
     <h1>Alert activity</h1>
     <p>Price changes and what happened to their notifications.</p>
   </div>
-  <button type="button" class="btn btn-outline-primary" [disabled]="action.busy()" (click)="load()">
-    Refresh alerts
-  </button>
 </div>
 @if (action.error()) {
   <div class="alert alert-danger" role="alert">{{ action.error() }}</div>

@@ -7,9 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { SiteContentService } from '../core/site-content.service';
+import { StatusComponent } from './status.component';
 
 @Component({
   selector: 'ff-public',
+  imports: [StatusComponent],
   templateUrl: './public.component.html',
   styleUrl: './public.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

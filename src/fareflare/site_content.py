@@ -350,6 +350,23 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
             ),
         ),
         Page(
+            "/status",
+            "System status — Fareflare",
+            "See whether Fareflare's price checks, alerts and website are working right now, with the last 24 hours of price checks.",
+            "Status",
+            "System status",
+            "Whether price checks, alerts and the website are working right now.",
+            (
+                Section(
+                    "What this page reports",
+                    (
+                        "Fareflare records each scheduled price-check run. This page shows when checks last ran, how many of the last 24 hours' checks recorded a price, and how many alerts were sent.",
+                        "A check that cannot finish is retried within a couple of minutes, so a few failed checks an hour are normal. The page reports trouble when checks stop running or most of them fail.",
+                    ),
+                ),
+            ),
+        ),
+        Page(
             "/privacy",
             "Privacy and data — Fareflare",
             "What Fareflare stores, how account and notification data are used, and what account deletion means.",

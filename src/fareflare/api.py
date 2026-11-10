@@ -14,6 +14,7 @@ from fareflare import __version__
 from fareflare.api_reference import render_api_reference
 from fareflare.credentials import Credentials, RateLimited, RateLimiter
 from fareflare.domain import AlertPolicy
+from fareflare.health import status_report
 from fareflare.preferences import Preferences as PreferencesInput
 from fareflare.preferences import merge_preferences, sends_silently
 from fareflare.service import MonitoringService, NotFound
@@ -288,6 +289,11 @@ def create_app(
             "live_collection": live_collection,
             "last_worker_at": health.data["last_worker_at"] if health else None,
         }
+
+    @app.get("/v1/status")
+    def system_status():
+        """Public: whether price checks run, and how the last 24 hours went."""
+        return status_report(service.store, int(service.clock()))
 
     @app.post("/v1/monitors", status_code=202, response_model=MonitorView)
     def create(

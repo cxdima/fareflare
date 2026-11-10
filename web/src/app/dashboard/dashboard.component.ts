@@ -25,6 +25,7 @@ import { ConsentComponent } from './consent.component';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
 import { TelegramFacade } from '../core/telegram.facade';
+import { StatusService } from '../core/status.service';
 
 const navigation = [
   { id: 'monitors', label: 'Flight monitors', shortLabel: 'Flights', icon: 'bi-airplane' },
@@ -57,6 +58,8 @@ function currentView(): string {
 export class DashboardComponent implements OnInit, OnDestroy {
   readonly session = inject(SessionFacade);
   readonly workspace = inject(WorkspaceFacade);
+  /** Whether the service itself is working, shown beside the Refresh button. */
+  readonly health = inject(StatusService);
   readonly preferences = inject(PreferencesFacade);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
@@ -114,10 +117,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     window.addEventListener('hashchange', this.hashChanged);
     if (!this.session.ready()) await this.session.bootstrap();
     if (this.destroyed || !this.session.account()) return;
+    void this.health.load();
     await Promise.allSettled([this.workspace.refresh(), this.preferences.load()]);
     if (this.destroyed) return;
+    let ticks = 0;
     this.timer = setInterval(() => {
-      if (document.visibilityState === 'visible') void this.workspace.refresh();
+      if (document.visibilityState !== 'visible') return;
+      void this.workspace.refresh();
+      if (++ticks % 5 === 0) void this.health.load();
     }, 60000);
   }
   ngOnDestroy(): void {
@@ -125,6 +132,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     clearInterval(this.timer);
     clearTimeout(this.firstPrice);
     window.removeEventListener('hashchange', this.hashChanged);
+  }
+  refresh(): void {
+    void this.workspace.refreshAll();
+    void this.health.load();
   }
   select(event: Event, view: string): void {
     event.preventDefault();

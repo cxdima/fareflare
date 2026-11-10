@@ -234,6 +234,15 @@ delivery. Do not interpret a duplicate message as permission to repeat a change.
 
 ## Monitoring and incidents
 
+`/status` (and `GET /v1/status`, no sign-in) is the public summary: it reports
+price checks as stalled when no worker run has been recorded for 20 minutes, as
+having trouble when 40% of the last three hours' checks failed, and as not working
+at 90%; fewer than four checks in that window is never called trouble. It is built
+from hourly totals (`runs`, `collected`, `failed`, `alerts_sent`) that the worker
+folds into `health:worker` under `hours`, kept for 48 hours. If two worker runs
+write at once, one hour's totals can miss a run; the page is a summary, not an
+audit. The thresholds are constants at the top of `src/fareflare/health.py`.
+
 HTTP 200 from `/health` does not prove that collection is fresh. Inspect
 `last_worker_at`, the DynamoDB `health:worker` record, monitor freshness and
 `last_error`, and the API/worker CloudWatch logs. `Fareflare` metrics include browser

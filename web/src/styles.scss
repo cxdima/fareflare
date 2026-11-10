@@ -260,6 +260,13 @@ select:focus-visible,
 .btn-outline-primary.disabled {
   box-shadow: none;
 }
+/* Joined to a field, a button is part of the control: it does not lift or cast a shadow. */
+.input-group > .btn,
+.input-group > .btn:hover:not(:disabled, .disabled),
+.input-group > .btn:active:not(:disabled, .disabled) {
+  transform: none;
+  box-shadow: none;
+}
 .btn-link {
   --bs-btn-color: var(--ff-link);
   --bs-btn-hover-color: var(--ff-ink);

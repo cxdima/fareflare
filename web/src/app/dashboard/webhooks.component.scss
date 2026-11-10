@@ -31,21 +31,3 @@
   display: block;
   padding-block: 0.4rem;
 }
-.receiver-empty {
-  border: 0;
-  background: transparent;
-  text-align: left;
-  padding: 1rem 0;
-}
-.receiver-empty > .bi {
-  display: none;
-}
-.receiver-empty h2 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-.receiver-empty p {
-  margin: 0;
-  max-width: 60ch;
-  font-size: 0.85rem;
-}

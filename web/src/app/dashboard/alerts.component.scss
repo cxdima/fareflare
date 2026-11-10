@@ -12,6 +12,11 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
+@media (min-width: 576px) {
+  .alert-actions {
+    text-align: right;
+  }
+}
 @media (max-width: 575px) {
   .table-responsive {
     overflow: visible;

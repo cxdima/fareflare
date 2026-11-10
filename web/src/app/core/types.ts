@@ -121,3 +121,29 @@ export type TemplateCatalog = {
   presets: Record<TelegramPreset, Record<TemplateKey, string>>;
   limits: { characters: number; lines: number; placeholders: number };
 };
+
+export type StatusLevel = 'operational' | 'degraded' | 'major' | 'unknown';
+export interface StatusComponentReport {
+  id: string;
+  status: StatusLevel;
+  reason: 'stalled' | 'failing' | null;
+  last_run_at?: number | null;
+  checks?: number;
+  succeeded?: number;
+  sent?: number;
+}
+export interface StatusHour {
+  start: number;
+  runs: number;
+  collected: number;
+  failed: number;
+  alerts_sent: number;
+  status: 'operational' | 'degraded' | 'major' | 'none';
+}
+export interface StatusReport {
+  status: StatusLevel;
+  updated_at: number;
+  window_hours: number;
+  components: StatusComponentReport[];
+  hours: StatusHour[];
+}

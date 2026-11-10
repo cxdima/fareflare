@@ -58,30 +58,12 @@
   font-size: 0.9rem;
   line-height: 1.65;
 }
-.endpoint-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
+.endpoint-label {
   margin-top: 1.5rem;
-  margin-bottom: 0.6rem;
-}
-.endpoint-heading label {
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 .endpoint-field {
-  display: block;
-  width: 100%;
-  resize: vertical;
-  border: 1px solid var(--ff-line);
-  border-radius: 0.5rem;
-  padding: 0.9rem 1rem;
   background: var(--ff-paper);
-  color: var(--ff-ink);
   font: 0.85rem/1.65 var(--bs-font-monospace);
-  overflow-wrap: anywhere;
-  word-break: break-all;
 }
 .connection-details {
   margin-top: 1rem;
@@ -156,9 +138,6 @@ pre code {
   .connection-content {
     padding: 1.25rem 1rem;
   }
-  .endpoint-heading {
-    gap: 0.5rem;
-  }
 }
 
 .key-create summary {
@@ -178,7 +157,7 @@ pre code {
   line-height: 1.7;
 }
 .key-list {
-  padding: 0.5rem 0.25rem;
+  padding-block: 0.5rem;
 }
 .key-list h2 {
   font-size: 1rem;

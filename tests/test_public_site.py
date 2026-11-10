@@ -50,7 +50,7 @@ def json_ld(html):
 def test_public_pages_have_crawlable_content_and_matching_metadata(public_site):
     client, config = public_site
     document = client.get("/site-content.json").json()
-    assert len(document["pages"]) == 9
+    assert len(document["pages"]) == 10
     for page in document["pages"]:
         for section in page["sections"]:
             assert all(isinstance(section[key], list) for key in ("paragraphs", "bullets", "links"))

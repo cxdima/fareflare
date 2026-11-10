@@ -53,3 +53,37 @@ for (const [width, height] of [
     }
   });
 }
+
+test('the header reports system status, and its Refresh reloads the page being viewed', async ({
+  page,
+}) => {
+  const calls = await mock(page);
+  await page.goto('/app#alerts');
+  const status = page.getByRole('banner').getByRole('link', { name: /All systems working/ });
+  await expect(status).toHaveAttribute('href', '/status');
+  await expect(status).toHaveAttribute('data-status', 'operational');
+  await expect(page.getByRole('heading', { level: 1, name: 'Alert activity' })).toBeVisible();
+  // One Refresh on the page, and it reloads the alerts too.
+  await expect(page.getByRole('button', { name: /Refresh/ })).toHaveCount(1);
+  const alertReads = () => calls.filter((call) => call.path === '/v1/alerts').length;
+  await expect.poll(alertReads).toBe(1);
+  await page.getByRole('button', { name: 'Refresh dashboard', exact: true }).click();
+  await expect.poll(alertReads).toBe(2);
+
+  // Trouble is said in words, not only in colour.
+  await page.route('**/v1/status', (route) =>
+    route.fulfill({
+      json: {
+        status: 'major',
+        updated_at: 0,
+        window_hours: 24,
+        components: [],
+        hours: [],
+      },
+    }),
+  );
+  await page.getByRole('button', { name: 'Refresh dashboard', exact: true }).click();
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: /Price checks are not working/ }),
+  ).toHaveAttribute('data-status', 'major');
+});

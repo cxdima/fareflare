@@ -172,20 +172,20 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Credential written to {args.output}")
         return
     if args.command == "worker":
+        from fareflare.health import record_run
         from fareflare.public_browser import PublicGoogleFlightsProvider
         from fareflare.webhooks import RoutedSink
         from fareflare.worker import Worker
 
         sink = RoutedSink(service.webhooks) if args.deliver_webhooks else None
-        print(
-            json.dumps(
-                Worker(
-                    service,
-                    PublicGoogleFlightsProvider(args.chrome_binary, args.chromedriver),
-                    sink,
-                ).tick(max_targets=args.limit)
-            )
-        )
+        result = Worker(
+            service,
+            PublicGoogleFlightsProvider(args.chrome_binary, args.chromedriver),
+            sink,
+        ).tick(max_targets=args.limit)
+        # The status page reads the same record a scheduled worker writes.
+        record_run(service.store, int(time.time()), result)
+        print(json.dumps(result))
         return
     if args.command == "deliver-webhooks":
         from fareflare.webhooks import RoutedSink

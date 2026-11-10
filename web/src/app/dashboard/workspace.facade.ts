@@ -21,6 +21,8 @@ export class WorkspaceFacade {
   readonly monitorsLoaded = signal(false);
   readonly webhooks = signal<Webhook[]>([]);
   readonly refreshing = signal(false);
+  /** Counts refreshes someone asked for, so a page with its own data can reload it too. */
+  readonly refreshRequests = signal(0);
   readonly error = signal('');
   readonly monitorCursor = signal<string | null>(null);
   readonly loadingMoreMonitors = signal(false);
@@ -39,6 +41,12 @@ export class WorkspaceFacade {
       this.generation++;
       this.controller?.abort();
     });
+  }
+
+  /** The Refresh button: everything on screen, not only what this facade holds. */
+  async refreshAll(): Promise<void> {
+    this.refreshRequests.update((count) => count + 1);
+    await this.refresh();
   }
 
   async refresh(): Promise<void> {

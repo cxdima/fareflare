@@ -68,6 +68,11 @@
   .inline-form > div {
     min-width: 0;
   }
+  /* The action is as tall as the field it sits beside. */
+  .inline-form > .btn {
+    min-height: calc(3rem + 2px);
+    flex-shrink: 0;
+  }
   .table-subtext {
     display: block;
     font-size: 0.78rem;
@@ -87,9 +92,21 @@
     font-size: 0.9rem;
     vertical-align: middle;
   }
+  .table {
+    --bs-table-color: var(--ff-ink);
+  }
   .table-panel {
     padding: 0;
     overflow: hidden;
+  }
+  /* Wide enough for a real table: its edges line up with the panel's other content. */
+  @media (min-width: 576px) {
+    .table-panel .table > :not(caption) > * > :first-child {
+      padding-left: 1.5rem;
+    }
+    .table-panel .table > :not(caption) > * > :last-child {
+      padding-right: 1.5rem;
+    }
   }
   .status {
     display: inline-flex;
@@ -122,23 +139,40 @@
     color: #a52d29;
     background: #fbe8e2;
   }
+  /* One look for "nothing here yet", wherever it appears. */
   .empty-state {
-    padding: 3.5rem 1.5rem;
+    display: grid;
+    justify-items: center;
+    gap: 0.4rem;
+    padding: 2.75rem 1.5rem;
+    border-style: dashed;
     text-align: center;
   }
   .empty-state > .bi {
-    font-size: 2rem;
-    color: var(--ff-accent);
-    margin-bottom: 1rem;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 0.5rem;
+    border-radius: 50%;
+    background: var(--ff-soft);
+    color: var(--ff-link);
+    font-size: 1.3rem;
   }
-  .empty-state h2 {
-    font-size: 1.5rem;
-    font-weight: 500;
+  .empty-state :is(h2, h3) {
+    font-size: 1.1rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    margin: 0;
   }
   .empty-state p {
-    max-width: 30rem;
-    margin: 0 auto 1.5rem;
+    max-width: 34rem;
+    margin: 0;
     color: var(--ff-muted);
+    font-size: 0.9rem;
+  }
+  .empty-state > .btn {
+    margin-top: 0.85rem;
   }
   .page-note {
     max-width: 75ch;

@@ -38,6 +38,18 @@ plays once and is removed under reduced motion. Disabled buttons turn neutral gr
 and say nearby why they are unavailable. The page header, the page and the footer
 share one column, and choosing a page in the navigation always opens it at its top.
 
+The workspace header does not repeat the page title. It carries the system status
+in a few words, linked to `/status`, and the one Refresh button, which reloads
+whatever the page shows. "Nothing here yet" always looks the same: a dashed panel,
+an icon in a soft circle, a short title and one sentence saying what to do. A
+value to copy sits in a Bootstrap input group with its button; a field with an
+action beside it gets a button of the field's height.
+
+The status page answers one question first, in a sentence, then shows the
+evidence. State is never colour alone: each state has a word, and each hour's bar
+differs in height or pattern (solid, hatched, short, hollow) and has the same fact
+as text for screen readers and as a table.
+
 Signing in asks for one name, labeled "Email or username", and a password. Each of
 sign-in, sign-up and recovery is a page with its own address (`/login`,
 `/register`, `/recover`) and its fields carry `autocomplete` and `passwordrules`,
