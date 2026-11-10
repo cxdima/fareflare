@@ -227,7 +227,10 @@ def test_settings_keep_localization_and_explicit_actions_are_single_use(native_b
     unmuted = _press(native_bot, muted, "Turn alerts on")
     assert "already applied" in _press(native_bot, settings, "Mute alerts").text
     silent = _press(native_bot, unmuted, "Send silently")
-    _press(native_bot, silent, "Use compact messages")
+    styles = _press(native_bot, silent, "Message style")
+    assert "Current style: Detailed" in styles.text and "Example alert" in styles.text
+    chosen = _press(native_bot, styles, "Compact")
+    assert "Message style saved." in chosen.text and "Current style: Compact" in chosen.text
     prefs = service.preferences(tenant)
     assert (
         prefs["muted"] is False

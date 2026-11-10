@@ -38,8 +38,8 @@ protection rejects. Keep scheduling and delivery disabled until validation passe
 ## Release API and worker images
 
 Run backend and browser checks, then build both images. The API image packages
-`web/dist`, so build the dashboard first. Build `Dockerfile` once as the Chromium
-base; reuse a verified immutable base digest for subsequent worker releases.
+`web/dist`, so build the dashboard first. Build `Dockerfile.browser` once as the
+Chromium base; reuse a verified immutable base digest for subsequent worker releases.
 
 ```bash
 make check
@@ -50,7 +50,7 @@ npm --prefix web run build
 npm --prefix web test
 
 docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
-  -f Dockerfile -t fareflare-browser-base .
+  -f Dockerfile.browser -t fareflare-browser-base .
 docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
   -f Dockerfile.api -t "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE" .
 docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \

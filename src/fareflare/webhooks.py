@@ -275,7 +275,9 @@ class WebhookSink:
                 "created_at": delivery["observation"]["observed_at"],
                 "data": {
                     key: delivery[key]
-                    for key in ("monitor_id", "reason", "observation", "itinerary")
+                    # Alerts queued before comparison data existed keep their original body.
+                    for key in ("monitor_id", "reason", "observation", "itinerary", "previous")
+                    if key in delivery
                 },
             }
         )
@@ -295,3 +297,9 @@ class RoutedSink:
         if delivery.get("webhook_id") is not None:
             return self.webhook.send(delivery)
         return self.default.send(delivery) if self.default else False
+
+    def notify(self, notice: dict) -> bool | None:
+        """Diagnostic notices travel only on the account's own channel, never a webhook."""
+        notify = getattr(self.default, "notify", None)
+        result = notify(notice) if callable(notify) else None
+        return None if result is None else bool(result)

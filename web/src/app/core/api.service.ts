@@ -51,9 +51,11 @@ export class ApiService {
           : 'The request could not be completed. Please try again.';
       if (Array.isArray(value?.detail))
         detail = value.detail
-          .map(
-            (item: { loc?: string[]; msg?: string }) =>
-              `${item.loc?.at(-1) ?? 'Input'}: ${item.msg ?? 'Check this value'}`,
+          .map((item: { loc?: string[]; msg?: string; type?: string }) =>
+            // The service's own validation messages are complete sentences.
+            item.type === 'value_error' && item.msg
+              ? item.msg.replace(/^Value error, /, '')
+              : `${item.loc?.at(-1) ?? 'Input'}: ${item.msg ?? 'Check this value'}`,
           )
           .join('. ');
       if (response.status === 401 && !path.startsWith('/auth/') && path !== '/v1/account') {

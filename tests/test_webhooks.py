@@ -165,7 +165,15 @@ def test_two_tenants_share_collection_but_receive_distinct_signed_events(
         event = json.loads(body)
         assert event["type"] == "flight.price_alert"
         assert event["data"]["monitor_id"] == monitor["id"]
-        assert set(event["data"]) == {"monitor_id", "reason", "observation", "itinerary"}
+        assert set(event["data"]) == {
+            "monitor_id",
+            "reason",
+            "observation",
+            "itinerary",
+            "previous",
+        }
+        # The first observation has nothing earlier to compare with.
+        assert event["data"]["previous"] == {"price_minor": None, "low_minor": None}
         assert headers["webhook-id"] == event["id"]
         identifiers.add(event["id"])
         delivery = service.list_deliveries(tenant)[0]

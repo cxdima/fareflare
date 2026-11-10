@@ -44,8 +44,10 @@ scheduled collection pass; opening a menu or pressing a button does not start a
 browser search. Account quotas and supported-flight restrictions still apply.
 
 From `/flights`, choose a flight to see its latest observed price and check time.
-**Recent prices** shows five readings per page; **Earlier prices** loads more.
-The displayed low applies only to the readings on that page.
+The list follows your message style. In the classic style, flights on the same
+route and day share a heading and a flight at its lowest recorded price is marked
+`🔥 at the low`. **Recent prices** shows five readings per page; **Earlier prices**
+loads more. The low shown there applies only to the readings on that page.
 
 - **Pause watching** suspends tracking; **Resume watching** starts it again.
 - **Retry collection** appears when collection is blocked and schedules another attempt.
@@ -78,8 +80,11 @@ Rule changes apply to future observations.
 
 ## Messages and delivery
 
-`/settings` offers compact/detailed messages, silent Telegram notifications, and
-global muting. **Mute alerts also mutes webhook delivery**; checks and history
+`/settings` offers silent Telegram notifications, global muting and **Message
+style**: Detailed, Compact or Classic with emoji, each shown with an example before
+you choose it. Your own wording is written in
+[Account settings](ACCOUNT_PREFERENCES.md#message-styles-and-templates) and then
+appears in this menu as **Custom**. **Mute alerts also mutes webhook delivery**; checks and history
 continue. **Send silently** changes Telegram notification sound only. More display
 and route-muting options live in [Account settings](ACCOUNT_PREFERENCES.md).
 
@@ -88,6 +93,10 @@ time in your saved time zone. Without a saved zone, Telegram uses UTC. Validated
 flight and dashboard links appear as buttons, without long URLs or internal IDs
 in the message body. Website previews use sample data and noninteractive button
 labels; they do not send messages.
+
+If a price check cannot finish, the flight shows a short note and Fareflare tries
+again; the bot does not send error messages unless you turned on
+[technical details](ACCOUNT_PREFERENCES.md#technical-details-are-opt-in).
 
 Prices are sampled and may change before booking. Delivery is at least once: an
 ambiguous Telegram response can cause a repeated message or menu. Duplicate

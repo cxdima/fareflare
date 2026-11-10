@@ -126,7 +126,7 @@
       <i class="bi bi-telegram" aria-hidden="true"></i>
       <div>
         <h2 id="telegram-message-heading">Your Telegram message</h2>
-        <p>Choose the details you want in each price alert.</p>
+        <p>Pick a ready-made style, or write each message your own way.</p>
       </div>
     </div>
     <form class="form-stack" (submit)="saveTelegram($event)">
@@ -138,11 +138,17 @@
               id="telegram-style"
               class="form-select"
               [formField]="telegram.telegram_style"
-              (change)="telegramChanged()"
+              aria-describedby="telegram-style-help"
+              (change)="styleChanged()"
             >
               <option value="detailed">Detailed itinerary</option>
               <option value="compact">Compact, price first</option>
+              <option value="classic">Classic with emoji</option>
+              <option value="custom">Custom — write your own</option>
             </select>
+            <p id="telegram-style-help" class="form-text">
+              Classic shows how much the price changed, for example “New low! $246 (was $254)”.
+            </p>
           </div>
           <fieldset class="message-options">
             <legend>Include in alerts</legend>
@@ -175,7 +181,25 @@
                 (change)="telegramChanged()"
               /><label for="show-fare" class="form-check-label">Fare name</label>
             </div>
+            @if (custom()) {
+              <p class="form-text">
+                A custom message shows exactly what its template says, so these three choices do not
+                apply.
+              </p>
+            }
           </fieldset>
+          <div>
+            <div class="form-check">
+              <input
+                id="show-buttons"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_show_buttons"
+                (change)="telegramChanged()"
+              /><label for="show-buttons" class="form-check-label">Buttons under alerts</label>
+            </div>
+            <p class="form-text">Quick links to the flight and to your Fareflare dashboard.</p>
+          </div>
           <div>
             <div class="form-check">
               <input
@@ -195,6 +219,22 @@
           <div class="preview-heading">
             <i class="bi bi-chat-left-text" aria-hidden="true"></i><strong>Message preview</strong
             ><span>Sample</span>
+          </div>
+          <div class="preview-choice">
+            <label for="preview-kind" class="form-label">Show an example of</label
+            ><select
+              id="preview-kind"
+              class="form-select form-select-sm"
+              [value]="previewKind()"
+              [disabled]="store.saving()"
+              (change)="choosePreview($any($event.target).value)"
+            >
+              @for (kind of previewKinds; track kind.value) {
+                <option [value]="kind.value" [selected]="kind.value === previewKind()">
+                  {{ kind.label }}
+                </option>
+              }
+            </select>
           </div>
           @if (preview(); as sample) {
             <pre>{{ sample.text }}</pre>
@@ -232,9 +272,118 @@
           <p class="settings-note">Uses your saved display settings ({{ savedZone() }}).</p>
         </div>
       </div>
+      @if (custom()) {
+        <fieldset class="template-editor">
+          <legend>Your own wording</legend>
+          @if (catalog(); as available) {
+            <p class="settings-note">
+              Words in <code>{{ '{braces}' }}</code> are replaced with flight details. Put a part in
+              <code>[square brackets]</code> to hide it whenever a detail inside it is missing.
+            </p>
+            <div class="template-toolbar">
+              <div>
+                <label for="template-key" class="form-label">Message to edit</label
+                ><select
+                  id="template-key"
+                  class="form-select"
+                  [disabled]="store.saving()"
+                  (change)="editTemplate($any($event.target).value)"
+                >
+                  @for (item of available.templates; track item.key) {
+                    <option [value]="item.key" [selected]="item.key === activeTemplate()">
+                      {{ item.label }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label for="template-preset" class="form-label">Start from a style</label>
+                <div class="template-preset">
+                  <select
+                    #preset
+                    id="template-preset"
+                    class="form-select"
+                    [disabled]="store.saving()"
+                  >
+                    @for (item of presets; track item.value) {
+                      <option [value]="item.value">{{ item.label }}</option>
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    [disabled]="store.saving()"
+                    (click)="startFrom(preset.value)"
+                  >
+                    Copy wording
+                  </button>
+                </div>
+              </div>
+            </div>
+            @for (item of available.templates; track item.key) {
+              <div class="template-field" [hidden]="item.key !== activeTemplate()">
+                <label [for]="'template-' + item.key" class="form-label"
+                  >{{ item.label }} message</label
+                >
+                <textarea
+                  #area
+                  [id]="'template-' + item.key"
+                  class="form-control template-input"
+                  rows="8"
+                  spellcheck="false"
+                  [attr.aria-describedby]="'template-help-' + item.key"
+                  [formField]="templates[item.key]"
+                  (input)="telegramChanged()"
+                ></textarea>
+                <p [id]="'template-help-' + item.key" class="form-text">
+                  {{ activeLength() }} of {{ available.limits.characters }} characters.
+                  @if (item.optional) {
+                    Leave this empty for a list without headings.
+                  }
+                </p>
+                <div
+                  class="placeholder-list"
+                  role="group"
+                  [attr.aria-label]="'Details you can add to the ' + item.label + ' message'"
+                >
+                  @for (placeholder of available.placeholders[item.key]; track placeholder.name) {
+                    <button
+                      type="button"
+                      class="placeholder-chip"
+                      [disabled]="store.saving()"
+                      [title]="placeholder.description + ' — for example ' + placeholder.example"
+                      (click)="insert(item.key, placeholder.name, area)"
+                    >
+                      {{ '{' + placeholder.name + '}' }}
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+            <details class="format-details">
+              <summary>Formatting help</summary>
+              <ul class="template-help">
+                <li><code>**bold**</code>, <code>__italic__</code> and <code>`monospace`</code></li>
+                <li>
+                  <code>[Fare: {{ '{fare}' }}]</code> appears only when the fare name is known.
+                </li>
+                <li>A line with nothing left to show is removed automatically.</li>
+                <li>
+                  Put a backslash before a bracket, brace or asterisk to show it as written:
+                  <code>\[</code>.
+                </li>
+              </ul>
+            </details>
+          } @else if (catalogAction.error()) {
+            <p class="field-error" role="alert">{{ catalogAction.error() }}</p>
+          } @else {
+            <p class="settings-note" role="status">Loading the message editor…</p>
+          }
+        </fieldset>
+      }
       <p class="settings-note">
-        Price, route and booking link remain in every message. These preferences affect Telegram;
-        webhook event data stays structured and unchanged.
+        Price and route stay in every built-in style. These preferences affect Telegram; webhook
+        event data stays structured and unchanged.
       </p>
       @if (telegramAction.error()) {
         <div class="alert alert-danger" role="alert">{{ telegramAction.error() }}</div>
@@ -303,6 +452,53 @@
       <div>
         <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
           {{ muteAction.busy() ? 'Saving…' : 'Save preferences' }}
+        </button>
+      </div>
+    </form>
+  </section>
+  <section
+    class="panel preference-panel"
+    aria-labelledby="diagnostics-heading"
+    [hidden]="section() !== 'notifications'"
+  >
+    <div class="settings-heading">
+      <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
+      <div>
+        <h2 id="diagnostics-heading">Technical details</h2>
+        <p>For developers and integrators. Most people can leave this off.</p>
+      </div>
+    </div>
+    <form class="form-stack" (submit)="saveDiagnostics($event)">
+      <div>
+        <div class="form-check">
+          <input
+            id="diagnostics"
+            class="form-check-input"
+            type="checkbox"
+            [formField]="diagnostics.diagnostics"
+            aria-describedby="diagnostics-help"
+            (change)="diagnosticsSaved.set(false)"
+          /><label class="form-check-label" for="diagnostics"
+            >Show failure codes and send diagnostic notices</label
+          >
+        </div>
+        <p id="diagnostics-help" class="form-text">
+          When a price check cannot finish, Fareflare keeps trying and shows a short, plain note.
+          Turn this on to also see the failure code on each flight and to get a Telegram notice when
+          checks keep failing, stop, or recover.
+        </p>
+      </div>
+      @if (diagnosticsAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ diagnosticsAction.error() }}</div>
+      }
+      @if (diagnosticsSaved()) {
+        <p class="settings-success" role="status">
+          <i class="bi bi-check-circle" aria-hidden="true"></i>Technical settings saved.
+        </p>
+      }
+      <div>
+        <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
+          {{ diagnosticsAction.busy() ? 'Saving…' : 'Save technical settings' }}
         </button>
       </div>
     </form>

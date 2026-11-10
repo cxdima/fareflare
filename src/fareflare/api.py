@@ -18,7 +18,8 @@ from fareflare.preferences import Preferences as PreferencesInput
 from fareflare.preferences import merge_preferences
 from fareflare.service import MonitoringService, NotFound
 from fareflare.store import Conflict
-from fareflare.telegram_messages import alert_message
+from fareflare.telegram_messages import preview_message
+from fareflare.telegram_templates import template_catalog
 
 
 class PolicyInput(BaseModel):
@@ -136,6 +137,7 @@ class MonitorView(BaseModel):
     target: TargetView
     latest: ObservationView | None
     last_error: str | None
+    collection_failures: int = 0
     next_check_at: int | None
     stale: bool
     collection_status: str
@@ -153,15 +155,26 @@ class ObservationList(BaseModel):
     next_cursor: str | None = None
 
 
+class PreviousView(BaseModel):
+    """The monitor's own recorded state just before the alerting observation."""
+
+    price_minor: int | None = None
+    low_minor: int | None = None
+
+
 class AlertView(BaseModel):
     id: str
     event_id: str
     monitor_id: str
     reason: str
     observation: ObservationView
+    previous: PreviousView | None = None
     status: Literal["pending", "sent", "dead_letter", "suppressed"]
     attempts: int
     webhook_id: str | None = None
+
+
+PreviewKind = Literal["tracking_started", "new_low", "below_price", "rebound", "flight_list"]
 
 
 class AlertList(BaseModel):
@@ -372,48 +385,32 @@ def create_app(
     def update_preferences(body: PreferencesInput, tenant: Annotated[str, Depends(authenticate)]):
         return service.set_preferences(tenant, **body.model_dump(exclude_unset=True))
 
+    @app.get("/v1/preferences/telegram-templates")
+    def telegram_templates(tenant: Annotated[str, Depends(authenticate)]):
+        """Template names, placeholders, built-in presets and limits for message editors."""
+        return template_catalog()
+
     @app.post("/v1/preferences/telegram-preview")
-    def telegram_preview(body: PreferencesInput, tenant: Annotated[str, Depends(authenticate)]):
+    def telegram_preview(
+        body: PreferencesInput,
+        tenant: Annotated[str, Depends(authenticate)],
+        message: Annotated[PreviewKind, Query()] = "new_low",
+    ):
+        """Render sample data with the supplied settings. Nothing is saved or sent."""
         preferences = merge_preferences(
             service.preferences(tenant), body.model_dump(exclude_unset=True)
         )
-        sample = {
-            "id": "example-alert",
-            "reason": "new_low",
-            "observation": {
-                "amount_minor": 19100,
-                "currency": "USD",
-                "price_basis": "total",
-                "fare_name": "Economy",
-                "observed_at": int(service.clock()),
-            },
-            "itinerary": {
-                "adults": 1,
-                "url": "https://www.google.com/travel/flights?tfs=CBoQAho_EgoyMDI3LTAzLTE0Ih8KA0RFThIKMjAyNy0wMy0xNBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1",
-                "segments": [
-                    {
-                        "date": "2027-03-14",
-                        "legs": [
-                            {
-                                "origin": "DEN",
-                                "destination": "DFW",
-                                "airline": "UA",
-                                "number": "414",
-                            }
-                        ],
-                    }
-                ],
-            },
-        }
-        message = alert_message(sample, preferences, public_url)
+        preview = preview_message(message, preferences, public_url, int(service.clock()))
         buttons = [
             {"text": button["text"], "url": button["url"]}
-            for row in (message.reply_markup or {}).get("inline_keyboard", [])
+            for row in (preview.reply_markup or {}).get("inline_keyboard", [])
             for button in row
             if "url" in button
         ]
+        heading = "Example flight list" if message == "flight_list" else "Example alert"
         return {
-            "text": "Example alert — sample data\n\n" + message.text,
+            "message": message,
+            "text": f"{heading} — sample data\n\n" + preview.text,
             "buttons": buttons,
             "silent": preferences.telegram_silent,
             "time_zone": preferences.time_zone or "UTC",

@@ -72,6 +72,7 @@ def handler(event, context):
             "skipped",
             "alerts_sent",
             "alerts_suppressed",
+            "notices_sent",
             "browser_launches",
             "browser_reuses",
             "runtime_ms",

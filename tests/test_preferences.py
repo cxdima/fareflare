@@ -184,7 +184,7 @@ def test_preview_is_authenticated_uses_unsaved_values_and_has_no_side_effect(ser
         assert response.headers["cache-control"] == "no-store"
         data = response.json()
         assert data["text"].startswith("Example alert — sample data\n\n")
-        assert "America/Chicago" in data["text"] and "UA414" not in data["text"]
+        assert "America/Chicago" in data["text"] and "UA 414" not in data["text"]
         assert "USD 191,00" in data["text"]
         assert data["silent"] is True and data["time_zone"] == "America/Chicago"
         assert (
@@ -288,10 +288,10 @@ def test_compact_message_respects_independent_fields_and_keeps_trip_party(flight
             telegram_show_observed_time=False,
         ),
     )
-    assert "UA414" in detailed and "Fare: <b>Economy" in detailed
+    assert "UA 414" in detailed and "Fare: <b>Economy" in detailed
     assert "03/14/2027" in compact  # Airport-local calendar date, never zone shifted.
     assert "Total for 2 adults" in compact
-    assert all(text not in compact for text in ("UA414", "Fare:", "Observed", "Alert "))
+    assert all(text not in compact for text in ("UA 414", "Fare:", "Observed", "Alert "))
     assert len(compact.splitlines()) < len(detailed.splitlines())
     assert "https://" not in compact
     assert (

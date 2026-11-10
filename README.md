@@ -24,8 +24,12 @@ when a price meets your rule.
 - Supports new-low, target-price, and optional rebound alerts, with pause and mute controls.
 - Provides the same monitors through the dashboard, REST API, and remote MCP.
 - Delivers alerts through Telegram or signed HTTPS webhooks with durable retries.
-- Saves account time zones, regional formats, clock preferences and Telegram
-  message options, with a preview that sends no notification.
+- Saves account time zones, regional formats and clock preferences.
+- Lets each person choose how alerts read: three built-in Telegram styles or
+  their own [message templates](docs/ACCOUNT_PREFERENCES.md#message-styles-and-templates),
+  with a preview that sends no notification.
+- Stays quiet about its own problems: a failed price check shows a short plain
+  note, and technical details are an explicit opt-in for developers.
 - Shares collection for equivalent searches while keeping accounts and alert rules private.
 
 History comparisons use the observations loaded in the selected range, not every
@@ -106,13 +110,13 @@ Both API entry points use a shared script-free HTML reference. The
 | ---------------- | --------------------------------------------------------------------------- |
 | `src/fareflare/` | Domain models, account services, API/MCP, collectors, persistence, delivery |
 | `web/`           | Angular website, dashboard, and Playwright tests                            |
-| `tests/`    | Backend behavior, security, integration, and collector fixtures             |
-| `infra/`    | Terraform for the API, worker, storage, scheduling, and alarms              |
+| `tests/`         | Backend behavior, security, integration, and collector fixtures             |
+| `infra/`         | Terraform for the API, worker, storage, scheduling, and alarms              |
 | `examples/`      | Synthetic demos and a signed webhook receiver example                       |
 | `docs/`          | Setup, architecture, operations, and verification records                   |
 
 The Python package is `fareflare`; configuration keys use the `FAREFLARE_` prefix.
-Use the default Makefile commands above for the account-based application.
+Run `make help` for the available commands.
 
 ## API and MCP
 
@@ -125,8 +129,9 @@ clients that support custom headers. See [integration details](docs/INTEGRATIONS
 
 Bug reports, collector fixtures, accessibility improvements, and documentation
 changes are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and
-pull request guidance. Report vulnerabilities through the private channel in
-[SECURITY.md](SECURITY.md).
+pull request guidance, and the [code of conduct](CODE_OF_CONDUCT.md). Report
+vulnerabilities through the private channel in [SECURITY.md](SECURITY.md).
+Changes are recorded in the [changelog](CHANGELOG.md).
 
 ```bash
 make check

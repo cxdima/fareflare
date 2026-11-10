@@ -219,6 +219,14 @@
 .collection-note .bi {
   margin-right: 0.4rem;
 }
+.collection-code {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+}
+.collection-code code {
+  color: inherit;
+}
 .monitor-filters {
   min-width: 0;
 }

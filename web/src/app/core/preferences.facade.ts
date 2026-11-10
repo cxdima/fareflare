@@ -10,10 +10,13 @@ export const defaultPreferences: Preferences = {
   locale: 'en-US',
   hour_cycle: 'auto',
   telegram_style: 'detailed',
+  telegram_templates: {},
   telegram_show_flight_numbers: true,
   telegram_show_observed_time: true,
   telegram_show_fare: true,
+  telegram_show_buttons: true,
   telegram_silent: false,
+  diagnostics: false,
 };
 
 /** Dashboard-scoped preferences: never retained across account/session changes. */

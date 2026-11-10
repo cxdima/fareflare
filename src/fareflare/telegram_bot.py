@@ -28,18 +28,29 @@ from fareflare.preferences import (
 )
 from fareflare.service import MonitoringService, NotFound
 from fareflare.store import Conflict, Document, Store
-from fareflare.telegram_messages import TelegramMessage, safe_flight_url, single_line
+from fareflare.telegram_messages import (
+    STATUS_LABELS,
+    TelegramMessage,
+    flight_list,
+    flight_list_page_size,
+    flight_row_values,
+    observed_low,
+    preview_message,
+    safe_flight_url,
+    single_line,
+)
 from fareflare.telegram_rules import parse_amount, price_example
 
 _TOKEN = re.compile(r"ff:([A-Za-z0-9_-]{24})\Z")
 _MENU_SECONDS = 15 * 60
-_STATUS = {
-    "pending": "Awaiting check",
-    "active": "Watching",
-    "degraded": "Check delayed",
-    "paused": "Paused",
-    "cancelled": "Stopped",
-    "expired": "Departed",
+_STATUS = STATUS_LABELS
+# Leaves room in a 4000-character view for its title and a notice.
+_LIST_BUDGET = 3500
+_STYLE_NAMES = {
+    "detailed": "Detailed",
+    "compact": "Compact",
+    "classic": "Classic with emoji",
+    "custom": "Custom",
 }
 
 
@@ -348,14 +359,16 @@ class TelegramBot:
         lines: list[str],
         rows: list[list[dict]],
         notice: str | None = None,
+        *,
+        markup: list[str] | None = None,
     ) -> TelegramMessage:
-        parts = ([notice, ""] if notice else []) + [title, "", *lines]
-        plain = "\n".join(parts)
+        """Build a view. ``markup`` is the HTML counterpart of pre-rendered ``lines``."""
+        head = [notice, ""] if notice else []
+        plain = "\n".join([*head, title, "", *lines])
         if len(plain.encode("utf-16-le")) // 2 > 4000:
             raise ValueError("Telegram view exceeds the message limit")
-        html = "\n".join(
-            escape(part) if part != title else "<b>" + escape(part) + "</b>" for part in parts
-        )
+        body = markup if markup is not None else [escape(line) for line in lines]
+        html = "\n".join([*map(escape, head), "<b>" + escape(title) + "</b>", "", *body])
         if ctx.pending:
             _BoundStore(self.store, ctx, self._now).commit(ctx.pending)
             ctx.pending.clear()
@@ -459,34 +472,36 @@ class TelegramBot:
         return [flights, party]
 
     def _flights(self, ctx: _Context, cursor: str | None = None) -> TelegramMessage:
-        page = self.service.monitors_page(ctx.tenant, limit=5, cursor=cursor)
         prefs = self._preferences(ctx.tenant)
-        lines, rows = [], []
-        for monitor in page["items"]:
-            target, latest = monitor["target"], monitor.get("latest")
-            route = self._route(target)
-            lines += [
-                route + "  " + self._dates(target, prefs),
-                _STATUS.get(monitor["status"], "Unknown"),
-            ]
-            if latest:
-                lines.append(
-                    "Last observed "
-                    + regional_price(latest["amount_minor"], latest["currency"], prefs.locale)
-                )
-            lines.append("")
-            rows.append(
-                [
-                    self._button(
-                        ctx,
-                        route + " · " + self._dates(target, prefs),
-                        "detail",
-                        {"id": monitor["id"]},
-                    )
-                ]
+        page = self.service.monitors_page(
+            ctx.tenant, limit=flight_list_page_size(prefs), cursor=cursor
+        )
+        # Keep flights on the same route and day together so they share one heading.
+        monitors = sorted(
+            page["items"],
+            key=lambda monitor: (
+                monitor["target"]["segments"][0]["date"],
+                self._route(monitor["target"]),
+            ),
+        )
+        year = time.gmtime(self._now()).tm_year
+        lines, markup = flight_list(monitors, prefs, year)
+        if len("\n".join(lines).encode("utf-16-le")) // 2 > _LIST_BUDGET:
+            # Long custom rows must never turn the list into an error.
+            compact = prefs.model_copy(update={"telegram_style": "compact"})
+            lines, markup = flight_list(monitors, compact, year)
+        rows = []
+        for monitor in monitors:
+            values = flight_row_values(monitor, prefs, year)
+            label = " · ".join(
+                str(values[name]) for name in ("route", "date_short", "flights") if values.get(name)
             )
-        if not lines:
+            rows.append(
+                [self._button(ctx, single_line(label, 60), "detail", {"id": monitor["id"]})]
+            )
+        if not monitors:
             lines = ["No flights yet. Paste a Google Flights link to start watching."]
+            markup = [escape(lines[0])]
         if page["next_cursor"]:
             rows.append(
                 [self._button(ctx, "Next flights", "flights", {"cursor": page["next_cursor"]})]
@@ -499,7 +514,7 @@ class TelegramBot:
                 self._button(ctx, "Alert settings", "settings"),
             ]
         ]
-        return self._message(ctx, "Your flights", lines, rows)
+        return self._message(ctx, "Your flights", lines, rows, markup=markup)
 
     def _detail(self, ctx: _Context, identifier: str, notice: str | None = None) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
@@ -522,10 +537,29 @@ class TelegramBot:
             ]
             if latest.get("fare_name"):
                 lines.append("Fare: " + single_line(latest["fare_name"]))
+            low = observed_low(monitor)
+            if low is not None and latest["amount_minor"] <= low:
+                lines.append("This is the lowest price recorded so far.")
+            elif low is not None:
+                lines.append(
+                    "Lowest recorded: " + regional_price(low, latest["currency"], prefs.locale)
+                )
         else:
             lines.append("Waiting for the first price check.")
         if monitor.get("stale") and latest:
             lines.append("This price needs a fresh check.")
+        if monitor.get("last_error") and monitor["status"] in ("pending", "active", "degraded"):
+            # Plain language for everyone; codes only for accounts that asked for them.
+            if monitor.get("collection_status") == "blocked":
+                lines.append("Price checks have stopped. Choose Retry collection to try again.")
+            else:
+                lines.append("The last check could not finish. Fareflare will try again.")
+            if prefs.diagnostics:
+                failures = monitor.get("collection_failures", 0)
+                lines.append(
+                    f"Diagnostic code: {single_line(str(monitor['last_error']), 40)}"
+                    f" · failed checks in a row: {failures}"
+                )
         interval = monitor["interval_seconds"] // 60
         lines += ["", f"Checks requested every {interval} min. Prices may change before booking."]
         rows = [[self._button(ctx, "Recent prices", "history", {"id": identifier})]]
@@ -600,53 +634,83 @@ class TelegramBot:
 
     def _settings(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
+        lines = [
+            "Notifications: " + ("muted" if prefs.muted else "on"),
+            "Telegram sound: " + ("silent" if prefs.telegram_silent else "standard"),
+            "Message style: " + _STYLE_NAMES[prefs.telegram_style],
+            "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
+            "Regional format: " + prefs.locale,
+        ]
+        rows = [
+            [
+                self._button(
+                    ctx,
+                    "Turn alerts on" if prefs.muted else "Mute alerts",
+                    "preferences",
+                    {"muted": not prefs.muted},
+                )
+            ],
+            [
+                self._button(
+                    ctx,
+                    "Enable notification sound" if prefs.telegram_silent else "Send silently",
+                    "preferences",
+                    {"telegram_silent": not prefs.telegram_silent},
+                )
+            ],
+            [self._button(ctx, "Message style", "styles")],
+        ]
+        if prefs.diagnostics:
+            # Opting in happens in Account settings; opting out is one tap where notices arrive.
+            lines.append("Diagnostic notices: on")
+            rows.append(
+                [
+                    self._button(
+                        ctx, "Turn off diagnostic notices", "preferences", {"diagnostics": False}
+                    )
+                ]
+            )
+        lines += ["", "Muting stops delivery; price checks and history continue."]
+        rows += [
+            [{"text": "Time zone and more settings", "url": self.public_url + "/app#settings"}],
+            [self._button(ctx, "My flights", "flights")],
+        ]
+        return self._message(ctx, "Your alert settings", lines, rows, notice)
+
+    def _styles(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
+        prefs = self._preferences(ctx.tenant)
+        sample = preview_message("new_low", prefs, None, self._now())
+        intro = [
+            "Current style: " + _STYLE_NAMES[prefs.telegram_style],
+            "",
+            "Example alert with sample data:",
+            "",
+        ]
+        styles = ["detailed", "compact", "classic"]
+        if prefs.telegram_templates or prefs.telegram_style == "custom":
+            styles.append("custom")
+        rows = [
+            [
+                self._button(
+                    ctx,
+                    ("✓ " if style == prefs.telegram_style else "") + _STYLE_NAMES[style],
+                    "preferences",
+                    {"telegram_style": style},
+                )
+            ]
+            for style in styles
+        ]
+        rows += [
+            [{"text": "Write your own messages", "url": self.public_url + "/app#settings"}],
+            [self._button(ctx, "Back to alert settings", "settings")],
+        ]
         return self._message(
             ctx,
-            "Your alert settings",
-            [
-                "Notifications: " + ("muted" if prefs.muted else "on"),
-                "Telegram sound: " + ("silent" if prefs.telegram_silent else "standard"),
-                "Message style: " + prefs.telegram_style,
-                "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
-                "Regional format: " + prefs.locale,
-                "",
-                "Muting stops delivery; price checks and history continue.",
-            ],
-            [
-                [
-                    self._button(
-                        ctx,
-                        "Turn alerts on" if prefs.muted else "Mute alerts",
-                        "preferences",
-                        {"muted": not prefs.muted},
-                    )
-                ],
-                [
-                    self._button(
-                        ctx,
-                        "Enable notification sound" if prefs.telegram_silent else "Send silently",
-                        "preferences",
-                        {"telegram_silent": not prefs.telegram_silent},
-                    )
-                ],
-                [
-                    self._button(
-                        ctx,
-                        "Use detailed messages"
-                        if prefs.telegram_style == "compact"
-                        else "Use compact messages",
-                        "preferences",
-                        {
-                            "telegram_style": "detailed"
-                            if prefs.telegram_style == "compact"
-                            else "compact"
-                        },
-                    )
-                ],
-                [{"text": "Time zone and more settings", "url": self.public_url + "/app#settings"}],
-                [self._button(ctx, "My flights", "flights")],
-            ],
+            "Message style",
+            [*intro, *sample.text.split("\n")],
+            rows,
             notice,
+            markup=[*map(escape, intro), *(sample.html or "").split("\n")],
         )
 
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
@@ -954,6 +1018,8 @@ class TelegramBot:
             return self._history(ctx, params["id"], params.get("cursor"))
         if kind == "settings":
             return self._settings(ctx)
+        if kind == "styles":
+            return self._styles(ctx)
         if kind == "add":
             return self._add_help(ctx)
         if kind == "stop-confirm":
@@ -998,6 +1064,8 @@ class TelegramBot:
         if kind == "preferences":
             service.set_preferences(ctx.tenant, **params)
             guarded.complete()
+            if "telegram_style" in params:
+                return self._styles(ctx, "Message style saved.")
             return self._settings(ctx, "Alert settings saved.")
         if kind == "policy":
             service.set_policy(ctx.tenant, params["monitor_id"], AlertPolicy(**params["policy"]))

@@ -9,7 +9,8 @@
 - [API, MCP, and webhooks](INTEGRATIONS.md): integration contracts, authentication,
   signatures, and delivery behavior.
 - [Account preferences](ACCOUNT_PREFERENCES.md): time zones, regional formatting,
-  Telegram messages, muting and their API/MCP contract.
+  Telegram message styles and templates, muting, opt-in diagnostics and their
+  API/MCP contract.
 - [Telegram guide](TELEGRAM.md): connect once, manage flights and alert rules,
   review prices, and control messages in chat.
 - [Operations](OPERATIONS.md): invitations, Terraform, image releases, Telegram,
@@ -27,6 +28,7 @@
 
 ## Status and evidence
 
+- [Changelog](../CHANGELOG.md): what changed in each release, with upgrade notes.
 - [Development status](DEVELOPMENT_STATUS.md): implemented capabilities and remaining work.
 - [Workspace design verification](UI_REFINEMENT_VERIFICATION.md): visual review,
   responsive controls, settings sections and release checks.

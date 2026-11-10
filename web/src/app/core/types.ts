@@ -45,6 +45,7 @@ export type Monitor = {
   latest: Observation | null;
   stale: boolean;
   last_error: string | null;
+  collection_failures?: number;
   collection_status: string;
   next_check_at: number | null;
   webhook_id: string | null;
@@ -85,9 +86,24 @@ export type Preferences = {
   time_zone: string | null;
   locale: 'en-US' | 'en-GB' | 'de-DE' | 'fr-FR' | 'es-ES' | 'uk-UA';
   hour_cycle: 'auto' | 'h12' | 'h23';
-  telegram_style: 'detailed' | 'compact';
+  telegram_style: TelegramStyle;
+  telegram_templates: Partial<Record<TemplateKey, string>>;
   telegram_show_flight_numbers: boolean;
   telegram_show_observed_time: boolean;
   telegram_show_fare: boolean;
+  telegram_show_buttons: boolean;
   telegram_silent: boolean;
+  diagnostics: boolean;
+};
+export type TelegramStyle = 'detailed' | 'compact' | 'classic' | 'custom';
+export type TelegramPreset = Exclude<TelegramStyle, 'custom'>;
+export type TemplateKey =
+  'tracking_started' | 'new_low' | 'below_price' | 'rebound' | 'flight_group' | 'flight_row';
+export type PreviewKind = Exclude<TemplateKey, 'flight_group' | 'flight_row'> | 'flight_list';
+export type TemplatePlaceholder = { name: string; description: string; example: string };
+export type TemplateCatalog = {
+  templates: { key: TemplateKey; label: string; optional: boolean }[];
+  placeholders: Record<TemplateKey, TemplatePlaceholder[]>;
+  presets: Record<TelegramPreset, Record<TemplateKey, string>>;
+  limits: { characters: number; lines: number; placeholders: number };
 };

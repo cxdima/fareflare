@@ -40,8 +40,9 @@ npm --prefix web run build
 npm --prefix web test
 ```
 
-`make check` compiles Python, runs Pyright and Ruff, and executes pytest with
-an 80% minimum coverage threshold for `fareflare`. Add behavioral tests for changed
+`make check` runs Ruff (lint and formatting), compiles Python, runs Pyright, and
+executes pytest with an 80% minimum coverage threshold for `fareflare`. `make format`
+applies Ruff's fixes and formatting. Add behavioral tests for changed
 rules, tenant isolation, retries, money handling, and failure paths. Backend tests
 must not read real credentials or contact AWS or Google.
 
@@ -67,6 +68,34 @@ include screenshots for visible changes. Describe configuration or data-migratio
 requirements explicitly. Do not commit generated builds, local databases, secrets,
 Terraform state, or private test artifacts.
 
+Add a line to [CHANGELOG.md](CHANGELOG.md) for anything a user or operator would notice.
+
+## Dependencies
+
+Python dependencies are pinned in `requirements.txt` and `requirements-dev.txt` and
+installed from hash-locked files. After changing a pin, regenerate both locks with
+[uv](https://docs.astral.sh/uv/) and commit them together:
+
+```bash
+uv pip compile requirements.txt --python .venv/bin/python --generate-hashes \
+  --output-file requirements.lock
+uv pip compile requirements-dev.txt --python .venv/bin/python --generate-hashes \
+  --output-file requirements-dev.lock
+```
+
+Frontend dependencies use exact versions in `web/package.json` with
+`web/package-lock.json`. GitHub Actions and container base images are pinned to
+commit or image digests.
+
+## Message wording
+
+Text that people read in Telegram or the dashboard uses plain language: say what
+happened and what, if anything, to do next. Failure codes and other technical
+detail are shown only to accounts that turned on diagnostics. New details for
+message templates are added to the vocabulary in `telegram_templates.py` and
+produced in `telegram_messages.py`; templates never evaluate expressions.
+
 By contributing, you agree that your changes are distributed under the repository's
-[MIT license](LICENSE). Be respectful, discuss the code rather than the person,
-and give reviewers enough context to reproduce your result.
+[MIT license](LICENSE) and to follow the [code of conduct](CODE_OF_CONDUCT.md).
+Be respectful, discuss the code rather than the person, and give reviewers enough
+context to reproduce your result.

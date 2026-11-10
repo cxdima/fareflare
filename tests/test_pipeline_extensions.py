@@ -351,7 +351,7 @@ def test_telegram_alert_shows_the_flight_party_and_human_readable_time(service, 
 
     sink = TelegramSink("123:" + "a" * 25, {"alice": "111"}, httpx.MockTransport(route))
     assert service.deliver_due(sink) == 1
-    assert "<b>DEN → DFW</b> · 03/14/2027 · UA414" in messages[0]
+    assert "<b>DEN → DFW</b> · 03/14/2027 · UA 414" in messages[0]
     assert "Total for 1 adult" in messages[0]
     assert "11/02/2026" in messages[0] and "UTC" in messages[0]
 

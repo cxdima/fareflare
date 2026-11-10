@@ -84,8 +84,8 @@ preference. With no saved zone, the website uses device time and Telegram uses
 UTC. Save a named zone to keep both consistent. Flight departure dates stay in
 the airport's calendar; fare amounts retain their original currency.
 
-Under **Notifications**, choose detailed or compact Telegram messages, optional flight/fare/timestamp
-details, and silent delivery. **Preview message** displays sample content without
+Under **Notifications**, choose a Telegram message style (detailed, compact, classic with
+emoji, or your own wording), optional flight/fare/timestamp details, and silent delivery. **Preview message** displays sample content without
 saving changes or sending a notification. Global and route muting stop outgoing
 alerts while collection continues. See [account preferences](ACCOUNT_PREFERENCES.md)
 for defaults, partial API/MCP updates and formatting limits.
@@ -153,7 +153,7 @@ flow alone does not establish successful alert delivery.
 
 `infra/` provisions a DynamoDB document store, an ARM64 browser worker, a separate
 API Lambda, an HTTP API, a schedule, scoped IAM permissions, and CloudWatch alarms.
-Build the browser-base `Dockerfile` as `fareflare-browser-base`, then build `Dockerfile.worker`
+Build `Dockerfile.browser` as `fareflare-browser-base`, then build `Dockerfile.worker`
 for collection. Build the dashboard before `Dockerfile.api`. Push both images to your
 own ECR repositories and supply immutable digest URIs to Terraform.
 Follow the [release procedure](OPERATIONS.md#release-api-and-worker-images) to keep

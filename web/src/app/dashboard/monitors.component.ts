@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../core/api.service';
+import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
@@ -22,6 +23,8 @@ import { AirlineComponent } from './shared/airline.component';
 export class MonitorsComponent {
   readonly workspace = inject(WorkspaceFacade);
   readonly presenter = inject(MonitorPresenter);
+  /** Technical details are shown only to accounts that asked for them. */
+  readonly preferences = inject(PreferencesFacade);
   readonly action = new ActionState();
   private readonly api = inject(ApiService);
   readonly money = (amount: number, currency: string) => this.regional.money(amount, currency);

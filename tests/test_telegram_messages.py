@@ -198,7 +198,7 @@ def test_delivery_respects_compact_visibility_regional_format_and_silent_mode(
     plain = ParsedMessage(payload["text"]).text
     assert plain.startswith(expected)
     assert "14.03.2027" in plain and "Total for 2 adults" in plain
-    assert all(value not in plain for value in ("UA414", "Fare:", "Observed", "Alert "))
+    assert all(value not in plain for value in ("UA 414", "Fare:", "Observed", "Alert "))
     assert len(payload["reply_markup"]["inline_keyboard"][0]) == 2
 
 

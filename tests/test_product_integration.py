@@ -204,7 +204,7 @@ def test_warm_api_gateway_invocations_preserve_cookies_and_stateless_mcp(product
                 {**MCP_HEADERS, "Authorization": "Bearer " + key},
             )
             assert result["statusCode"] == 200, result
-            assert len(json.loads(result["body"])["result"]["tools"]) == 20
+            assert len(json.loads(result["body"])["result"]["tools"]) == 21
         anonymous = invoke("/mcp", "POST", {}, MCP_HEADERS)
         assert anonymous["statusCode"] == 401
         assert "resource_metadata" in anonymous["headers"]["www-authenticate"]

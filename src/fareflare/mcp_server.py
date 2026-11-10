@@ -219,8 +219,13 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
 
     @server.tool()
     async def get_preferences() -> dict[str, Any]:
-        """Read account display, Telegram message and alert-muting preferences."""
+        """Read account display, Telegram message style, muting and diagnostics preferences."""
         return await call("GET", "v1/preferences")
+
+    @server.tool()
+    async def get_message_templates() -> dict[str, Any]:
+        """List Telegram message templates, their placeholders, built-in presets and limits."""
+        return await call("GET", "v1/preferences/telegram-templates")
 
     @server.tool()
     async def set_preferences(
@@ -228,7 +233,11 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
         muted_routes: list[str] | None = None,
         settings: Preferences | None = None,
     ) -> dict[str, Any]:
-        """Update only supplied preferences; routes use DEN-DFW. Settings include timezone and Telegram format."""
+        """Update only supplied preferences; routes use DEN-DFW.
+
+        Settings include the time zone, Telegram message style and templates, and
+        diagnostics. Call get_message_templates for valid template placeholders.
+        """
         body = settings.model_dump(exclude_unset=True) if settings else {}
         if muted is not None:
             body["muted"] = muted

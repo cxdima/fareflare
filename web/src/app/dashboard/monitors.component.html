@@ -156,6 +156,12 @@
           <p class="collection-note">
             <i class="bi bi-info-circle" aria-hidden="true"></i> The last check could not finish.
             {{ collectionMessage(monitor) }}
+            @if (preferences.value().diagnostics) {
+              <span class="collection-code"
+                >Diagnostic code: <code>{{ monitor.last_error }}</code> · failed checks in a row:
+                {{ monitor.collection_failures ?? 0 }}</span
+              >
+            }
           </p>
         }
         <footer class="ticket-actions">

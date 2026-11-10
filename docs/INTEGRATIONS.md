@@ -67,7 +67,10 @@ Redirects and environment proxies are disabled. DNS/socket work has a total dead
 response bodies are not downloaded. Ten non-deleted endpoints are allowed per tenant.
 
 Alerts use `type: "flight.price_alert"`; `data` contains `monitor_id`, `reason`,
-`observation`, and `itinerary`. Prices retain their currency, minor units, and timestamp.
+`observation`, `itinerary`, and `previous`. `previous.price_minor` and
+`previous.low_minor` are the monitor's own last price and lowest price before this
+observation, or `null` for its first; an alert queued by an earlier release omits
+`previous`. Prices retain their currency, minor units, and timestamp.
 The `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers follow
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md).
 Use `fareflare.webhook_http.verify_webhook(secret, raw_body, headers)` or a compatible

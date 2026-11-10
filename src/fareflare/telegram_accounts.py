@@ -20,9 +20,9 @@ import httpx
 from fareflare.accounts import Accounts, AuthenticationFailed
 from fareflare.credentials import RateLimited, RateLimiter
 from fareflare.delivery import TelegramSink, install_telegram_log_redaction
-from fareflare.preferences import merge_preferences
+from fareflare.preferences import stored_preferences
 from fareflare.store import Conflict, Document, Store
-from fareflare.telegram_messages import TelegramMessage
+from fareflare.telegram_messages import TelegramMessage, collection_notice
 
 if TYPE_CHECKING:
     from fareflare.service import MonitoringService
@@ -630,7 +630,35 @@ class TelegramConnections:
             {tenant: binding.data["chat_id"]},
             transport=self._transport,
             public_url=self.public_url,
-            preferences=merge_preferences(
+            preferences=stored_preferences(
                 preferences.data.get("preferences") if preferences else None
             ),
         ).send(delivery)
+
+    def notify(self, notice: dict) -> bool | None:
+        """Send an opt-in diagnostic notice. ``None`` means no chat can receive it."""
+        tenant = notice.get("tenant")
+        if not isinstance(tenant, str) or not tenant.startswith("acct_"):
+            return None
+        try:
+            epoch = self.accounts.auth_epoch(tenant)
+        except AuthenticationFailed:
+            return None
+        binding = self._binding(tenant, epoch)
+        if not binding:
+            return None  # The dashboard still shows the status; nothing is pushed.
+        saved = self.store.get("tenant:" + tenant)
+        preferences = stored_preferences(saved.data.get("preferences") if saved else None)
+        message = collection_notice(notice, notice["monitor"], preferences, self.public_url)
+        result = self._call(
+            "sendMessage",
+            {
+                "chat_id": binding.data["chat_id"],
+                **message.payload(),
+                "disable_notification": preferences.telegram_silent,
+            },
+        )
+        # A blocked bot cannot be reached; retrying would not change that.
+        return result.get("ok") is True or (
+            result.get("http_status") == 403 and result.get("error_code") == 403
+        )

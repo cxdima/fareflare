@@ -1,0 +1,36 @@
+# Dependencies are pinned with hashes or digests; Dependabot proposes the bumps.
+# Python requirements are compiled with uv, so refresh the lock files in the same
+# pull request: see CONTRIBUTING.md.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      angular:
+        patterns: ["@angular/*"]
+      frontend:
+        patterns: ["*"]
+        exclude-patterns: ["@angular/*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: terraform
+    directory: /infra
+    schedule:
+      interval: monthly

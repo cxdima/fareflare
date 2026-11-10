@@ -22,9 +22,15 @@ from fareflare.contracts import (
 from fareflare.domain import AlertPolicy, evaluate
 from fareflare.links import import_link
 from fareflare.outbox import DeliveryOutbox
-from fareflare.preferences import merge_preferences
+from fareflare.preferences import merge_preferences, stored_preferences
 from fareflare.store import Conflict, Document, Store
 from fareflare.webhooks import WebhookRegistry, WebhookTransport
+
+# A burst of early retries is normal; only a sustained run is worth a notice.
+FAILURE_NOTICE_THRESHOLD = 5
+_NOTICE_LIFETIME = 2 * 86400
+_NOTICE_ATTEMPTS = 3
+_MAX_NOTICES = 50
 
 
 class NotFound(LookupError):
@@ -223,6 +229,7 @@ class MonitoringService:
             "target": target.data["spec"],
             "latest": target.data.get("latest"),
             "last_error": target.data.get("last_error"),
+            "collection_failures": target.data.get("failures", 0),
             "next_check_at": None
             if target.partition in ("targets_blocked", "targets_expired")
             else target.due,
@@ -380,6 +387,17 @@ class MonitoringService:
             "lease_token": None,
             "lease_until": 0,
         }
+        recovered = (
+            self._collection_notices(
+                self._active_subscribers(reading.target_id),
+                "collection_recovered",
+                None,
+                0,
+                run_id,
+            )
+            if data.pop("failure_noticed", False)
+            else []
+        )
         self.store.commit(
             [
                 target.update(data, due=self._now() + data["interval_seconds"]),
@@ -396,9 +414,108 @@ class MonitoringService:
                     {"id": event_id, "sequence": sequence, "observation": observation},
                     due=reading.observed_at,
                 ),
+                *recovered,
             ]
         )
         return True
+
+    def _collection_notices(
+        self, monitors: list[Document], kind: str, code: str | None, failures: int, run_id: str
+    ) -> list[Document]:
+        """Queue diagnostic notices, only for accounts that opted in to receive them."""
+        notices = []
+        for monitor in monitors[: _MAX_NOTICES * 4]:
+            if len(notices) >= _MAX_NOTICES:
+                break
+            tenant = monitor.data["tenant"]
+            if not self.preferences(tenant)["diagnostics"]:
+                continue
+            identifier = _digest(f"{kind}:{monitor.data['id']}:{run_id}")
+            notices.append(
+                Document(
+                    "notice:" + identifier,
+                    "notices_pending",
+                    {
+                        "id": identifier,
+                        "tenant": tenant,
+                        "monitor_id": monitor.data["id"],
+                        "kind": kind,
+                        "code": code,
+                        "failures": failures,
+                        "created_at": self._now(),
+                        "attempts": 0,
+                    },
+                    due=self._now(),
+                    expires_at=self._now() + _NOTICE_LIFETIME,
+                )
+            )
+        return notices
+
+    def deliver_notices(
+        self,
+        sink: object | None,
+        limit: int = 20,
+        *,
+        should_continue: Callable[[], bool] | None = None,
+    ) -> int:
+        """Send queued diagnostic notices; at-least-once, and dropped after a few attempts.
+
+        A sink reports ``True`` when sent, ``False`` to retry, and ``None`` when
+        the account has no channel that can carry a notice. ``should_continue``
+        is consulted before each notice so a slow channel cannot outrun a budget.
+        """
+        notify = getattr(sink, "notify", None)
+        sent = 0
+        for candidate in self.store.page("notices_pending", self._now(), limit=limit).items:
+            if should_continue is not None and not should_continue():
+                break
+            notice = self.store.get(candidate.key)
+            if not notice or notice.partition != "notices_pending" or notice.due > self._now():
+                continue
+            data = notice.data
+            try:
+                monitor = self.get_monitor(data["tenant"], data["monitor_id"])
+                wanted = (
+                    callable(notify)
+                    and self.preferences(data["tenant"])["diagnostics"]
+                    and monitor["status"] in ("pending", "active", "degraded")
+                    and not self.notifications_muted(monitor)
+                )
+            except (NotFound, ValueError):
+                monitor, wanted = None, False
+            outcome = None
+            if wanted and callable(notify):
+                attempts = data.get("attempts", 0) + 1
+                try:
+                    # Lease before I/O so a concurrent worker cannot send it twice.
+                    self.store.commit(
+                        [notice.update({**data, "attempts": attempts}, due=self._now() + 300)]
+                    )
+                except Conflict:
+                    continue
+                try:
+                    outcome = notify({**data, "monitor": monitor})
+                except Exception:
+                    outcome = False
+                sent += int(outcome is True)
+                if outcome is False and attempts < _NOTICE_ATTEMPTS:
+                    continue
+                notice = self.store.get(notice.key)
+                if notice is None:
+                    continue
+            try:
+                self.store.commit(
+                    [
+                        notice.update(
+                            notice.data,
+                            partition="notices_done",
+                            expires_at=self._now() + 7 * 86400,
+                        )
+                    ]
+                )
+            except Conflict:
+                continue
+        return sent
 
     @staticmethod
     def _verify_observed_offer(target: dict, reading: Reading) -> None:
@@ -521,6 +638,17 @@ class MonitoringService:
                         "lease_token": None,
                         "lease_until": 0,
                     }
+                    notices = []
+                    if not failure.retryable or failures == FAILURE_NOTICE_THRESHOLD:
+                        notices = self._collection_notices(
+                            subscribers,
+                            "collection_failing" if failure.retryable else "collection_blocked",
+                            failure.code,
+                            failures,
+                            token,
+                        )
+                    if notices:
+                        data["failure_noticed"] = True
                     try:
                         self.store.commit(
                             [
@@ -529,7 +657,8 @@ class MonitoringService:
                                     partition="targets" if failure.retryable else "targets_blocked",
                                     due=self._now()
                                     + random.randint(30, min(60 * 2 ** min(failures, 6), 3600)),
-                                )
+                                ),
+                                *notices,
                             ]
                         )
                     except Conflict:
@@ -605,6 +734,11 @@ class MonitoringService:
                         "monitor_id": data["id"],
                         "reason": reason,
                         "observation": observation,
+                        # The monitor's own state before this observation.
+                        "previous": {
+                            "price_minor": data["rule_state"].get("price_minor"),
+                            "low_minor": data["rule_state"].get("low_minor"),
+                        },
                         "status": "pending",
                         "attempts": 0,
                         "sequence": sequence,
@@ -728,7 +862,7 @@ class MonitoringService:
     def preferences(self, tenant: str) -> dict:
         self._tenant(tenant)
         doc = self.store.get("tenant:" + tenant)
-        return merge_preferences(doc.data.get("preferences") if doc else None).model_dump()
+        return stored_preferences(doc.data.get("preferences") if doc else None).model_dump()
 
     def set_preferences(
         self,
@@ -747,7 +881,7 @@ class MonitoringService:
             doc = self.store.get("tenant:" + tenant) or Document(
                 "tenant:" + tenant, "tenants", {"monitors": 0}
             )
-            current = merge_preferences(doc.data.get("preferences"))
+            current = stored_preferences(doc.data.get("preferences"))
             preferences = merge_preferences(current.model_dump(), updates)
             if current == preferences:
                 return preferences.model_dump()

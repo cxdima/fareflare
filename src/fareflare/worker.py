@@ -32,6 +32,7 @@ class Worker:
             "events_processed": 0,
             "alerts_sent": 0,
             "alerts_suppressed": 0,
+            "notices_sent": 0,
             "shadow": self.sink is None,
             "browser_launches": 0,
             "browser_reuses": 0,
@@ -76,5 +77,12 @@ class Worker:
                 counts["alerts_sent"] += done
             if not done:
                 break
+        # Diagnostics are optional extras: price alerts above always go first.
+        if self.sink is not None:
+            counts["notices_sent"] = self.service.deliver_notices(
+                self.sink,
+                limit=10,
+                should_continue=lambda: self.monotonic() - started < budget_seconds - 12,
+            )
         counts["runtime_ms"] = int((self.monotonic() - started) * 1000)
         return counts
