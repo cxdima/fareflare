@@ -1,5 +1,5 @@
 # The dashboard is built/tested with npm ci && npm run build before packaging.
-FROM public.ecr.aws/lambda/python:3.12@sha256:0fe974382dcb297e80e7feb8c7620d7e8ece5b42b4d01a5a9ffe939c654bf8b0
+FROM public.ecr.aws/lambda/python:3.12@sha256:78ddf4a5976d09b7a9118f1fb2cbe3906da992e96e673d1bfdd711de10967bd8
 COPY requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 COPY src/fareflare ./fareflare
