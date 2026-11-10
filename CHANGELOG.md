@@ -90,6 +90,11 @@ Notable changes to Fareflare. The format follows
 - A wrong password when deleting an account is answered with 403 instead of 401.
   Sign-in failures read "Incorrect email, username or password".
 - The `/flights` list orders flights on the same route and day by departure time.
+- A dashboard flight no longer shows "The last check could not finish" after a
+  single failed check. Such a check is retried within a couple of minutes and
+  usually succeeds; the note appears from the second failure in a row, or at once
+  when checks have stopped. It now says "We will keep trying" instead of naming
+  the next scheduled check, which was not when the retry happened.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.

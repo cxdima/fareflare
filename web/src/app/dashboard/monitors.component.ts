@@ -180,11 +180,22 @@ export class MonitorsComponent {
       };
     });
   }
+  /**
+   * Whether failed checks are worth a note. One failed check is retried within a
+   * couple of minutes and usually succeeds, so it is not; a run of them is, and so
+   * is a stop. A service that does not count failures keeps the note.
+   */
+  failing(item: Monitor): boolean {
+    return (
+      !!item.last_error &&
+      (item.collection_status === 'blocked' || (item.collection_failures ?? 2) > 1)
+    );
+  }
   collectionMessage(item: Monitor): string {
     if (!this.current(item)) return 'This monitor is no longer checking prices.';
     if (item.status === 'paused') return 'Resume this monitor when you want to check again.';
     if (item.collection_status === 'blocked') return 'Use Retry collection to try again.';
-    return 'We will try again at the next scheduled check.';
+    return 'We will keep trying.';
   }
   async change(item: Monitor, status: string): Promise<void> {
     await this.action.run(async () => {

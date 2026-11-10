@@ -70,6 +70,40 @@ test('a flight says how its price stands against the lowest recorded and when it
   ).toEqual([]);
 });
 
+test('one failed check is retried quietly; a run of them, or a stop, is explained', async ({
+  page,
+}) => {
+  await mock(page);
+  const failed = (id: string, failures: number | undefined, extra = {}) =>
+    watched(id, {
+      last_error: 'provider_error',
+      collection_failures: failures,
+      collection_status: 'backoff',
+      ...extra,
+    });
+  await flights(page, () => [
+    // Retried within a couple of minutes: an old price still says it is waiting.
+    failed('a', 1, { stale: true }),
+    failed('b', 2),
+    // Checks that have stopped are shown at once, however few failed.
+    failed('c', 1, { last_error: 'provider_blocked', collection_status: 'blocked' }),
+    // An older service that does not count failures.
+    failed('d', undefined),
+  ]);
+  await page.goto('/app');
+  const cards = page.getByRole('article');
+  await expect(cards).toHaveCount(4);
+  const note = (index: number) => cards.nth(index).locator('.collection-note');
+  await expect(note(0)).toHaveCount(0);
+  await expect(cards.nth(0).getByText('Waiting for an updated price')).toBeVisible();
+  await expect(note(1)).toHaveText('The last check could not finish. We will keep trying.');
+  await expect(cards.nth(1).getByText('Waiting for an updated price')).toHaveCount(0);
+  await expect(note(2)).toHaveText(
+    'The last check could not finish. Use Retry collection to try again.',
+  );
+  await expect(note(3)).toHaveText('The last check could not finish. We will keep trying.');
+});
+
 test('a first visit offers one thing to do and explains where a flight link comes from', async ({
   page,
 }) => {

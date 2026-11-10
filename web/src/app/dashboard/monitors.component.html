@@ -182,7 +182,7 @@
                 monitor.stale &&
                 current(monitor) &&
                 monitor.status !== 'paused' &&
-                !monitor.last_error
+                !failing(monitor)
               ) {
                 <span class="freshness-note">Waiting for an updated price</span>
               }
@@ -198,7 +198,7 @@
             }
           </div>
         </div>
-        @if (monitor.last_error) {
+        @if (failing(monitor)) {
           <p class="collection-note">
             <i class="bi bi-info-circle" aria-hidden="true"></i> The last check could not finish.
             {{ collectionMessage(monitor) }}
