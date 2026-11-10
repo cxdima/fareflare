@@ -77,11 +77,13 @@ installed from hash-locked files. After changing a pin, regenerate both locks wi
 [uv](https://docs.astral.sh/uv/) and commit them together:
 
 ```bash
-uv pip compile requirements.txt --python .venv/bin/python --generate-hashes \
-  --output-file requirements.lock
-uv pip compile requirements-dev.txt --python .venv/bin/python --generate-hashes \
-  --output-file requirements-dev.lock
+make lock
 ```
+
+`make check` fails when a pin and its lock disagree. Dependabot can edit the pins
+but not the locks, so a Python update from it needs `make lock` before it is merged.
+Updates to `selenium` and `awslambdaric` also need a container build and one live
+collection, because the test suite does not start a real browser or Lambda runtime.
 
 Frontend dependencies use exact versions in `web/package.json` with
 `web/package-lock.json`. GitHub Actions and container base images are pinned to

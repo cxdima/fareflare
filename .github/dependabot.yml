@@ -1,36 +1,58 @@
 # Dependencies are pinned with hashes or digests; Dependabot proposes the bumps.
-# Python requirements are compiled with uv, so refresh the lock files in the same
-# pull request: see CONTRIBUTING.md.
+# Minor and patch releases arrive as one grouped pull request per ecosystem.
+# Python requirements are compiled with uv, so run `make lock` in the same pull
+# request: `make check` fails until the lock files match. See CONTRIBUTING.md.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
       python:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: npm
     directory: /web
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
       angular:
         patterns: ["@angular/*"]
+        update-types: ["minor", "patch"]
       frontend:
         patterns: ["*"]
         exclude-patterns: ["@angular/*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Angular decides which TypeScript major it supports.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # The project targets Python 3.12; moving the runtime is a deliberate change
+      # to pyproject.toml, CI and both images together. Digest updates still arrive.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: lambda/python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: terraform
     directory: /infra
     schedule:
       interval: monthly
+    ignore:
+      # A provider major needs a reviewed plan against the deployed state.
+      - dependency-name: hashicorp/aws
+        update-types: ["version-update:semver-major"]

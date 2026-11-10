@@ -38,8 +38,10 @@ Notable changes to Fareflare. The format follows
   recover. It is off by default; without it, people see only a short plain note.
 - `collection_failures` on monitors: consecutive failed checks.
 - `telegram_show_buttons` to send alerts without link buttons.
-- `make worker`, `make mcp` and `make format`; CodeQL and Dependabot
+- `make worker`, `make mcp`, `make format` and `make lock`; CodeQL and Dependabot
   configuration; a code of conduct, `CODEOWNERS` and `.editorconfig`.
+- `make check` fails when a pinned requirement and its hash-locked file disagree,
+  so a dependency bump cannot look tested while installing the old version.
 
 ### Changed
 
@@ -52,6 +54,7 @@ Notable changes to Fareflare. The format follows
 - The stdio MCP adapter needs only `FAREFLARE_API_KEY`; a local development
   configuration file is no longer required.
 - Python sources are formatted with Ruff, and `make check` enforces it.
+- Updated boto3 to 1.43, Ruff to 0.17.4, Angular to 22.2.5 and Playwright to 1.65.
 - One version number is published by the Python package, the API and the dashboard.
 - Paths that carried an earlier codename were renamed. Update local scripts:
 

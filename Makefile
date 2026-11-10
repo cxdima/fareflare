@@ -1,10 +1,11 @@
-.PHONY: help install build serve invite worker mcp test lint format check demo webhook-demo
+.PHONY: help install lock build serve invite worker mcp test lint format check demo webhook-demo
 
 PYTHON ?= .venv/bin/python
 PYTHON_SOURCES = src tests scripts examples web/tests/serve_portal.py
 
 help:
 	@echo "make install       Install locked Python development dependencies"
+	@echo "make lock          Regenerate the hash-locked requirement files (needs uv)"
 	@echo "make build         Install frontend dependencies and build the website"
 	@echo "make serve         Serve the website, API, and MCP at http://127.0.0.1:8001"
 	@echo "make invite        Write a local invitation to .fareflare/invitation.json"
@@ -19,6 +20,12 @@ help:
 
 install:
 	@$(PYTHON) -m pip install --require-hashes -r requirements-dev.lock
+
+lock:
+	@uv pip compile requirements.txt --python $(PYTHON) --generate-hashes --quiet \
+		--output-file requirements.lock
+	@uv pip compile requirements-dev.txt --python $(PYTHON) --generate-hashes --quiet \
+		--output-file requirements-dev.lock
 
 build:
 	@npm --prefix web ci
@@ -40,6 +47,7 @@ test:
 	@$(PYTHON) -m pytest
 
 lint:
+	@$(PYTHON) scripts/check_locks.py
 	@$(PYTHON) -m ruff check $(PYTHON_SOURCES)
 	@$(PYTHON) -m ruff format --check $(PYTHON_SOURCES)
 
