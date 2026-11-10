@@ -65,7 +65,10 @@ Notable changes to Fareflare. The format follows
 - The stdio MCP adapter needs only `FAREFLARE_API_KEY`; a local development
   configuration file is no longer required.
 - Python sources are formatted with Ruff, and `make check` enforces it.
-- Updated boto3 to 1.43, Ruff to 0.17.4, Angular to 22.2.5 and Playwright to 1.65.
+- Updated boto3 to 1.43, Ruff to 0.17.4, Angular to 22.2.5, Playwright to 1.65,
+  TypeScript to 6.0.3 and Selenium to 4.52, and refreshed both container base
+  images. The Selenium and base-image updates were checked with a real price read
+  inside the rebuilt worker image.
 - One version number is published by the Python package, the API and the dashboard.
 - Paths that carried an earlier codename were renamed. Update local scripts:
 

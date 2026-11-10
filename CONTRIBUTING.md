@@ -88,8 +88,19 @@ make lock
 
 `make check` fails when a pin and its lock disagree. Dependabot can edit the pins
 but not the locks, so a Python update from it needs `make lock` before it is merged.
-Updates to `selenium` and `awslambdaric` also need a container build and one live
-collection, because the test suite does not start a real browser or Lambda runtime.
+Updates to `selenium`, `awslambdaric` and the container base images also need a
+build and one live collection, because the test suite does not start a real browser
+or Lambda runtime. After building the images as in
+[operations](docs/OPERATIONS.md#release-api-and-worker-images):
+
+```bash
+docker run --rm --platform linux/arm64 -e AWS_LAMBDA_FUNCTION_NAME=local-verify \
+  --entrypoint python fareflare-worker -m fareflare.cli quote "$(jq -r .url examples/demo.json)" \
+  --chrome-binary /usr/bin/chromium --chromedriver /usr/bin/chromedriver
+```
+
+It prints `"ok": true` with a price read from the public page. The variable only
+switches on the browser flags the worker uses in Lambda, which a container needs too.
 
 Frontend dependencies use exact versions in `web/package.json` with
 `web/package-lock.json`. GitHub Actions and container base images are pinned to

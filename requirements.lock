@@ -631,9 +631,9 @@ s3transfer==0.19.3 \
     --hash=sha256:24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553 \
     --hash=sha256:8326acc3d056d7f7b8a37110c7d2aea41f67e83f6ae79cd3b5fbcca34c726406
     # via boto3
-selenium==4.23.1 \
-    --hash=sha256:128d099e66284437e7128d2279176ec7a06e6ec7426e167f5d34987166bd8f46 \
-    --hash=sha256:3a8d9f23dc636bd3840dd56f00c2739e32ec0c1e34a821dd553e15babef24477
+selenium==4.52.0 \
+    --hash=sha256:40f423c598cc85390c403ef626c9d3457c1ae834d4cf1f38637ebba3cb6f0d7a \
+    --hash=sha256:caa2860d486f71cdeb21fee3248c2f604bba590120dfb4d3d18c4d7cf97c6f1f
     # via -r requirements.txt
 simplejson==4.2.0 \
     --hash=sha256:01111d369fe8f21255228dfc6211664cb434a48f442febdc0fe00b81e963eb34 \
