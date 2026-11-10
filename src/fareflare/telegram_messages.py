@@ -598,9 +598,10 @@ def preview_message(
         raise ValueError("Choose a message to preview")
     if kind != "flight_list":
         return alert_message(_sample_delivery(kind, now), preferences, public_url)
+    # In departure order, the way the bot lists a day of flights.
     samples = [
-        _sample_monitor("414", 26900, 21900, "active", now),
         _sample_monitor("1565", 21400, 21400, "active", now),
+        _sample_monitor("414", 26900, 21900, "active", now),
         _sample_monitor("1832", 26900, 19900, "paused", now),
     ]
     plain, markup = flight_list(samples, preferences, _local_year(now, preferences))
