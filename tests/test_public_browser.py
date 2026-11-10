@@ -4,7 +4,11 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    InvalidSessionIdException,
+    TimeoutException,
+    WebDriverException,
+)
 
 from fareflare import public_browser
 from fareflare.links import import_link
@@ -328,6 +332,132 @@ def test_reloading_stays_within_the_collection_deadline(browser, pauses, monkeyp
     budgets = [call.args[0] for call in driver.set_page_load_timeout.call_args_list]
     assert budgets[-2:] == [35, 0.5]
     driver.quit.assert_called_once()
+
+
+# What chromedriver reports when Chromium has exited under it.
+BROWSER_GONE = InvalidSessionIdException(
+    "invalid session id: session deleted as the browser has closed the connection\n"
+    "from disconnected: not connected to DevTools\n  (Session info: chrome=146.0.7680.177)\n"
+    "private https://www.google.com/travel/flights?tfs=secret"
+)
+
+
+def dead_browser(failure=BROWSER_GONE):
+    """A browser that starts and then fails as the link is loaded."""
+    dead = Mock()
+    dead.get.side_effect = failure
+    return dead
+
+
+def test_a_browser_that_dies_before_its_first_page_is_started_again_once(browser, caplog):
+    driver, launch, target = browser
+    dead = dead_browser()
+    launch.side_effect = [dead, driver]
+    with PublicGoogleFlightsProvider(clock=lambda: 42).batch() as batch:
+        reading = batch.collect(target)
+        assert batch.browser_launches == 2 and batch.browser_restarts == 1
+    assert reading.amount_minor == 30900 and reading.evidence.identity_verified
+    # The dead browser and its profile are gone before the new one is used.
+    dead.quit.assert_called_once()
+    dead.find_element.assert_not_called()
+    driver.get.assert_called_once_with(target["url"])
+    profiles = [
+        next(a for a in call.kwargs["options"].arguments if a.startswith("--user-data-dir="))
+        for call in launch.call_args_list
+    ]
+    assert len(set(profiles)) == 2
+    assert "Public browser restart attempt=2 reason=session_lost launch=" in caplog.text
+    for private in ("secret", "google.com", "146.0"):
+        assert private not in caplog.text
+    driver.quit.assert_called_once()
+
+
+def test_a_second_dead_browser_is_a_failure_not_a_third_start(browser, caplog):
+    _, launch, target = browser
+    browsers = [dead_browser(), dead_browser()]
+    launch.side_effect = browsers
+    with PublicGoogleFlightsProvider().batch() as batch:
+        with pytest.raises(QuoteUnavailable, match="browser_failed"):
+            batch.collect(target)
+        assert batch.browser_launches == 2 and batch.browser_restarts == 1
+    assert launch.call_count == 2
+    assert caplog.text.count("Public browser restart attempt=2") == 1
+    assert (
+        "Public browser failure phase=navigation kind=InvalidSessionIdException "
+        "reason=session_lost" in caplog.text
+    )
+    assert all(dead.quit.call_count == 1 for dead in browsers)
+
+
+@pytest.mark.parametrize(
+    "message,reason",
+    [
+        ("disconnected: not connected to DevTools", "disconnected"),
+        ("unknown error: session deleted because of page crash\nfrom tab crashed", "tab_crashed"),
+    ],
+)
+def test_other_signs_that_the_browser_is_gone_also_start_a_new_one(
+    browser, caplog, message, reason
+):
+    driver, launch, target = browser
+    launch.side_effect = [dead_browser(WebDriverException(message)), driver]
+    assert PublicGoogleFlightsProvider(clock=lambda: 42).collect(target).amount_minor == 30900
+    assert f"Public browser restart attempt=2 reason={reason} launch=" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "failure,code",
+    [
+        (WebDriverException("unknown error: net::ERR_CONNECTION_RESET"), "browser_failed"),
+        (WebDriverException("unknown error: cannot determine loading status"), "browser_failed"),
+        (TimeoutException("timeout: Timed out receiving message from renderer"), "timeout"),
+    ],
+)
+def test_a_browser_that_is_still_there_is_not_restarted(browser, caplog, failure, code):
+    driver, launch, target = browser
+    driver.get.side_effect = failure
+    with PublicGoogleFlightsProvider().batch() as batch:
+        with pytest.raises(QuoteUnavailable, match=code):
+            batch.collect(target)
+        assert batch.browser_launches == 1 and batch.browser_restarts == 0
+    launch.assert_called_once()
+    assert "restart" not in caplog.text
+
+
+def test_a_restart_needs_time_left_on_the_collection_deadline(browser, monkeypatch, caplog):
+    driver, launch, target = browser
+    clock = [0.0]
+    monkeypatch.setattr(public_browser.time, "monotonic", lambda: clock[0])
+
+    def die_late(_url):
+        clock[0] = 101.0
+        raise BROWSER_GONE
+
+    dead = dead_browser(die_late)
+    launch.side_effect = [dead, driver]
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    launch.assert_called_once()
+    assert "restart" not in caplog.text
+    dead.quit.assert_called_once()
+
+
+def test_a_reused_browser_that_dies_is_replaced_for_the_same_flight(browser, caplog):
+    driver, launch, target = browser
+    replacement = Mock()
+    for name in ("current_url", "find_element", "execute_script", "find_elements"):
+        setattr(replacement, name, getattr(driver, name))
+    launch.side_effect = [driver, replacement]
+    with PublicGoogleFlightsProvider(clock=lambda: 42).batch() as batch:
+        assert batch.collect(target).amount_minor == 30900
+        # The shared browser dies when the next flight's link is loaded.
+        driver.get.side_effect = [None, BROWSER_GONE]
+        assert batch.collect(target).amount_minor == 30900
+        assert batch.browser_launches == 2 and batch.browser_restarts == 1
+        assert batch.browser_reuses == 1
+    replacement.get.assert_called_once_with(target["url"])
+    driver.quit.assert_called_once()
+    replacement.quit.assert_called_once()
 
 
 def test_batch_is_lazy_and_closes_before_reuse_outside_scope(browser):

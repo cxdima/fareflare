@@ -54,6 +54,14 @@ def _browser_failure_reason(error: Exception) -> str:
     return "unclassified"
 
 
+# Labels from _browser_failure_reason that mean the browser itself is gone,
+# whatever page it was on.
+_BROWSER_GONE = frozenset({"session_lost", "disconnected", "tab_crashed"})
+# Browsers started by this process. A Lambda environment keeps its process, so
+# this tells the first launch in a new environment from every later one.
+_launches = 0
+
+
 # What a page showed when the price summary never appeared, as fixed labels. The
 # text itself can describe a trip and is never logged; these names say only which
 # parts of the booking page had rendered and whether it carried a known notice.
@@ -313,8 +321,7 @@ class PublicGoogleFlightsProvider:
         try:
             driver = batch.browser_for(target)
             phase = "navigation"
-            driver.set_page_load_timeout(deadline.remaining(35))
-            driver.get(target["url"])
+            driver = batch.load(driver, target, deadline)
 
             def ready(browser):
                 nonlocal shown
@@ -400,9 +407,7 @@ class PublicGoogleFlightsProvider:
 
         phase = "search_navigation"
         try:
-            driver = batch.browser_for(target)
-            driver.set_page_load_timeout(deadline.remaining(35))
-            driver.get(target["url"])
+            driver = batch.load(batch.browser_for(target), target, deadline)
 
             def wait_for(
                 condition: Callable[[WebDriver], _WaitResult | Literal[False]],
@@ -575,6 +580,7 @@ class _BrowserBatch:
         self._attempts = 0
         self.browser_launches = 0
         self.browser_reuses = 0
+        self.browser_restarts = 0
         self.page_reloads = 0
 
     def collect(self, target: dict) -> Reading:
@@ -601,8 +607,10 @@ class _BrowserBatch:
             self._discard_browser()
         if self._driver is None:
             started = time.monotonic()
+            global _launches
             for attempt in range(2):
                 self.browser_launches += 1
+                _launches += 1
                 try:
                     self._driver = self._stack.enter_context(
                         anonymous_browser(self.provider.chrome_binary, self.provider.chromedriver)
@@ -634,6 +642,33 @@ class _BrowserBatch:
             self._driver.set_page_load_timeout(35)
             self.browser_reuses += 1
         return self._driver
+
+    def load(self, driver: WebDriver, target: dict, deadline: _CollectionDeadline) -> WebDriver:
+        """Load the target's link, starting a new browser once if this one has died.
+
+        The first Chromium started in a new Lambda environment exits two to three
+        seconds after it starts about one time in three; a browser started after
+        it in the same environment does not. When that happens before a session
+        exists, browser_for already starts another. This covers the same exit
+        when it lands a moment later, as the link is loaded. Nothing has been
+        read by then, and the new browser has its own empty profile.
+        """
+        try:
+            driver.set_page_load_timeout(deadline.remaining(35))
+            driver.get(target["url"])
+            return driver
+        except WebDriverException as exc:
+            reason = _browser_failure_reason(exc)
+            if reason not in _BROWSER_GONE:
+                raise
+        deadline.remaining()
+        log.warning("Public browser restart attempt=2 reason=%s launch=%d", reason, _launches)
+        self._discard_browser()
+        self.browser_restarts += 1
+        driver = self.browser_for(target)
+        driver.set_page_load_timeout(deadline.remaining(35))
+        driver.get(target["url"])
+        return driver
 
     def _discard_browser(self) -> None:
         self._driver = None

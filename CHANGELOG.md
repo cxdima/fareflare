@@ -136,6 +136,14 @@ Notable changes to Fareflare. The format follows
   again, at most twice, without pressing anything on the page. A page that keeps
   failing is recorded as the new `provider_error` code and retried later. The
   worker reports `page_reloads` for each run.
+- **Price checks lost to a browser that died as it started.** The first Chromium
+  started in a new Lambda environment exits two to three seconds after it starts
+  about one time in three (26 of 69 environments over five days); a browser
+  started after it never did (0 of 1,014). A failed start was already tried
+  again, but the same exit a moment later, while the link was loading, ended the
+  check as `browser_failed`. The collector now starts a new browser once in that
+  case too, with its own empty profile, and the worker reports
+  `browser_restarts`.
 
 ### Removed
 

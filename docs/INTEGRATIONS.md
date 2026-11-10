@@ -109,6 +109,8 @@ still passes itinerary/party/currency/fare validation. The worker closes Chrome
 before processing notifications and reports `browser_launches`/`browser_reuses`.
 When Google shows its own error page in place of a flight, the collector loads the
 same link again, at most twice, and reports the count as `page_reloads`.
+A browser that dies as it starts or as the link loads is replaced once, with a new
+empty profile, and counted as `browser_restarts`.
 The time budget can stop a batch before its requested target limit.
 
 The bounded local experiment in [the batch evidence](research/collector-batch-2026-11-05.json)

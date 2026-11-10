@@ -6,7 +6,11 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    InvalidSessionIdException,
+    TimeoutException,
+    WebDriverException,
+)
 
 from fareflare import public_browser
 from fareflare.links import import_link
@@ -280,6 +284,33 @@ def test_a_worker_reports_reloads_and_still_records_the_price(
     assert result["failure_codes"] == {}
     assert service.history("alice", monitors[0]["id"])[0]["amount_minor"] == 30900
     assert service.history("alice", monitors[1]["id"])[0]["amount_minor"] == 27900
+
+
+def test_a_worker_whose_first_browser_dies_still_records_both_prices(
+    service, clock, pages, browsers
+):
+    monitors = create_pair(service, pages)
+    factory, drivers, _ = browsers
+    launch = factory.side_effect
+
+    def first_dies(**kwargs):
+        driver = launch(**kwargs)
+        if len(drivers) == 1:
+            # As in a new Lambda environment: the first Chromium exits as it loads.
+            driver.get.side_effect = InvalidSessionIdException("invalid session id")
+        return driver
+
+    factory.side_effect = first_dies
+    result = Worker(
+        service, PublicGoogleFlightsProvider(clock=lambda: clock[0]), monotonic=lambda: 0
+    ).tick(max_targets=2)
+    assert result["collected"] == 2 and result["failed"] == 0
+    assert result["failure_codes"] == {}
+    assert result["browser_launches"] == 2 and result["browser_restarts"] == 1
+    assert result["browser_reuses"] == 1
+    assert service.history("alice", monitors[0]["id"])[0]["amount_minor"] == 30900
+    assert service.history("alice", monitors[1]["id"])[0]["amount_minor"] == 27900
+    assert all(driver.quit.call_count == 1 for driver in drivers)
 
 
 def test_idle_or_short_budget_worker_never_starts_browser(service, browsers):

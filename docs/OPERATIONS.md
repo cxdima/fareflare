@@ -284,6 +284,28 @@ an occasional `provider_error` is the normal picture.
 local run of `python -m fareflare.cli quote <link>` before changing anything,
 because the cause is on Google's side.
 
+The first Chromium started in a new Lambda environment exits two to three seconds
+after it starts about one time in three. Over five days that was 26 of 69
+environments, and none of the 1,014 browsers started later in the same
+environments. It does not happen in local Docker, with one CPU, a cold file
+cache or a real page, so the cause inside Chromium is not known. The collector
+handles both moments the exit can land on. Before a session exists it starts
+Chromium again and logs the first line below; while the link is loading it does
+the same and logs the second, where `launch` counts browsers started in that
+environment:
+
+```text
+Public browser startup retry attempt=2 reason=browser_start_failed elapsed_ms=2485
+Public browser restart attempt=2 reason=session_lost launch=1
+```
+
+`browser_restarts` in the worker log line counts the second kind. A startup
+retry, or a restart with `launch=1`, a few times a day is this known behaviour
+and costs about three seconds. A restart with a high `launch` number means a
+browser died in an environment that had already run one, and a
+`Public browser failure` line straight after a restart means the replacement
+died as well; neither has been seen, and both point to something else.
+
 Terraform provisions Lambda and collection-failure alarms. Attach an operator
 notification destination before relying on unattended alerts. Handled provider
 failures require their collection metric; they do not always become Lambda errors.

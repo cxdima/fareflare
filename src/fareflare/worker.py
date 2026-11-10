@@ -36,6 +36,7 @@ class Worker:
             "shadow": self.sink is None,
             "browser_launches": 0,
             "browser_reuses": 0,
+            "browser_restarts": 0,
             "page_reloads": 0,
         }
         event_ids = []
@@ -63,6 +64,7 @@ class Worker:
             if callable(batch_factory):
                 counts["browser_launches"] = getattr(provider, "browser_launches", 0)
                 counts["browser_reuses"] = getattr(provider, "browser_reuses", 0)
+                counts["browser_restarts"] = getattr(provider, "browser_restarts", 0)
                 counts["page_reloads"] = getattr(provider, "page_reloads", 0)
         events = self.service.process_event_batch(limit=100, event_ids=tuple(event_ids))
         counts["events_processed"] = events.processed

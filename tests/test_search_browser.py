@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import InvalidSessionIdException, TimeoutException
 
 from fareflare import public_browser
 from fareflare.links import import_link
@@ -112,6 +112,21 @@ def test_search_loads_the_link_again_when_google_shows_its_error_page(
     assert [call.args for call in driver.get.call_args_list] == [(target["url"],)] * loads
     assert pauses == [1] * (loads - 1)
     driver.quit.assert_called_once()
+
+
+def test_search_starts_a_new_browser_when_the_first_dies_loading_the_link(search_browser, caplog):
+    _, target, driver, launch, detail, select, _, _ = search_browser
+    dead = Mock()
+    dead.get.side_effect = InvalidSessionIdException("invalid session id")
+    launch.side_effect = [dead, driver]
+    assert PublicGoogleFlightsProvider(clock=lambda: 42).collect(target).amount_minor == 19100
+    assert launch.call_count == 2
+    dead.quit.assert_called_once()
+    dead.find_elements.assert_not_called()
+    driver.get.assert_called_once_with(target["url"])
+    detail.click.assert_called_once()
+    select.click.assert_called_once()
+    assert "Public browser restart attempt=2 reason=session_lost launch=" in caplog.text
 
 
 def test_search_cumulative_deadline_stops_before_selection(search_browser):
