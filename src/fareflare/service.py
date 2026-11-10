@@ -18,6 +18,7 @@ from fareflare.contracts import (
     ObservedOffer,
     PriceProvider,
     Reading,
+    SliceTimes,
 )
 from fareflare.domain import AlertPolicy, evaluate
 from fareflare.links import import_link
@@ -31,6 +32,7 @@ FAILURE_NOTICE_THRESHOLD = 5
 _NOTICE_LIFETIME = 2 * 86400
 _NOTICE_ATTEMPTS = 3
 _MAX_NOTICES = 50
+_CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
 
 
 class NotFound(LookupError):
@@ -361,6 +363,7 @@ class MonitoringService:
         if reading.currency != target.data["spec"]["currency"]:
             raise ValueError("Observation currency does not match the target")
         self._verify_observed_offer(target.data["spec"], reading)
+        self._verify_schedule(target.data["spec"], reading)
         event_id = _digest(reading.target_id + ":" + run_id)
         # Normalize immutable offer tuples to the JSON shape used by both stores.
         observation = json.loads(json.dumps(asdict(reading)))
@@ -516,6 +519,37 @@ class MonitoringService:
             except Conflict:
                 continue
         return sent
+
+    @staticmethod
+    def _verify_schedule(target: dict, reading: Reading) -> None:
+        """Clock times are optional, but a recorded schedule must describe every direction."""
+        schedule = reading.schedule
+        if schedule is None:
+            return
+        offer = reading.observed_offer
+        directions = len(offer.segments) if offer is not None else len(target["segments"])
+        if (
+            not isinstance(schedule, tuple)
+            or not 1 <= len(schedule) == directions
+            or any(
+                not isinstance(item, SliceTimes)
+                or not all(
+                    isinstance(clock, str) and _CLOCK.fullmatch(clock)
+                    for clock in (item.departs, item.arrives)
+                )
+                or type(item.arrival_day_offset) is not int
+                or not 0 <= item.arrival_day_offset <= 3
+                or (
+                    item.duration_minutes is not None
+                    and (
+                        type(item.duration_minutes) is not int
+                        or not 0 < item.duration_minutes <= 24 * 60
+                    )
+                )
+                for item in schedule
+            )
+        ):
+            raise ValueError("Invalid flight schedule")
 
     @staticmethod
     def _verify_observed_offer(target: dict, reading: Reading) -> None:

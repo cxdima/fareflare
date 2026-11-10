@@ -107,6 +107,12 @@
           <div class="ticket-route">
             <h2>{{ routeName(monitor) }}</h2>
             <p class="ticket-date">{{ dates(monitor) }}</p>
+            @for (line of times(monitor); track $index) {
+              <p class="ticket-times">
+                <span class="visually-hidden">{{ line.spoken }}</span>
+                <span aria-hidden="true">{{ line.text }}</span>
+              </p>
+            }
             <div class="trip-details">
               <span>{{ monitor.target.segments.length > 1 ? 'Round trip' : 'One way' }}</span>
               <span>{{ presentation.description }}</span>

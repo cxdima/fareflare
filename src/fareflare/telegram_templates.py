@@ -60,6 +60,18 @@ _FLIGHT = (
     Placeholder("airline", "Airline name, or its code when unlisted", "United"),
     Placeholder("passengers", "Travelling party", "1 adult"),
 )
+_TIMES = (
+    Placeholder("times", "Departure and arrival times, when known", "4:42 PM → 5:58 PM"),
+    Placeholder("depart_time", "Departure time at the origin airport", "4:42 PM"),
+    Placeholder("arrive_time", "Arrival time at the destination airport", "5:58 PM"),
+    Placeholder("duration", "Time in the air, when known", "2 hr 16 min"),
+    Placeholder(
+        "return_times", "Return flight times; empty for a one-way trip", "9:05 AM → 12:14 PM"
+    ),
+    Placeholder("return_depart_time", "Return departure time", "9:05 AM"),
+    Placeholder("return_arrive_time", "Return arrival time", "12:14 PM"),
+    Placeholder("return_duration", "Return time in the air", "2 hr 9 min"),
+)
 _ALERT = (
     Placeholder("emoji", "A symbol for this kind of alert", "📉"),
     Placeholder("headline", "A short title", "New low!"),
@@ -75,7 +87,10 @@ _ALERT = (
     Placeholder("change_summary", "The comparison in one phrase", "was $254, −$8 · −3%"),
     *_TRIP,
     *_FLIGHT,
-    Placeholder("itinerary", "One line per direction: route, date and flights", "DFW → DEN · …"),
+    *_TIMES,
+    Placeholder(
+        "itinerary", "Each direction: route, date and flights, then its times", "DFW → DEN · …"
+    ),
     Placeholder("total", "Who the price covers, when verified", "Total for 1 adult"),
     Placeholder("fare", "Fare name", "Economy"),
     Placeholder("details", "Total and fare on one line", "Total for 1 adult · Fare: Economy"),
@@ -88,6 +103,7 @@ _ALERT = (
 _ROW = (
     *_TRIP,
     *_FLIGHT,
+    *_TIMES,
     Placeholder("status", "Tracking status", "Watching"),
     Placeholder("status_note", "Status, only when the flight needs attention", "Paused"),
     Placeholder("price", "Latest recorded price with its currency code", "USD 246.00"),
@@ -130,7 +146,8 @@ _COMPACT_ALERT = """\
 _CLASSIC_TRIP = """\
 🛫 **{route}**
 [{airline}][  ·  `{flights}`]
-{date_short}[ – {return_date_short}]
+{date_short}[  ·  {times}]
+[↩ {return_date_short}][  ·  {return_times}]
 {link}
 """
 _CLASSIC_FOOTER = "\n__{observed_short}__"
@@ -141,13 +158,16 @@ PRESETS: dict[str, dict[str, str]] = {
         **dict.fromkeys(ALERT_KEYS, _DETAILED_ALERT),
         "flight_group": "",
         "flight_row": (
-            "{route}  {dates}\n[{flights} · ]{status}\n[Last observed {price}]\n[{low_status}]"
+            "{route}  {dates}\n[{flights} · ][{times} · ]{status}\n"
+            "[Last observed {price}]\n[{low_status}]"
         ),
     },
     "compact": {
         **dict.fromkeys(ALERT_KEYS, _COMPACT_ALERT),
         "flight_group": "",
-        "flight_row": "{route} · {date_short}[ · {flights}][ · {price}][ · {status_note}]",
+        "flight_row": (
+            "{route} · {date_short}[ {depart_time}][ · {flights}][ · {price}][ · {status_note}]"
+        ),
     },
     "classic": {
         "tracking_started": (
@@ -162,7 +182,10 @@ PRESETS: dict[str, dict[str, str]] = {
             + _CLASSIC_FOOTER
         ),
         "flight_group": "🛫 **{route}**  __{date_short}[ – {return_date_short}]__",
-        "flight_row": ("  • `{flights}`[ · **{price_short}**][ __{low_note}__][ · {status_note}]"),
+        "flight_row": (
+            "  • `{flights}`[  {times}][ · **{price_short}**][ __{low_note}__][ · {status_note}]\n"
+            "[      ↩ {return_date_short}  ·  {return_times}]"
+        ),
     },
 }
 

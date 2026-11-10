@@ -5,7 +5,7 @@ import { RegionalFormat } from '../core/regional-format';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
-import { routeName, statusLabel } from './shared/presentation';
+import { flightTimes, routeName, statusLabel, travelTime } from './shared/presentation';
 import { DialogComponent } from './shared/dialog.component';
 import { MonitorEditorComponent } from './monitor-editor.component';
 import { PriceHistoryComponent } from './price-history.component';
@@ -84,6 +84,29 @@ export class MonitorsComponent {
   }
   dates(item: Monitor): string {
     return item.target.segments.map((segment) => this.tripDate(segment.date)).join(' – ');
+  }
+  /** One line per direction: what is shown, and the same fact phrased for a screen reader. */
+  times(item: Monitor): { text: string; spoken: string }[] {
+    const schedule = flightTimes(item);
+    return schedule.map((slice, index) => {
+      const departs = this.regional.clock(slice.departs);
+      const arrives = this.regional.clock(slice.arrives);
+      const later = slice.arrival_day_offset ?? 0;
+      const duration = travelTime(slice.duration_minutes);
+      const returning = schedule.length > 1 && index > 0;
+      return {
+        text:
+          (returning ? '↩ ' : '') +
+          `${departs} → ${arrives}` +
+          (later > 0 ? ` +${later}` : '') +
+          (duration ? ` · ${duration}` : ''),
+        spoken:
+          (returning ? 'Return departs ' : 'Departs ') +
+          `${departs}, arrives ${arrives}` +
+          (later > 0 ? `, ${later} ${later === 1 ? 'day' : 'days'} later` : '') +
+          (duration ? `, ${duration}` : ''),
+      };
+    });
   }
   collectionMessage(item: Monitor): string {
     if (!this.current(item)) return 'This monitor is no longer checking prices.';

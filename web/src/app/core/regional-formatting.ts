@@ -45,6 +45,18 @@ export function departureFormatter(locale: string): Intl.DateTimeFormat {
   });
 }
 
+export function clockFormatter(
+  settings: Pick<DisplaySettings, 'locale' | 'hour_cycle'>,
+): Intl.DateTimeFormat {
+  // Flight times are airport clock times, never instants in the reader's zone.
+  return new Intl.DateTimeFormat(settings.locale, {
+    hourCycle: settings.hour_cycle === 'auto' ? undefined : settings.hour_cycle,
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
 export function currencyFormat(locale: string, currency: string): Intl.NumberFormat {
   return new Intl.NumberFormat(locale, { style: 'currency', currency });
 }

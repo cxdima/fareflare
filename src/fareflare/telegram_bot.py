@@ -34,9 +34,11 @@ from fareflare.telegram_messages import (
     flight_list,
     flight_list_page_size,
     flight_row_values,
+    monitor_times,
     observed_low,
     preview_message,
     safe_flight_url,
+    schedule_lines,
     single_line,
 )
 from fareflare.telegram_rules import parse_amount, price_example
@@ -482,6 +484,8 @@ class TelegramBot:
             key=lambda monitor: (
                 monitor["target"]["segments"][0]["date"],
                 self._route(monitor["target"]),
+                # Earliest departure first; flights without a recorded time last.
+                next((item["departs"] for item in monitor_times(monitor)), "99:99"),
             ),
         )
         year = time.gmtime(self._now()).tm_year
@@ -523,8 +527,12 @@ class TelegramBot:
             monitor["target"],
             monitor.get("latest"),
         )
+        times = schedule_lines(monitor_times(monitor), prefs)
+        if len(times) > 1:
+            times = [f"{label} {line}" for label, line in zip(("Out", "Back"), times, strict=False)]
         lines = [
             self._dates(target, prefs),
+            *times,
             *self._itinerary_details(target),
             _STATUS.get(monitor["status"], "Unknown"),
             "",

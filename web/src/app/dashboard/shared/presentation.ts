@@ -1,4 +1,4 @@
-import type { Monitor, Segment } from '../../core/types';
+import type { Monitor, Segment, SliceTimes } from '../../core/types';
 
 export function routeName(monitor: Monitor): string {
   const legs = monitor.target.segments[0]?.legs ?? [];
@@ -12,6 +12,23 @@ export function flightNumbers(segments: Segment[]): string {
     .filter((leg) => leg.airline && leg.number)
     .map((leg) => `${leg.airline} ${leg.number}`)
     .join(', ');
+}
+const CLOCK = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+/** Recorded clock times for the flights last priced, or none when they do not fit the trip. */
+export function flightTimes(monitor: Monitor): SliceTimes[] {
+  const schedule = monitor.latest?.schedule;
+  const segments = monitor.latest?.observed_offer?.segments ?? monitor.target.segments;
+  if (!Array.isArray(schedule) || !schedule.length || schedule.length !== segments.length)
+    return [];
+  return schedule.every((item) => CLOCK.test(item?.departs) && CLOCK.test(item?.arrives))
+    ? schedule
+    : [];
+}
+export function travelTime(minutes: number | null | undefined): string {
+  if (!Number.isInteger(minutes) || !minutes || minutes < 0 || minutes > 1440) return '';
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return [hours ? `${hours} hr` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ');
 }
 export function statusLabel(value: string): string {
   return (

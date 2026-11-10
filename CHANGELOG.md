@@ -20,6 +20,14 @@ Notable changes to Fareflare. The format follows
 - A message editor in **Account settings → Notifications** with insertable
   placeholders and a preview for every message, and a **Message style** menu in
   the Telegram bot.
+- **Flight times.** Departure and arrival times are read with each price and shown
+  in alerts, the `/flights` list, the bot's flight detail and dashboard cards, in
+  the account's 12- or 24-hour style: `Mar 10  ·  16:42 → 17:58`. An arrival on a
+  later day is marked `+1`. Templates gain `{times}`, `{depart_time}`,
+  `{arrive_time}`, `{duration}` and their `return_` forms; `telegram_show_times`
+  turns them off for the built-in styles. `observation.schedule` carries the same
+  facts in the API and in webhook events. Times never decide whether a price is
+  accepted: anything ambiguous is left out rather than guessed.
 - Alerts record what they are compared with. `previous.price_minor` and
   `previous.low_minor` appear in `GET /v1/alerts` and in webhook events.
 - `GET /v1/preferences/telegram-templates` lists templates, placeholders, presets
@@ -37,6 +45,7 @@ Notable changes to Fareflare. The format follows
 
 - Flight numbers are written with a space everywhere (`UA 414`), matching the
   dashboard.
+- The `/flights` list orders flights on the same route and day by departure time.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
 from fareflare.accounts import Accounts
-from fareflare.contracts import Reading
+from fareflare.contracts import QuoteEvidence, Reading, SliceTimes
+from fareflare.links import ItineraryMessage
 from fareflare.product_config import ProductConfig
 from fareflare.store import Document
 from fareflare.telegram_bot import TelegramBot
@@ -198,6 +201,51 @@ def test_flights_and_history_are_bounded_and_paginate(native_bot, service, fligh
     previous = _press(native_bot, prices, "Earlier prices")
     assert "USD 100.00" in previous.text and "USD 106.00" not in previous.text
     assert "USD 106.00" in _press(native_bot, previous, "Latest prices").text
+
+
+def _other_flight(url, number):
+    params = parse_qs(urlsplit(url).query)
+    message, token = ItineraryMessage(), params["tfs"][0]
+    message.ParseFromString(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+    message.segments[0].legs[0].number = number
+    params["tfs"] = [base64.urlsafe_b64encode(message.SerializeToString()).decode().rstrip("=")]
+    return "https://www.google.com/travel/flights?" + urlencode(params, doseq=True)
+
+
+def test_a_day_is_listed_by_departure_time_and_detail_shows_the_times(
+    native_bot, service, flight_url, clock
+):
+    tenant = native_bot[1]
+    evidence = QuoteEvidence("test", True, True, True, 1)
+    # Added latest-first, so only the recorded times can put them in order.
+    for number, departs in (("900", "19:40"), ("414", "15:50"), ("100", "07:05")):
+        monitor = service.create_monitor(
+            tenant, _other_flight(flight_url, number), f"same-day-{number}"
+        )
+        clock[0] += 1
+        service.record(
+            Reading(
+                monitor["target_id"],
+                20000,
+                "USD",
+                clock[0],
+                "test",
+                price_basis="total",
+                evidence=evidence,
+                schedule=(SliceTimes(departs, "22:41", 0, 121),),
+            ),
+            f"run-{number}",
+        )
+    service.process_events()
+    untimed = service.create_monitor(tenant, _other_flight(flight_url, "555"), "same-day-untimed")
+    service.set_preferences(tenant, telegram_style="classic", hour_cycle="h23")
+    flights = _call(native_bot, "/flights")
+    rows = [line for line in flights.text.split("\n") if line.startswith("  • ")]
+    assert [row.split()[2] for row in rows] == ["100", "414", "900", "555"]
+    assert "  • UA 100  07:05 → 22:41 · $200 🔥 at the low" in rows
+    assert untimed["latest"] is None and rows[-1] == "  • UA 555 · Awaiting check"
+    detail = _detail(native_bot, monitor)
+    assert "07:05 → 22:41 · 2 hr 1 min" in detail.text
 
 
 def test_pause_resume_and_stop_confirmations_use_shared_service(native_bot, service, flight_url):

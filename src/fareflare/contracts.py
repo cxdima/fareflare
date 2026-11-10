@@ -72,6 +72,20 @@ class ObservedOffer:
 
 
 @dataclass(frozen=True)
+class SliceTimes:
+    """Clock times for one direction of travel, as the provider displays them.
+
+    Times are airport-local and carry no zone: ``departs`` is at the origin and
+    ``arrives`` at the destination, so the two are not directly comparable.
+    """
+
+    departs: str  # HH:MM, 24-hour
+    arrives: str  # HH:MM, 24-hour
+    arrival_day_offset: int = 0  # Calendar days after the departure date.
+    duration_minutes: int | None = None
+
+
+@dataclass(frozen=True)
 class Reading:
     target_id: str
     amount_minor: int
@@ -82,6 +96,8 @@ class Reading:
     price_basis: str = "unspecified"
     evidence: QuoteEvidence | None = None
     observed_offer: ObservedOffer | None = None
+    # One entry per direction of the priced itinerary, or None when not verified.
+    schedule: tuple[SliceTimes, ...] | None = None
 
 
 class PriceProvider(Protocol):

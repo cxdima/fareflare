@@ -244,7 +244,7 @@ def test_round_trips_show_both_dates_and_a_two_way_route(flight_url):
     }
     event["itinerary"]["segments"] = [outbound, back]
     classic = alert_message(event, Preferences(telegram_style="classic")).text
-    assert "🛫 DEN ⇄ DFW" in classic and "Mar 14, 2027 – Mar 21, 2027" in classic
+    assert "🛫 DEN ⇄ DFW" in classic and "\nMar 14, 2027\n↩ Mar 21, 2027\n" in classic
     detailed = alert_message(event, Preferences()).text
     assert "DEN → DFW · 03/14/2027 · UA 414\nDFW → DEN · 03/21/2027 · UA 414" in detailed
 

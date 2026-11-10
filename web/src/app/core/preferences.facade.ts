@@ -12,6 +12,7 @@ export const defaultPreferences: Preferences = {
   telegram_style: 'detailed',
   telegram_templates: {},
   telegram_show_flight_numbers: true,
+  telegram_show_times: true,
   telegram_show_observed_time: true,
   telegram_show_fare: true,
   telegram_show_buttons: true,

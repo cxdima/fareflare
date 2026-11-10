@@ -52,6 +52,9 @@ class Preferences(BaseModel):
         description="Message templates used by the custom style, keyed by message name.",
     )
     telegram_show_flight_numbers: bool = True
+    telegram_show_times: bool = Field(
+        default=True, description="Include departure and arrival times when they are known."
+    )
     telegram_show_observed_time: bool = True
     telegram_show_fare: bool = True
     telegram_show_buttons: bool = Field(
@@ -129,13 +132,28 @@ def short_date(value: date, reference_year: int | None = None) -> str:
     return text if reference_year in (None, value.year) else f"{text}, {value.year}"
 
 
+def _twelve_hour(preferences: Preferences) -> bool:
+    return preferences.hour_cycle == "h12" or (
+        preferences.hour_cycle == "auto" and preferences.locale == "en-US"
+    )
+
+
+def clock_time(value: str, preferences: Preferences) -> str:
+    """A stored 24-hour ``HH:MM`` airport time in the reader's clock style: 4:42 PM or 16:42."""
+    hour, minute = int(value[:2]), value[3:5]
+    if not _twelve_hour(preferences):
+        return f"{hour:02d}:{minute}"
+    return f"{hour % 12 or 12}:{minute} {'PM' if hour >= 12 else 'AM'}"
+
+
 def observed_time(seconds: int, preferences: Preferences, *, zone_label: bool = True) -> str:
     zone = ZoneInfo(preferences.time_zone or "UTC")
     local = datetime.fromtimestamp(seconds, UTC).astimezone(zone)
-    twelve_hour = preferences.hour_cycle == "h12" or (
-        preferences.hour_cycle == "auto" and preferences.locale == "en-US"
+    clock = (
+        local.strftime("%I:%M %p").lstrip("0")
+        if _twelve_hour(preferences)
+        else local.strftime("%H:%M")
     )
-    clock = local.strftime("%I:%M %p").lstrip("0") if twelve_hour else local.strftime("%H:%M")
     stamp = f"{regional_date(local.date(), preferences.locale)} {clock}"
     if not zone_label:
         # A saved zone is the reader's own; an unlabeled UTC time would mislead.

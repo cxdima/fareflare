@@ -8,6 +8,13 @@ export type ProductConfig = {
 };
 export type Account = { id: string; username: string; created_at?: number };
 export type AccountResponse = { account: Account; csrf_token: string; recovery_code?: string };
+/** Airport-local clock times for one direction, as 24-hour HH:MM. */
+export type SliceTimes = {
+  departs: string;
+  arrives: string;
+  arrival_day_offset?: number;
+  duration_minutes?: number | null;
+};
 export type Observation = {
   amount_minor: number;
   currency: string;
@@ -22,6 +29,7 @@ export type Observation = {
     cabin: number;
     url: string;
   } | null;
+  schedule?: SliceTimes[] | null;
 };
 export type Leg = {
   origin: string;
@@ -89,6 +97,7 @@ export type Preferences = {
   telegram_style: TelegramStyle;
   telegram_templates: Partial<Record<TemplateKey, string>>;
   telegram_show_flight_numbers: boolean;
+  telegram_show_times: boolean;
   telegram_show_observed_time: boolean;
   telegram_show_fare: boolean;
   telegram_show_buttons: boolean;

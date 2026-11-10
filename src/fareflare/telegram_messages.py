@@ -7,6 +7,7 @@ infers a saving, a forecast or a market-wide low.
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -19,6 +20,7 @@ from fareflare.links import import_link
 from fareflare.message_templates import Rendered, Run, Value, render
 from fareflare.preferences import (
     Preferences,
+    clock_time,
     observed_time,
     regional_date,
     regional_price,
@@ -58,6 +60,7 @@ _SAMPLE_URL = (
     "NBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1"
 )
 PREVIEW_KINDS = (*ALERT_KEYS, "flight_list")
+_HHMM = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d\Z")
 # Telegram limits the visible text; this bounds the request when links repeat.
 _MAX_MARKUP = 16_384
 
@@ -188,8 +191,60 @@ def _trip_values(
     return values
 
 
-def _itinerary(segments: list[dict], preferences: Preferences, flights: bool) -> tuple[Run, ...]:
+def recorded_times(schedule: object, segments: list[dict]) -> list[dict]:
+    """Recorded clock times, one per direction, or nothing when they do not fit the trip."""
+    if not isinstance(schedule, list) or not schedule or len(schedule) != len(segments):
+        return []
+    for item in schedule:
+        if not isinstance(item, dict) or not all(
+            isinstance(item.get(key), str) and _HHMM.match(item[key])
+            for key in ("departs", "arrives")
+        ):
+            return []
+    return schedule
+
+
+def _duration(minutes: object) -> str:
+    if type(minutes) is not int or not 0 < minutes <= 24 * 60:
+        return ""
+    hours, rest = divmod(minutes, 60)
+    return " ".join(
+        part for part in (f"{hours} hr" if hours else "", f"{rest} min" if rest else "")
+    )
+
+
+def _time_values(times: list[dict], preferences: Preferences) -> dict[str, Value]:
+    """Clock times in the reader's style. Airport-local, so no zone is shown."""
+    values: dict[str, Value] = {}
+    for prefix, item in zip(("", "return_"), times, strict=False):
+        departs = clock_time(item["departs"], preferences)
+        arrives = clock_time(item["arrives"], preferences)
+        later = item.get("arrival_day_offset")
+        if type(later) is int and 0 < later <= 3:
+            arrives += f" +{later}"
+        values[prefix + "depart_time"] = departs
+        values[prefix + "arrive_time"] = arrives
+        values[prefix + "times"] = f"{departs} → {arrives}"
+        if duration := _duration(item.get("duration_minutes")):
+            values[prefix + "duration"] = duration
+    return values
+
+
+def schedule_lines(times: list[dict], preferences: Preferences) -> list[str]:
+    """One plain line per direction: ``4:42 PM → 5:58 PM · 1 hr 16 min``."""
+    lines = []
+    for item in times:
+        values = _time_values([item], preferences)
+        duration = values.get("duration")
+        lines.append(f"{values['times']}" + (f" · {duration}" if duration else ""))
+    return lines
+
+
+def _itinerary(
+    segments: list[dict], preferences: Preferences, flights: bool, times: list[dict]
+) -> tuple[Run, ...]:
     runs: list[Run] = []
+    clocks = schedule_lines(times, preferences)
     for index, segment in enumerate(segments):
         legs = segment["legs"]
         route = single_line(f"{legs[0]['origin']} → {legs[-1]['destination']}", 80)
@@ -197,6 +252,8 @@ def _itinerary(segments: list[dict], preferences: Preferences, flights: bool) ->
         numbers = ", ".join(_flight_numbers([segment])) if flights else ""
         if numbers:
             context += " · " + numbers
+        if clocks:
+            context += "\n" + clocks[index]
         runs += [Run(("\n" if index else "") + route, bold=True), Run(context)]
     return tuple(runs)
 
@@ -241,6 +298,11 @@ def alert_values(delivery: dict, preferences: Preferences) -> dict[str, Value]:
     segments = itinerary.get("segments", [])
     emoji, headline, reason = _ALERT_WORDING[delivery["reason"]]
     flights = _shows(preferences, preferences.telegram_show_flight_numbers)
+    times = (
+        recorded_times(observation.get("schedule"), segments)
+        if _shows(preferences, preferences.telegram_show_times)
+        else []
+    )
     values: dict[str, Value] = {
         "emoji": emoji,
         "headline": headline,
@@ -254,8 +316,9 @@ def alert_values(delivery: dict, preferences: Preferences) -> dict[str, Value]:
         "passengers": _party(itinerary.get("adults")),
         "airline": _airlines(segments),
         "flights": ", ".join(_flight_numbers(segments)) if flights else "",
-        "itinerary": _itinerary(segments, preferences, flights),
+        "itinerary": _itinerary(segments, preferences, flights, times),
         **_trip_values(segments, preferences, _local_year(observation["observed_at"], preferences)),
+        **_time_values(times, preferences),
         **_comparison(delivery, preferences),
     }
     if values["passengers"] and observation.get("price_basis") == "total":
@@ -314,6 +377,11 @@ def monitor_segments(monitor: dict) -> list[dict]:
     return offer.get("segments") or monitor["target"]["segments"]
 
 
+def monitor_times(monitor: dict) -> list[dict]:
+    """Clock times recorded with the monitor's latest price, when they fit its flights."""
+    return recorded_times((monitor.get("latest") or {}).get("schedule"), monitor_segments(monitor))
+
+
 def observed_low(monitor: dict) -> int | None:
     """Lowest price this monitor has recorded since it began tracking."""
     low = (monitor.get("rule_state") or {}).get("low_minor")
@@ -341,6 +409,8 @@ def flight_row_values(
         "passengers": _party(target.get("adults")),
         "status": status,
     }
+    if _shows(preferences, preferences.telegram_show_times):
+        values.update(_time_values(monitor_times(monitor), preferences))
     if monitor["status"] == "active":
         values["status_note"] = "Check delayed" if _needs_attention(monitor) else ""
     else:
@@ -444,6 +514,13 @@ def collection_notice(
     return TelegramMessage("\n".join(lines), html, markup)
 
 
+_SAMPLE_TIMES = {
+    "414": {"departs": "15:50", "arrives": "18:54", "duration_minutes": 124},
+    "1565": {"departs": "07:05", "arrives": "10:02", "duration_minutes": 117},
+    "1832": {"departs": "19:40", "arrives": "22:41", "duration_minutes": 121},
+}
+
+
 def _sample_delivery(reason: str, now: int) -> dict:
     amount, previous = {
         "tracking_started": (19100, {"price_minor": None, "low_minor": None}),
@@ -461,6 +538,7 @@ def _sample_delivery(reason: str, now: int) -> dict:
             "price_basis": "total",
             "fare_name": "Economy",
             "observed_at": now,
+            "schedule": [_SAMPLE_TIMES["414"]],
         },
         "itinerary": {
             "adults": 1,
@@ -483,7 +561,12 @@ def _sample_monitor(number: str, amount: int, low: int, status: str, now: int) -
         "stale": False,
         "collection_status": "ready",
         "rule_state": {"low_minor": low},
-        "latest": {"amount_minor": amount, "currency": "USD", "observed_at": now},
+        "latest": {
+            "amount_minor": amount,
+            "currency": "USD",
+            "observed_at": now,
+            "schedule": [_SAMPLE_TIMES[number]],
+        },
         "target": {
             "adults": 1,
             "currency": "USD",

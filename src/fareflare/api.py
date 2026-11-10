@@ -115,6 +115,15 @@ class ObservedOfferView(BaseModel):
     url: str
 
 
+class SliceTimesView(BaseModel):
+    """Airport-local clock times for one direction, in 24-hour HH:MM."""
+
+    departs: str
+    arrives: str
+    arrival_day_offset: int = 0
+    duration_minutes: int | None = None
+
+
 class ObservationView(BaseModel):
     target_id: str
     amount_minor: int
@@ -125,6 +134,7 @@ class ObservationView(BaseModel):
     fare_name: str | None = None
     price_basis: Literal["total", "unspecified"] = "unspecified"
     observed_offer: ObservedOfferView | None = None
+    schedule: list[SliceTimesView] | None = None
 
 
 class MonitorView(BaseModel):

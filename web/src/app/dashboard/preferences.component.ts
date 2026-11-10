@@ -37,6 +37,7 @@ type TelegramModel = Pick<
   Preferences,
   | 'telegram_style'
   | 'telegram_show_flight_numbers'
+  | 'telegram_show_times'
   | 'telegram_show_observed_time'
   | 'telegram_show_fare'
   | 'telegram_show_buttons'
@@ -132,6 +133,7 @@ export class PreferencesComponent implements OnInit {
   readonly telegramModel = signal<TelegramModel>({
     telegram_style: 'detailed',
     telegram_show_flight_numbers: true,
+    telegram_show_times: true,
     telegram_show_observed_time: true,
     telegram_show_fare: true,
     telegram_show_buttons: true,
@@ -143,6 +145,7 @@ export class PreferencesComponent implements OnInit {
     // A custom template states its own content, so these choices do not apply to it.
     const fixed = { when: () => this.store.saving() || this.custom() };
     disabled(path.telegram_show_flight_numbers, fixed);
+    disabled(path.telegram_show_times, fixed);
     disabled(path.telegram_show_observed_time, fixed);
     disabled(path.telegram_show_fare, fixed);
   });
@@ -370,6 +373,7 @@ export class PreferencesComponent implements OnInit {
     this.telegramModel.set({
       telegram_style: value.telegram_style,
       telegram_show_flight_numbers: value.telegram_show_flight_numbers,
+      telegram_show_times: value.telegram_show_times,
       telegram_show_observed_time: value.telegram_show_observed_time,
       telegram_show_fare: value.telegram_show_fare,
       telegram_show_buttons: value.telegram_show_buttons,

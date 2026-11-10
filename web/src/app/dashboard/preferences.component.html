@@ -163,6 +163,15 @@
             </div>
             <div class="form-check">
               <input
+                id="show-times"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="telegram.telegram_show_times"
+                (change)="telegramChanged()"
+              /><label for="show-times" class="form-check-label">Departure and arrival times</label>
+            </div>
+            <div class="form-check">
+              <input
                 id="show-observed-time"
                 class="form-check-input"
                 type="checkbox"
@@ -183,7 +192,7 @@
             </div>
             @if (custom()) {
               <p class="form-text">
-                A custom message shows exactly what its template says, so these three choices do not
+                A custom message shows exactly what its template says, so these choices do not
                 apply.
               </p>
             }

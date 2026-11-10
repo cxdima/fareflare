@@ -21,6 +21,7 @@ Section buttons work with the keyboard and indicate the current section. Switchi
 | `telegram_style` | `detailed` | `detailed`, `compact`, `classic` (emoji, shows what changed) or `custom`. |
 | `telegram_templates` | `{}` | Your own wording, used by the `custom` style. See [below](#message-styles-and-templates). |
 | `telegram_show_flight_numbers` | `true` | Include flight numbers. |
+| `telegram_show_times` | `true` | Include departure and arrival times when they are known. |
 | `telegram_show_observed_time` | `true` | Include when the fare was checked, with its time zone. |
 | `telegram_show_fare` | `true` | Include the fare name when available. |
 | `telegram_show_buttons` | `true` | Show link buttons beneath Telegram alerts. |
@@ -39,16 +40,18 @@ After connecting once through the website, the [Telegram bot](TELEGRAM.md) offer
 
 ## Message styles and templates
 
-**Account settings → Notifications → Message style** chooses how Telegram alerts and the `/flights` list are worded. The three flight-number, time and fare checkboxes tune the built-in styles.
+**Account settings → Notifications → Message style** chooses how Telegram alerts and the `/flights` list are worded. The flight-number, flight-time, checked-time and fare checkboxes tune the built-in styles.
 
 | Style | Example of a new low |
 | --- | --- |
-| Detailed | `USD 246.00` / `New observed low` / route, date and flights / total and fare / time checked |
+| Detailed | `USD 246.00` / `New observed low` / route, date and flights / `4:42 PM → 5:58 PM · 1 hr 16 min` / total and fare / time checked |
 | Compact | The same facts with total and fare on one line |
-| Classic with emoji | `📉 New low!  $246  (was $254, −$8 · −3%)` / `🛫 DFW → DEN` / `United  ·  UA 1753` / `Mar 10` / link / time |
+| Classic with emoji | `📉 New low!  $246  (was $254, −$8 · −3%)` / `🛫 DFW → DEN` / `United  ·  UA 1753` / `Mar 10  ·  16:42 → 17:58` / link / time |
 | Custom | Whatever your templates say |
 
-In the classic list, a flight at its lowest recorded price is marked `🔥 at the low`; otherwise the row shows `(low $231)`. "Low" always means the lowest price this monitor has recorded since it began tracking, not a market-wide low.
+Departure and arrival times are the airport's own clock times, shown in your 12- or 24-hour style (**Display → Clock**). They are read from the same page as the price, so a flight shows them after its first successful check; an arrival on a later day is marked `+1`. If the times cannot be read with certainty they are left out, and the price is still recorded.
+
+In the classic list, flights on the same route and day are ordered by departure, and a flight at its lowest recorded price is marked `🔥 at the low`; otherwise the row shows `(low $231)`. "Low" always means the lowest price this monitor has recorded since it began tracking, not a market-wide low.
 
 ### Writing your own
 
@@ -67,13 +70,14 @@ A line with nothing left to show is removed, and repeated blank lines collapse. 
 {emoji} **{headline}**  **{price_short}**[  __({change_summary})__]
 🛫 **{route}**
 [{airline}][  ·  `{flights}`]
-{date_short}[ – {return_date_short}]
+{date_short}[  ·  {times}]
+[↩ {return_date_short}][  ·  {return_times}]
 {link}
 ```
 
 Templates are text, not programs. There are no conditions, loops, calculations or formatting options, so a template cannot read anything beyond the listed details. Each template may hold up to 800 characters, 20 lines and 40 placeholders. If a template would produce an empty message for a particular alert, the detailed wording is sent instead, so an alert is never lost.
 
-**Alert details:** `emoji`, `headline`, `reason`, `price`, `price_short`, `previous_price`, `previous_price_short`, `previous_low`, `previous_low_short`, `change`, `change_percent`, `change_summary`, `route`, `origin`, `destination`, `date`, `date_short`, `return_date`, `return_date_short`, `dates`, `flights`, `airline`, `itinerary`, `passengers`, `total`, `fare`, `details`, `observed`, `observed_short`, `link`.
+**Alert details:** `emoji`, `headline`, `reason`, `price`, `price_short`, `previous_price`, `previous_price_short`, `previous_low`, `previous_low_short`, `change`, `change_percent`, `change_summary`, `route`, `origin`, `destination`, `date`, `date_short`, `return_date`, `return_date_short`, `dates`, `flights`, `airline`, `times`, `depart_time`, `arrive_time`, `duration`, `return_times`, `return_depart_time`, `return_arrive_time`, `return_duration`, `itinerary`, `passengers`, `total`, `fare`, `details`, `observed`, `observed_short`, `link`.
 
 **List row details:** the trip and flight details above, plus `status`, `status_note` (only when a flight needs attention), `price`, `price_short`, `low`, `low_short`, `low_note`, `low_status` and `checked`. A list heading may use the trip details. Consecutive flights with the same heading share it.
 

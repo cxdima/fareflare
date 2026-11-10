@@ -15,6 +15,7 @@ const defaults: Preferences = {
   telegram_style: 'detailed',
   telegram_templates: {},
   telegram_show_flight_numbers: true,
+  telegram_show_times: true,
   telegram_show_observed_time: true,
   telegram_show_fare: true,
   telegram_show_buttons: true,
@@ -159,6 +160,71 @@ test('regional choices update observations and prices but preserve flight depart
   await expect(page.locator('.ticket-date')).toContainText('14. März 2027');
   await page.reload();
   await expect(page.locator('.ticket-observation')).toContainText('01:30');
+});
+
+test('flight cards show departure and arrival times in the account clock style', async ({
+  page,
+}) => {
+  const state = await preferencesMock(page, { hour_cycle: 'h23' });
+  const outbound = {
+    departs: '15:50',
+    arrives: '00:54',
+    arrival_day_offset: 1,
+    duration_minutes: 124,
+  };
+  const back = { departs: '09:05', arrives: '12:14', arrival_day_offset: 0, duration_minutes: 129 };
+  const returning = {
+    date: '2027-03-21',
+    legs: [
+      { origin: 'DFW', destination: 'DEN', airline: 'UA', number: '2049', date: '2027-03-21' },
+    ],
+  };
+  let items: unknown[] = [{ ...monitor, latest: { ...observation, schedule: [outbound] } }];
+  await page.route('**/v1/monitors?limit=100', (route) =>
+    route.fulfill({ json: { items, active_count: 1 } }),
+  );
+  await page.goto('/app');
+  const times = page.locator('.ticket-times');
+  await expect(times).toHaveCount(1);
+  await expect(times.locator('[aria-hidden="true"]')).toHaveText('15:50 → 00:54 +1 · 2 hr 4 min');
+  await expect(times.locator('.visually-hidden')).toHaveText(
+    'Departs 15:50, arrives 00:54, 1 day later, 2 hr 4 min',
+  );
+
+  // A round trip lists each direction, in a 12-hour clock when the account prefers one.
+  items = [
+    {
+      ...monitor,
+      target: { ...monitor.target, segments: [...monitor.target.segments, returning] },
+      latest: { ...observation, schedule: [outbound, back] },
+    },
+  ];
+  await page.getByRole('link', { name: 'Account settings', exact: true }).click();
+  await page.getByLabel('Clock', { exact: true }).selectOption('h12');
+  await page.getByRole('button', { name: 'Save display settings' }).click();
+  await expect(page.getByText('Display settings saved.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('link', { name: 'Flight monitors', exact: true }).click();
+  await expect(times).toHaveCount(2);
+  await expect(times.nth(1).locator('[aria-hidden="true"]')).toHaveText(
+    /↩ 9:05\sAM → 12:14\sPM · 2 hr 9 min/,
+  );
+  await expect(times.nth(1).locator('.visually-hidden')).toHaveText(/^Return departs 9:05\sAM/);
+
+  // Times recorded for a different shape of trip, or malformed ones, are never shown.
+  for (const schedule of [[outbound], [{ departs: '25:00', arrives: '12:14' }, back], 'soon']) {
+    items = [{ ...(items[0] as object), latest: { ...observation, schedule } }];
+    await page.reload();
+    await expect(page.locator('.ticket-date')).toBeVisible();
+    await expect(times).toHaveCount(0);
+  }
+
+  await page.getByRole('link', { name: 'Account settings', exact: true }).click();
+  await showSection(page, 'Notifications');
+  await page.getByLabel('Departure and arrival times', { exact: true }).uncheck();
+  await page.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
+  expect(state.writes.at(-1)).toMatchObject({ telegram_show_times: false });
 });
 
 test('settings load failures can retry and invalid time zones never reach the API', async ({
@@ -433,6 +499,7 @@ test('custom wording starts from a style, inserts details and previews before sa
   const newLow = page.getByLabel('New low message', { exact: true });
   await expect(newLow).toHaveValue('classic low {route}');
   await expect(page.getByLabel('Flight numbers', { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Departure and arrival times', { exact: true })).toBeDisabled();
   await expect(page.getByLabel('Buttons under alerts', { exact: true })).toBeEnabled();
 
   await page.getByLabel('Start from a style').selectOption('compact');

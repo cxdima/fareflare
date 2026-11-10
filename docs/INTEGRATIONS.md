@@ -71,6 +71,9 @@ Alerts use `type: "flight.price_alert"`; `data` contains `monitor_id`, `reason`,
 `previous.low_minor` are the monitor's own last price and lowest price before this
 observation, or `null` for its first; an alert queued by an earlier release omits
 `previous`. Prices retain their currency, minor units, and timestamp.
+`observation.schedule` lists the airport-local departure and arrival clock times
+for each direction (`departs`, `arrives` as 24-hour `HH:MM`, `arrival_day_offset`,
+`duration_minutes`), or is `null` when they could not be read with certainty.
 The `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers follow
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md).
 Use `fareflare.webhook_http.verify_webhook(secret, raw_body, headers)` or a compatible

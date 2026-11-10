@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from fareflare.contracts import CollectionFailure, QuoteEvidence, Reading
+from fareflare.contracts import CollectionFailure, QuoteEvidence, Reading, SliceTimes
 from fareflare.links import import_link
 
 QuoteUnavailable = CollectionFailure
@@ -44,6 +44,41 @@ def supported_target(target: dict) -> None:
 
 def _normal(text: str) -> str:
     return " ".join(text.split())
+
+
+_CLOCK = re.compile(r"(?<![\d:])(1[0-2]|[1-9]):([0-5]\d) ?([AP]M)(?: ?\+ ?([1-3]))?(?!\d)")
+_TRAVEL_TIME = re.compile(r"Travel time: (?:(\d{1,2}) hr)? ?(?:(\d{1,2}) min)?")
+
+
+def _clock(match: re.Match) -> str:
+    hour = int(match[1]) % 12 + (12 if match[3] == "PM" else 0)
+    return f"{hour:02d}:{match[2]}"
+
+
+def slice_times(section: str, origin: str, destination: str) -> SliceTimes | None:
+    """Departure and arrival clock times of one nonstop direction, or None.
+
+    Times decorate a verified price and never decide it, so anything short of
+    exactly one time beside each airport is reported as unknown, not guessed.
+    """
+    section = _normal(section)
+    start = section.find(f"({origin})")
+    end = section.find(f"({destination})", start + 1)
+    if start < 0 or end < 0:
+        return None
+    departures = list(_CLOCK.finditer(section, 0, start))
+    arrivals = list(_CLOCK.finditer(section, start, end))
+    if len(departures) != 1 or len(arrivals) != 1 or departures[0][4]:
+        return None
+    duration = None
+    travel = _TRAVEL_TIME.search(section, start, end)
+    if travel and (travel[1] or travel[2]):
+        duration = int(travel[1] or 0) * 60 + int(travel[2] or 0)
+        if not 0 < duration <= 24 * 60:
+            duration = None
+    return SliceTimes(
+        _clock(departures[0]), _clock(arrivals[0]), int(arrivals[0][4] or 0), duration
+    )
 
 
 def _money(label: str, currency: str) -> int:
@@ -129,6 +164,10 @@ def verified_reading(target: dict, page: PageEvidence, observed_at: int) -> Read
         raise QuoteUnavailable("unrecognized_fare")
     if summary != _money(option[3], currency):
         raise QuoteUnavailable("price_disagreement")
+    times = [
+        slice_times(section, segment["legs"][0]["origin"], segment["legs"][0]["destination"])
+        for segment, section in zip(segments, sections, strict=True)
+    ]
     return Reading(
         target["id"],
         summary,
@@ -144,4 +183,6 @@ def verified_reading(target: dict, page: PageEvidence, observed_at: int) -> Read
             True,
             (100 if "." not in page.summary_prices[0] else 1) if currency == "USD" else 1,
         ),
+        # All directions or none: a half-known round trip would read as one-way times.
+        schedule=tuple(item for item in times if item) if all(times) else None,
     )
