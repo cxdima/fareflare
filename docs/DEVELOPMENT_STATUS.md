@@ -30,7 +30,8 @@ unique targets independently of the per-account monitor limit.
   deployment steps. The bot descriptions and private-chat command menu have been
   applied and read back, and the webhook now accepts callback updates.
 - **Personal settings:** saved IANA time zones, six regional formats, 12/24-hour
-  clocks, Telegram detail options and silent delivery. An explicit message preview
+  clocks, Telegram detail options, message styles and templates, silent delivery
+  and quiet hours. An explicit message preview
   uses sample data without sending a notification. Existing global/route muting
   remains available. [Account preferences](ACCOUNT_PREFERENCES.md) documents
   defaults, partial updates, time-zone fallback and queue behavior.
