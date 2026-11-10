@@ -80,6 +80,20 @@ def _page_signs(text: str) -> str:
     return ",".join(label for label, phrase in _PAGE_SIGNS if phrase in lowered) or "none"
 
 
+# Google Flights sometimes answers a valid link with its own error page ("Oops,
+# something went wrong." above a Reload button). It appears within a second and
+# stays, so waiting cannot help; loading the same link again usually does.
+_GOOGLE_ERROR = "something went wrong"
+_ERROR_PAGE_RELOADS = 2
+
+
+class _ErrorPage:
+    """What a wait returns when Google's error page is showing."""
+
+
+_ERROR_PAGE = _ErrorPage()
+
+
 # Scope prices to the summary and the explicit eligibility marker. In particular,
 # never select the cheapest dollar amount from the page or click a booking button.
 _SNAPSHOT = r"""
@@ -217,6 +231,40 @@ class _CollectionDeadline:
         return WebDriverWait(browser, self.remaining(25)).until(condition)
 
 
+def _opened[Shown](
+    batch: _BrowserBatch,
+    driver: WebDriver,
+    target: dict,
+    deadline: _CollectionDeadline,
+    ready: Callable[[WebDriver], Shown | Literal[False]],
+) -> Shown:
+    """Wait for a link that was just loaded to show what ``ready`` looks for.
+
+    When Google shows its error page instead, load the same validated link again,
+    at most twice and within the collection's deadline. Nothing on the error page
+    is clicked, and a page that keeps failing is reported as ``provider_error``
+    straight away instead of as a timeout 25 seconds later.
+    """
+
+    def settled(browser: WebDriver) -> Shown | _ErrorPage | Literal[False]:
+        if result := ready(browser):
+            return result
+        text = browser.find_element(By.TAG_NAME, "body").text
+        return _GOOGLE_ERROR in text.lower() and _ERROR_PAGE
+
+    reloads = 0
+    while isinstance(result := deadline.wait(driver, settled), _ErrorPage):
+        if reloads == _ERROR_PAGE_RELOADS:
+            log.warning("Public browser provider error page reloads=%d", reloads)
+            raise QuoteUnavailable("provider_error")
+        reloads += 1
+        batch.page_reloads += 1
+        time.sleep(deadline.remaining(1))
+        driver.set_page_load_timeout(deadline.remaining(35))
+        driver.get(target["url"])
+    return result
+
+
 # These can occur while an otherwise correct booking page is being updated.
 # Identity, currency parsing and eligibility rules still run on every snapshot.
 _PENDING_QUOTE_CODES = frozenset(
@@ -281,7 +329,7 @@ class PublicGoogleFlightsProvider:
                 )
 
             phase = "summary"
-            deadline.wait(driver, ready)
+            _opened(batch, driver, target, deadline, ready)
             phase = "details"
             details = driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Flight details."]')
             details = [button for button in details if button.is_displayed()]
@@ -373,7 +421,7 @@ class PublicGoogleFlightsProvider:
                     if button.is_displayed()
                 ]
 
-            sort = wait_for(page_ready)[0]
+            sort = _opened(batch, driver, target, deadline, page_ready)[0]
             if sort.get_attribute("aria-label") != "Sorted by price, Change sort order.":
                 driver.set_page_load_timeout(deadline.remaining(20))
                 sort.click()
@@ -527,6 +575,7 @@ class _BrowserBatch:
         self._attempts = 0
         self.browser_launches = 0
         self.browser_reuses = 0
+        self.page_reloads = 0
 
     def collect(self, target: dict) -> Reading:
         if self._closed or self._attempts >= 20:

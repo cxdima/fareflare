@@ -250,6 +250,38 @@ def test_stale_candidate_does_not_block_distinct_due_target(
     assert service.history("alice", monitors[1]["id"])[0]["amount_minor"] == 27900
 
 
+def test_a_worker_reports_reloads_and_still_records_the_price(
+    service, clock, pages, browsers, monkeypatch
+):
+    monitors = create_pair(service, pages)
+    factory, _, _ = browsers
+    monkeypatch.setattr(public_browser.time, "sleep", lambda seconds: None)
+    launch, served = factory.side_effect, []
+
+    def flaky_launch(**kwargs):
+        driver = launch(**kwargs)
+        navigate = driver.get.side_effect
+
+        def flaky(url):
+            navigate(url)
+            served.append(url)
+            # Google answers the first flight's first load with its error page.
+            if served == [monitors[0]["target"]["url"]]:
+                driver.page["body"] = "Oops, something went wrong.\nReload"
+
+        driver.get.side_effect = flaky
+        return driver
+
+    factory.side_effect = flaky_launch
+    result = Worker(
+        service, PublicGoogleFlightsProvider(clock=lambda: clock[0]), monotonic=lambda: 0
+    ).tick(max_targets=2)
+    assert result["collected"] == 2 and result["failed"] == 0 and result["page_reloads"] == 1
+    assert result["failure_codes"] == {}
+    assert service.history("alice", monitors[0]["id"])[0]["amount_minor"] == 30900
+    assert service.history("alice", monitors[1]["id"])[0]["amount_minor"] == 27900
+
+
 def test_idle_or_short_budget_worker_never_starts_browser(service, browsers):
     factory, _, _ = browsers
     worker = Worker(service, PublicGoogleFlightsProvider(), monotonic=lambda: 0)

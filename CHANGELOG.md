@@ -129,6 +129,13 @@ Notable changes to Fareflare. The format follows
   because the refusal looked like an expired session.
 - An email address typed at sign-up was refused, although it is what most
   password managers offer as the name to save.
+- **Price checks lost to Google's own error page.** Google Flights sometimes
+  answers a valid link with "Oops, something went wrong." The collector waited 25
+  seconds and recorded a `timeout`; in production about one check in four ended
+  that way. It now recognises the page within a second and loads the same link
+  again, at most twice, without pressing anything on the page. A page that keeps
+  failing is recorded as the new `provider_error` code and retried later. The
+  worker reports `page_reloads` for each run.
 
 ### Removed
 

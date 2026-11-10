@@ -204,7 +204,7 @@ def test_timeout_diagnostic_identifies_phase_without_page_data(browser, caplog):
             "selected_flights,booking_options,lowest_total",
             0,
         ),
-        ("Oops, something went wrong. Try again", "went_wrong,try_again", 0),
+        ("We could not load prices. Try again later", "try_again", 0),
         ("Prices are currently unavailable", "unavailable", 0),
         ("Getting prices private customer details", "getting_prices", 0),
         ("", "none", 0),
@@ -233,6 +233,101 @@ def test_a_timeout_after_the_summary_keeps_its_own_phase(browser, polling_wait, 
         PublicGoogleFlightsProvider().collect(target)
     assert "Public browser timeout phase=evidence" in caplog.text
     assert "page=" not in caplog.text
+
+
+# What Google Flights shows in place of a booking page when its own request fails.
+ERROR_PAGE = (
+    "Sign in\nOops, something went wrong.\nReload\nLanguage\u200bEnglish (United States)\n"
+    "Location\u200bUnited States\nCurrency\u200bUSD\nPrivacy\nTerms"
+)
+
+
+@pytest.fixture
+def pauses(monkeypatch):
+    """Record the pause before each reload instead of sleeping."""
+    taken = []
+    monkeypatch.setattr(public_browser.time, "sleep", taken.append)
+    return taken
+
+
+def show_in_turn(driver, *bodies):
+    """Each load of the link shows the next body, then the complete booking page."""
+    complete = driver.find_element.return_value.text
+    shown = iter(bodies)
+
+    def load(_url):
+        driver.find_element.return_value.text = next(shown, complete)
+
+    driver.get.side_effect = load
+
+
+@pytest.mark.parametrize("errors", [1, 2])
+def test_googles_error_page_is_answered_by_loading_the_link_again(browser, pauses, caplog, errors):
+    driver, _, target = browser
+    show_in_turn(driver, *[ERROR_PAGE] * errors)
+    with PublicGoogleFlightsProvider(clock=lambda: 42).batch() as batch:
+        reading = batch.collect(target)
+        assert batch.page_reloads == errors
+    assert reading.amount_minor == 30900 and reading.evidence.identity_verified
+    # Only ever the validated link, and nothing on the error page is pressed.
+    assert [call.args for call in driver.get.call_args_list] == [(target["url"],)] * (errors + 1)
+    driver.find_elements.return_value[0].click.assert_called_once()
+    assert pauses == [1] * errors
+    assert caplog.text == ""
+    driver.quit.assert_called_once()
+
+
+def test_an_error_page_that_stays_is_reported_at_once_as_googles_error(browser, pauses, caplog):
+    driver, _, target = browser
+    driver.find_element.return_value.text = ERROR_PAGE
+    with PublicGoogleFlightsProvider().batch() as batch:
+        with pytest.raises(QuoteUnavailable) as caught:
+            batch.collect(target)
+        assert batch.page_reloads == 2
+    # A passing condition at Google, so the check is tried again later.
+    assert caught.value.code == "provider_error" and caught.value.retryable
+    assert driver.get.call_count == 3 and pauses == [1, 1]
+    assert "Public browser provider error page reloads=2" in caplog.text
+    assert "timeout" not in caplog.text
+    for private in ("Oops", "Sign in", "United States", "google.com"):
+        assert private not in caplog.text
+    driver.find_elements.assert_not_called()
+    driver.quit.assert_called_once()
+
+
+def test_a_reloaded_page_that_never_shows_a_price_is_still_a_timeout(browser, pauses, caplog):
+    driver, _, target = browser
+    show_in_turn(driver, ERROR_PAGE, "Getting prices")
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.get.call_count == 2
+    assert "Public browser timeout phase=summary page=getting_prices chars=0" in caplog.text
+
+
+def test_a_complete_page_is_never_reloaded_for_mentioning_an_error(browser, pauses):
+    driver, _, target = browser
+    driver.find_element.return_value.text += "\nSomething went wrong loading price insights"
+    with PublicGoogleFlightsProvider(clock=lambda: 42).batch() as batch:
+        assert batch.collect(target).amount_minor == 30900
+        assert batch.page_reloads == 0
+    driver.get.assert_called_once_with(target["url"])
+    assert pauses == []
+
+
+def test_reloading_stays_within_the_collection_deadline(browser, pauses, monkeypatch):
+    driver, _, target = browser
+    clock = [0.0]
+    monkeypatch.setattr(public_browser.time, "monotonic", lambda: clock[0])
+    driver.find_element.return_value.text = ERROR_PAGE
+    # Every load is slow: the second reload gets what is left, and there is no third.
+    driver.get.side_effect = lambda _: clock.__setitem__(0, clock[0] + 49.75)
+    with pytest.raises(QuoteUnavailable, match="timeout"):
+        PublicGoogleFlightsProvider().collect(target)
+    assert driver.get.call_count == 3
+    assert pauses == [1, 0.5]
+    budgets = [call.args[0] for call in driver.set_page_load_timeout.call_args_list]
+    assert budgets[-2:] == [35, 0.5]
+    driver.quit.assert_called_once()
 
 
 def test_batch_is_lazy_and_closes_before_reuse_outside_scope(browser):

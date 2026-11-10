@@ -261,6 +261,29 @@ empty shell; `lowest_total` without `cheapest_match` means the layout the
 collector waits for has changed. A failed check is retried after 30 seconds to a
 few minutes, so a run of timeouts delays a price rather than losing it.
 
+Google Flights sometimes answers a valid link with its own error page: "Oops,
+something went wrong." above a Reload button. It is not a challenge and does not
+depend on the flight; it comes and goes by the hour, and before it was handled it
+ended about one check in four as a `timeout`. The page appears within a second
+and stays, so the collector does not wait it out. It loads the same validated
+link again, at most twice with a one-second pause, and presses nothing on the
+page. `page_reloads` in the worker log line and the `health:worker` record counts
+those loads for the run. A page that still fails is recorded as `provider_error`,
+retried later like any other failed check, and logged as:
+
+```text
+Public browser provider error page reloads=2
+```
+
+The page comes in spells of a few minutes in which about half of all loads show
+it, with clean stretches between. In a local trial of 30 checks that began in
+such a spell, 13 met the page, 10 of those recovered by reloading, and the 3
+that did not failed in five seconds instead of 28. So `page_reloads` rising with
+an occasional `provider_error` is the normal picture.
+`provider_error` on most checks means reloading has stopped helping. Compare a
+local run of `python -m fareflare.cli quote <link>` before changing anything,
+because the cause is on Google's side.
+
 Terraform provisions Lambda and collection-failure alarms. Attach an operator
 notification destination before relying on unattended alerts. Handled provider
 failures require their collection metric; they do not always become Lambda errors.

@@ -52,6 +52,7 @@ _FAILURE_MEANING = {
     "login_required": "Google asked for a sign-in",
     "challenge": "Google asked for a human check",
     "timeout": "the page took too long to load",
+    "provider_error": "Google Flights showed an error page",
     "browser_start_failed": "the browser could not start",
     "browser_failed": "the browser stopped unexpectedly",
 }

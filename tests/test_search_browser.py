@@ -76,6 +76,44 @@ def test_search_browser_selects_only_verified_result_then_booking(search_browser
     assert all("Continue to book" not in str(call) for call in driver.find_elements.call_args_list)
 
 
+@pytest.mark.parametrize("recovers", [True, False])
+def test_search_loads_the_link_again_when_google_shows_its_error_page(
+    search_browser, monkeypatch, caplog, recovers
+):
+    _, target, driver, _, detail, select, _, _ = search_browser
+    pauses = []
+    monkeypatch.setattr(public_browser.time, "sleep", pauses.append)
+    body, controls = driver.find_element.return_value.text, driver.find_elements.side_effect
+    # The error page has none of the controls a search page has.
+    driver.find_element.return_value.text = "Sign in\nOops, something went wrong.\nReload"
+    driver.find_elements.side_effect = lambda by, selector: []
+
+    def load(_url):
+        if recovers and driver.get.call_count == 2:
+            driver.find_element.return_value.text = body
+            driver.find_elements.side_effect = controls
+
+    driver.get.side_effect = load
+    provider = PublicGoogleFlightsProvider(clock=lambda: 42)
+    if recovers:
+        assert provider.collect(target).amount_minor == 19100
+        detail.click.assert_called_once()
+        select.click.assert_called_once()
+        assert caplog.text == ""
+    else:
+        with pytest.raises(QuoteUnavailable) as caught:
+            provider.collect(target)
+        assert caught.value.code == "provider_error"
+        assert "Public browser provider error page reloads=2" in caplog.text
+        assert "Oops" not in caplog.text
+        detail.click.assert_not_called()
+        select.click.assert_not_called()
+    loads = 2 if recovers else 3
+    assert [call.args for call in driver.get.call_args_list] == [(target["url"],)] * loads
+    assert pauses == [1] * (loads - 1)
+    driver.quit.assert_called_once()
+
+
 def test_search_cumulative_deadline_stops_before_selection(search_browser):
     data, target, driver, _, detail, select, clock, waits = search_browser
 

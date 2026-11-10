@@ -127,6 +127,7 @@ class CollectionFailure(ValueError):
             "unrecognized_fare",
             "price_disagreement",
             "timeout",
+            "provider_error",
             "browser_start_failed",
             "browser_failed",
             "collection_failed",

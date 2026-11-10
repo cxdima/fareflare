@@ -107,6 +107,8 @@ targets, up to 20 attempts. It resets page/cookies/storage between targets, open
 new browser when pricing context changes, and discards a failed session. Every quote
 still passes itinerary/party/currency/fare validation. The worker closes Chrome
 before processing notifications and reports `browser_launches`/`browser_reuses`.
+When Google shows its own error page in place of a flight, the collector loads the
+same link again, at most twice, and reports the count as `page_reloads`.
 The time budget can stop a batch before its requested target limit.
 
 The bounded local experiment in [the batch evidence](research/collector-batch-2026-11-05.json)

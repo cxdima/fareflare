@@ -457,6 +457,12 @@ def test_diagnostic_notices_use_plain_words_and_name_the_code_once():
     )
     assert failing.text.count("timeout") == 1 and "diagnostic notices are on" in failing.text
     assert failing.reply_markup["inline_keyboard"][0][0]["text"] == "Open Fareflare"
+    google = collection_notice(
+        {"kind": "collection_failing", "code": "provider_error", "failures": 5},
+        flight,
+        Preferences(),
+    )
+    assert "could not finish because Google Flights showed an error page." in google.text
     blocked = collection_notice(
         {"kind": "collection_blocked", "code": "challenge", "failures": 1}, flight, Preferences()
     )
