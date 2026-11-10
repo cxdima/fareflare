@@ -682,7 +682,7 @@ class TelegramBot:
                     ctx,
                     "Turn off quiet hours"
                     if prefs.quiet_hours
-                    else "Quiet hours: " + quiet_hours_label(_DEFAULT_QUIET_HOURS, prefs),
+                    else "Go quiet " + quiet_hours_label(_DEFAULT_QUIET_HOURS, prefs),
                     "preferences",
                     {"quiet_hours": None if prefs.quiet_hours else _DEFAULT_QUIET_HOURS},
                 )

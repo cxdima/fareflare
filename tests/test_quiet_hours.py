@@ -181,7 +181,7 @@ def test_the_bot_turns_quiet_hours_on_and_off_with_one_tap(native_bot, service):
     tenant = native_bot[1]
     settings = _call(native_bot, "/settings")
     assert "Quiet hours: off" in settings.text
-    on = _press(native_bot, settings, "Quiet hours: 10:00 PM – 7:00 AM")
+    on = _press(native_bot, settings, "Go quiet 10:00 PM – 7:00 AM")
     assert "Quiet hours: 10:00 PM – 7:00 AM, no sound" in on.text
     assert service.preferences(tenant)["quiet_hours"] == "22:00-07:00"
     off = _press(native_bot, on, "Turn off quiet hours")
