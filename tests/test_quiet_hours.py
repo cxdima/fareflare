@@ -19,6 +19,7 @@ from fareflare.preferences import (
 )
 from fareflare.webhooks import RoutedSink
 from tests.test_diagnostics import connected, fail  # noqa: F401
+from tests.test_hosted_mcp import application, tool
 from tests.test_preferences import sample
 from tests.test_telegram_accounts import bind
 from tests.test_telegram_bot import _call, _press, native_bot  # noqa: F401
@@ -165,6 +166,15 @@ def test_the_api_saves_validates_and_previews_the_window(service, clock):
         assert daytime["silent"] is False
         cleared = client.put("/v1/preferences", json={"quiet_hours": None}, headers=KEY)
         assert cleared.json()["quiet_hours"] is None
+
+
+def test_an_assistant_can_set_and_clear_the_window_over_mcp(service):
+    with TestClient(application(service)) as client:
+        saved = tool(client, "set_preferences", {"settings": {"quiet_hours": "21:30-06:00"}})
+        assert saved["structuredContent"]["quiet_hours"] == "21:30-06:00"
+        assert tool(client, "get_preferences")["structuredContent"]["quiet_hours"] == "21:30-06:00"
+        cleared = tool(client, "set_preferences", {"settings": {"quiet_hours": None}})
+        assert cleared["structuredContent"]["quiet_hours"] is None
 
 
 def test_the_bot_turns_quiet_hours_on_and_off_with_one_tap(native_bot, service):  # noqa: F811

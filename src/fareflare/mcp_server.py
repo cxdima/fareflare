@@ -235,8 +235,9 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
     ) -> dict[str, Any]:
         """Update only supplied preferences; routes use DEN-DFW.
 
-        Settings include the time zone, Telegram message style and templates, and
-        diagnostics. Call get_message_templates for valid template placeholders.
+        Settings include the time zone, quiet hours such as 22:00-07:00, Telegram
+        message style and templates, and diagnostics. Call get_message_templates
+        for valid template placeholders.
         """
         body = settings.model_dump(exclude_unset=True) if settings else {}
         if muted is not None:
