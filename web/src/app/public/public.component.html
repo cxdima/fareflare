@@ -16,7 +16,7 @@
       <a class="nav-secondary" [href]="github"
         ><i class="bi bi-github" aria-hidden="true"></i> GitHub</a
       >
-      <a class="nav-signin" href="/app"
+      <a class="nav-signin" href="/login"
         >Sign in <i class="bi bi-arrow-up-right" aria-hidden="true"></i
       ></a>
     </nav>
@@ -32,8 +32,10 @@
             Add a Google Flights link. Fareflare checks its price and alerts you when it finds a new
             low or reaches your target.
           </p>
-          <a class="btn btn-primary btn-flight" href="/app">Start tracking a flight</a>
-          <p class="access-note">Free flight price alerts.</p>
+          <a class="btn btn-primary btn-flight" href="/register">Start tracking a flight</a>
+          <p class="access-note">
+            Free flight price alerts. <a href="/login">Already have an account?</a>
+          </p>
         </div>
       </div>
       <div class="flight-preview">
@@ -279,7 +281,7 @@
         <h2>Track the flight you have in mind</h2>
         <p>Create a free account. Your first monitor starts with a link.</p>
       </div>
-      <a class="btn btn-primary btn-flight" href="/app">Open Fareflare</a>
+      <a class="btn btn-primary btn-flight" href="/register">Create your account</a>
     </section>
   } @else if (page(); as current) {
     <div class="public-container">

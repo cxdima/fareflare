@@ -17,7 +17,8 @@ export class App {
       location.pathname === '/' &&
       (query.has('invite') || query.has('authorize') || isLegacyView)
     ) {
-      void this.router.navigate(['/app'], {
+      // An invitation opens sign-up; everything else belongs to the signed-in workspace.
+      void this.router.navigate([query.has('invite') && !isLegacyView ? '/register' : '/app'], {
         queryParams: Object.fromEntries(query),
         fragment: isLegacyView ? view : undefined,
         replaceUrl: true,

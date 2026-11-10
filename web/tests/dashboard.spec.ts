@@ -9,7 +9,7 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
 }) => {
   const calls = await mock(page, false);
   await page.goto('/app');
-  await page.getByLabel('Username', { exact: true }).fill('traveler');
+  await page.getByLabel('Email or username', { exact: true }).fill('traveler');
   await page.getByLabel('Password', { exact: true }).fill('a-long-private-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toBeVisible();
@@ -119,16 +119,20 @@ test('API keys are shown once and revocable, with MCP connection details', async
 test('registration keeps OAuth authorization pending until explicit consent', async ({ page }) => {
   await mock(page, false);
   await page.goto('/app?authorize=request-123&invite=invite-test');
-  await page.getByLabel('Username', { exact: true }).fill('traveler');
+  await page.getByLabel('Email or username', { exact: true }).fill('traveler');
   await page.getByLabel('Password', { exact: true }).fill('a-long-private-password');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  // The recovery code comes first; the waiting application is not forgotten meanwhile.
+  await expect(
+    page.getByRole('textbox', { name: 'Fareflare recovery code', exact: true }),
+  ).toHaveValue('once-only-recovery');
+  await expect(page).toHaveURL(/authorize=request-123/);
+  await expect(page.getByRole('heading', { name: 'Connect an application' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Connect an application' })).toBeVisible();
   await expect(page.getByText('Travel helper', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow access' })).toBeVisible();
   await expect(page).toHaveURL(/authorize=request-123/);
-  await expect(
-    page.getByRole('textbox', { name: 'Your account recovery code', exact: true }),
-  ).toHaveValue('once-only-recovery');
 });
 
 test('dashboard, dialog, login, and mobile layout pass accessibility checks', async ({ page }) => {
@@ -191,16 +195,19 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   page.on('console', (entry) => {
     if (/Content Security Policy|Refused to/.test(entry.text())) errors.push(entry.text());
   });
-  const username = `browsertraveler${testInfo.retry}`;
+  // Signs up with an address, the name a password manager saves and offers back.
+  const username = `browsertraveler${testInfo.retry}@example.com`;
   await page.goto(`/?invite=${encodeURIComponent(fixture.invites[testInfo.retry])}`);
-  await page.getByLabel('Username', { exact: true }).fill(username);
+  await expect(page).toHaveURL(/\/register\?invite=/);
+  await page.getByLabel('Email or username', { exact: true }).fill(username);
   await page.getByLabel('Password', { exact: true }).fill('first-private-password');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  const recovery = await page
-    .getByRole('textbox', { name: 'Your account recovery code', exact: true })
+  const firstRecovery = await page
+    .getByRole('textbox', { name: 'Fareflare recovery code', exact: true })
     .inputValue();
-  expect(recovery.length).toBeGreaterThan(20);
+  expect(firstRecovery.length).toBeGreaterThan(20);
   expect(await page.evaluate(() => document.cookie)).not.toContain('session');
+  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
   await page.getByRole('button', { name: 'Watch your first flight' }).click();
   await page.getByLabel('Google Flights link').fill(flightUrl);
   await page.getByRole('button', { name: 'Start watching' }).click();
@@ -210,18 +217,6 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   await page.getByLabel('Key name').fill('Browser test');
   await page.getByRole('button', { name: 'Create key' }).click();
   const key = await page.getByRole('textbox', { name: 'Your API key', exact: true }).inputValue();
-  const recoveryField = page.getByRole('textbox', {
-    name: 'Your account recovery code',
-    exact: true,
-  });
-  await expect(recoveryField).toHaveValue(recovery);
-  expect(await recoveryField.getAttribute('id')).not.toBe(
-    await page.getByRole('textbox', { name: 'Your API key', exact: true }).getAttribute('id'),
-  );
-  await page
-    .getByRole('region', { name: 'Your account recovery code', exact: true })
-    .getByRole('button', { name: 'I’ve saved it' })
-    .click();
   const apiResult = await page.request.get('http://127.0.0.1:8007/v1/monitors', {
     headers: { Authorization: `Bearer ${key}` },
   });
@@ -229,12 +224,65 @@ test('actual portal: invitation, cookie session, monitor, API key, recovery and 
   expect((await apiResult.json()).items).toHaveLength(1);
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Your API key', exact: true })).toHaveCount(0);
+
+  // A password manager asking where passwords are changed lands on the right section.
+  await page.goto('/.well-known/change-password');
+  await expect(page).toHaveURL('/app#settings?section=security');
+  await expect(page.locator('#main-content').getByText(username, { exact: true })).toBeVisible();
+  const current = page.getByLabel('Current password', { exact: true });
+  await current.fill('not-the-right-password');
+  await page.getByLabel('New password', { exact: true }).fill('changed-private-password');
+  await page.getByRole('button', { name: 'Change password', exact: true }).click();
+  // A mistyped password is an error on this page, not the end of the session.
+  await expect(page.getByRole('alert')).toHaveText('That password is not correct');
+  await expect(page.getByRole('heading', { name: 'Account settings', exact: true })).toBeVisible();
+  await current.fill('first-private-password');
+  await page.getByLabel('New password', { exact: true }).fill('changed-private-password');
+  await page.getByRole('button', { name: 'Change password', exact: true }).click();
+  await expect(page.getByText(/Password changed\./)).toBeVisible();
+  await expect(current).toHaveValue('');
+  // The key is a separate credential and keeps working.
+  expect(
+    (
+      await page.request.get('http://127.0.0.1:8007/v1/monitors', {
+        headers: { Authorization: `Bearer ${key}` },
+      })
+    ).status(),
+  ).toBe(200);
+
+  // A lost recovery code can be replaced while signed in.
+  await page.getByRole('button', { name: 'Create a new recovery code', exact: true }).click();
+  await page.getByLabel('Confirm your password', { exact: true }).fill('changed-private-password');
+  await page.getByRole('button', { name: 'Create new code', exact: true }).click();
+  const recoveryField = page.getByRole('textbox', { name: 'Your new recovery code', exact: true });
+  const recovery = await recoveryField.inputValue();
+  expect(recovery.length).toBeGreaterThan(20);
+  expect(recovery).not.toBe(firstRecovery);
+  await page
+    .getByRole('region', { name: 'Your new recovery code', exact: true })
+    .getByRole('button', { name: 'I’ve saved it', exact: true })
+    .click();
+  await expect(recoveryField).toHaveCount(0);
+
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.getByLabel('Email or username', { exact: true }).fill(username.toUpperCase());
+  await page.getByLabel('Password', { exact: true }).fill('first-private-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('Incorrect email, username or password');
   await page.getByRole('button', { name: 'Forgot your password?' }).click();
-  await page.getByLabel('Username', { exact: true }).fill(username);
-  await page.getByLabel('Recovery code', { exact: true }).fill(recovery);
+  await expect(page.getByLabel('Email or username', { exact: true })).toHaveValue(
+    username.toUpperCase(),
+  );
+  await page.getByLabel('Recovery code', { exact: true }).fill(firstRecovery);
   await page.getByLabel('New password', { exact: true }).fill('second-private-password');
   await page.getByRole('button', { name: 'Reset password', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('Incorrect email, username or recovery code');
+  await page.getByLabel('Recovery code', { exact: true }).fill(recovery);
+  await page.getByRole('button', { name: 'Reset password', exact: true }).click();
+  // Recovery issues another code, shown before the workspace like the first one.
+  const reissued = page.getByRole('textbox', { name: 'Fareflare recovery code', exact: true });
+  await expect(reissued).not.toHaveValue(recovery);
+  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your flights', exact: true })).toBeVisible();
   expect(
     (
@@ -482,7 +530,7 @@ test('collection and delivery choices survive collapsing their disclosure before
   await expect(page.getByLabel('Google Flights link')).toBeVisible();
   await expect(page.getByLabel('Check interval')).toBeHidden();
   await page.getByLabel('Google Flights link').fill(flightUrl);
-  const options = page.getByText('Collection and delivery', { exact: true });
+  const options = page.getByText('Check frequency and alert destination', { exact: true });
   await options.focus();
   await page.keyboard.press('Enter');
   await page.getByLabel('Check interval').selectOption('1800');

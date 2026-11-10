@@ -22,6 +22,27 @@ export class RegionalFormat {
     values: new Map<string, Intl.NumberFormat>(),
   }));
   readonly zone = computed(() => this.observations().resolvedOptions().timeZone);
+  private readonly relatives = computed(
+    () => new Intl.RelativeTimeFormat(this.preferences.value().locale, { numeric: 'auto' }),
+  );
+  private readonly days = computed(
+    () =>
+      new Intl.DateTimeFormat(this.preferences.value().locale, {
+        month: 'short',
+        day: 'numeric',
+        timeZone: this.zone(),
+      }),
+  );
+  /** How long ago a moment was, for a glance; show the exact time alongside it. */
+  readonly ago = (seconds: number, now: number = Date.now()): string => {
+    const minutes = Math.max(0, Math.round((now / 1000 - seconds) / 60));
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return this.relatives().format(-minutes, 'minute');
+    if (minutes < 36 * 60) return this.relatives().format(-Math.round(minutes / 60), 'hour');
+    return this.relatives().format(-Math.round(minutes / 1440), 'day');
+  };
+  /** A calendar day in the account's time zone, such as Nov 4. */
+  readonly day = (seconds: number): string => this.days().format(seconds * 1000);
   readonly timestamp = (seconds: number): string => this.observations().format(seconds * 1000);
   readonly tripDate = (date: string): string =>
     this.departures().format(new Date(date + 'T12:00:00Z'));

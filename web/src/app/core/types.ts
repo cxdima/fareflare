@@ -50,7 +50,10 @@ export type Monitor = {
     url: string;
   };
   interval_seconds: number;
+  created_at?: number;
   latest: Observation | null;
+  /** The lowest total this monitor has recorded since it started. */
+  low_minor?: number | null;
   stale: boolean;
   last_error: string | null;
   collection_failures?: number;

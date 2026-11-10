@@ -131,6 +131,10 @@
   font-size: 1.1rem;
   margin-bottom: 0.3rem;
 }
+.price-pending + .price-context {
+  max-width: 17rem;
+  line-height: 1.55;
+}
 .ticket-observation {
   max-width: 18rem;
   margin-top: 0.7rem;
@@ -390,5 +394,178 @@
     position: absolute;
     top: 0.65rem;
     right: 1.25rem;
+  }
+}
+
+/* Where the latest price stands against this monitor's own record. */
+.price-low {
+  font-size: 0.75rem;
+  color: var(--ff-muted);
+  font-variant-numeric: tabular-nums;
+}
+.price-at-low {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--ff-success);
+  font-weight: 650;
+}
+.ticket-paused .price-at-low {
+  color: var(--ff-muted);
+}
+
+/* First run: says what to do, and how, beside a calm picture of where it leads. */
+.first-flight {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  padding: 0;
+  overflow: hidden;
+}
+.first-flight-copy {
+  padding: clamp(1.75rem, 4vw, 3rem);
+}
+.first-flight h2 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+}
+.first-flight-copy > p {
+  max-width: 36ch;
+  margin-bottom: 1.5rem;
+  color: var(--ff-muted);
+}
+.first-flight-steps {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.5rem 0 0;
+  margin: 1.75rem 0 0;
+  border-top: 1px solid var(--ff-line);
+  list-style: none;
+  counter-reset: step;
+  color: var(--ff-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.first-flight-steps li {
+  position: relative;
+  padding-left: 1.6rem;
+  counter-increment: step;
+}
+.first-flight-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  color: var(--ff-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.first-flight-steps strong {
+  color: var(--ff-ink);
+  font-weight: 650;
+}
+.first-flight-photo {
+  width: 100%;
+  height: 100%;
+  min-height: 19rem;
+  object-fit: cover;
+  object-position: 62% 50%;
+}
+
+/* Offered where the need is felt: a flight is being watched and nothing can ring. */
+.telegram-invite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 2.5rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 0.875rem;
+  background: var(--ff-sidebar);
+}
+.telegram-invite h2 {
+  margin-bottom: 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.telegram-invite-copy p {
+  max-width: 54ch;
+  margin: 0;
+  color: var(--ff-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.telegram-invite-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 1.25rem;
+}
+.telegram-invite-linking {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+.telegram-invite-close {
+  min-height: 24px;
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+}
+
+/* The shape of a flight while the list loads, so the page does not jump when it arrives. */
+.ticket-skeleton {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.5rem;
+}
+.skeleton-line {
+  display: block;
+  height: 0.8rem;
+  border-radius: 0.4rem;
+  background: var(--ff-soft);
+}
+.skeleton-short {
+  width: 9rem;
+}
+.skeleton-medium {
+  width: min(16rem, 70%);
+}
+.skeleton-title {
+  width: min(13rem, 55%);
+  height: 1.7rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-line {
+    animation: skeleton-breathe 1.4s ease-in-out infinite alternate;
+  }
+}
+@keyframes skeleton-breathe {
+  to {
+    opacity: 0.45;
+  }
+}
+@media (max-width: 991px) {
+  .first-flight {
+    grid-template-columns: 1fr;
+  }
+  .first-flight-photo {
+    order: -1;
+    height: 10.5rem;
+    min-height: 0;
+  }
+}
+@media (max-width: 767px) {
+  .telegram-invite {
+    grid-template-columns: 1fr;
+    padding: 1.1rem 1rem;
+  }
+  .telegram-invite-action {
+    justify-content: flex-start;
+  }
+  .price-low {
+    grid-column: 1 / -1;
   }
 }

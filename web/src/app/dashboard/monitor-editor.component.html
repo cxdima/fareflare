@@ -22,6 +22,34 @@
           spellcheck="false"
           placeholder="https://www.google.com/travel/flights?…"
         ></textarea>
+        @if (linkNote(); as note) {
+          <p class="link-note" [class.link-ok]="note.ok" role="status">
+            <i
+              class="bi"
+              [class.bi-check-circle-fill]="note.ok"
+              [class.bi-exclamation-circle]="!note.ok"
+              aria-hidden="true"
+            ></i>
+            {{ note.text }}
+          </p>
+        }
+        <details
+          class="supported-inputs"
+          [attr.open]="firstFlight() && !linkNote()?.ok ? '' : null"
+        >
+          <summary>Where do I find the link?</summary>
+          <ol class="link-steps">
+            <li>
+              Open
+              <a href="https://www.google.com/travel/flights" target="_blank" rel="noreferrer"
+                >Google Flights<span class="visually-hidden"> (opens a new tab)</span></a
+              >
+              and search your trip.
+            </li>
+            <li>Choose your exact flights, so the page shows one itinerary and its price.</li>
+            <li>Copy the link from your browser’s address bar and paste it above.</li>
+          </ol>
+        </details>
         <details class="supported-inputs">
           <summary>Supported flights and searches</summary>
           <p>
@@ -79,7 +107,7 @@
       </div>
     } @else {
       <details class="collection-options">
-        <summary>Collection and delivery</summary>
+        <summary>Check frequency and alert destination</summary>
         <div class="collection-fields">
           <div>
             <label class="form-label" for="interval">Check interval</label

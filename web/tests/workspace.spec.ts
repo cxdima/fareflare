@@ -50,8 +50,9 @@ test('a webhook load failure does not hide a successfully loaded empty monitor l
   await expect(page.getByRole('alert')).toContainText('Webhooks are temporarily unavailable.');
   await expect(page.getByRole('heading', { name: 'Which flight are you watching?' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Watch your first flight' })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Watch a flight' })).toBeEnabled();
-  await expect(page.getByLabel('Monitor summary')).toContainText('0 of 3 monitors in use');
+  // A first visit has one thing to do, offered once.
+  await expect(page.getByRole('button', { name: 'Watch a flight', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Monitor summary')).not.toContainText('monitors in use');
   await expect(page.getByRole('heading', { name: 'Your flights could not load' })).toHaveCount(0);
 });
 

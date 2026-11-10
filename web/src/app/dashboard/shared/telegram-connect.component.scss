@@ -1,0 +1,48 @@
+:host {
+  display: block;
+}
+.telegram-connected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ff-success);
+  font-weight: 600;
+}
+:host-context(.telegram-invite) .telegram-connected {
+  margin-bottom: 0;
+}
+.telegram-steps {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0 0 1rem;
+  list-style: none;
+  counter-reset: step;
+}
+.telegram-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  counter-increment: step;
+}
+.telegram-steps li::before {
+  content: counter(step);
+  min-width: 0.7rem;
+  color: var(--ff-muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.telegram-waiting {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  color: var(--ff-muted);
+  font-size: 0.9rem;
+}
+.telegram-fallback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  font-size: 0.9rem;
+}

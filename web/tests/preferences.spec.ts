@@ -59,10 +59,10 @@ test('actual account preferences persist and preview does not save or send', asy
   const fixture = JSON.parse(await readFile('artifacts/portal-fixture.json', 'utf8'));
   await page.goto(`/?invite=${encodeURIComponent(fixture.preferences_invites[info.retry])}`);
   const password = 'private-preferences-test-password';
-  await page.getByLabel('Username', { exact: true }).fill(`preferencesuser${info.retry}`);
+  await page.getByLabel('Email or username', { exact: true }).fill(`preferencesuser${info.retry}`);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await page.getByRole('button', { name: 'I’ve saved it' }).click();
+  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
   await page.getByRole('link', { name: 'Account settings', exact: true }).click();
   await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('America/Chicago');
   await page.getByLabel('Time zone', { exact: true }).fill('Asia/Tokyo');

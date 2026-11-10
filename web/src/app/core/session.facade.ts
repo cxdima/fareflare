@@ -12,6 +12,8 @@ export class SessionFacade {
   readonly recovery = signal('');
   readonly ready = signal(false);
   readonly error = signal('');
+  /** True after a deliberate sign-out or deletion: the next sign-in starts from the top. */
+  readonly left = signal(false);
   private boot: Promise<void> | null = null;
 
   constructor() {
@@ -47,6 +49,13 @@ export class SessionFacade {
     this.account.set(result.account);
     this.recovery.set(result.recovery_code ?? '');
     this.error.set('');
+    this.left.set(false);
+  }
+
+  /** Ends the session on purpose, as opposed to finding that it expired. */
+  leave(): void {
+    this.left.set(true);
+    this.clear();
   }
 
   clear(): void {

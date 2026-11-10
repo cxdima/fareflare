@@ -50,6 +50,27 @@ export class MonitorEditorComponent implements OnInit {
     }
   });
   readonly unit = computed(() => (this.currency() === 'JPY' ? 1 : 100));
+  /** Says at once whether what was pasted can be a flight link; the service decides the rest. */
+  readonly linkNote = computed(() => {
+    const value = this.model().url.trim();
+    if (!value || this.monitor()) return null;
+    let link: URL;
+    try {
+      link = new URL(value);
+    } catch {
+      return { ok: false, text: 'Paste the whole link, starting with https://' };
+    }
+    return link.protocol === 'https:' &&
+      ['google.com', 'www.google.com'].includes(link.hostname) &&
+      link.pathname.startsWith('/travel/flights')
+      ? { ok: true, text: 'Google Flights link recognized.' }
+      : {
+          ok: false,
+          text: 'That is not a Google Flights link. Copy it from google.com/travel/flights.',
+        };
+  });
+  /** Someone adding their first flight is shown where a link comes from. */
+  readonly firstFlight = computed(() => !this.workspace.monitors().length);
   readonly intervals = computed(() => [
     ...new Set(
       [this.workspace.session.config()!.limits.min_interval_seconds, 1800, 3600, 7200].filter(
@@ -100,7 +121,7 @@ export class MonitorEditorComponent implements OnInit {
           });
         } else {
           const payload = {
-            url: value.url,
+            url: value.url.trim(),
             interval_seconds: Number(value.interval),
             webhook_id: value.webhook || null,
             policy,

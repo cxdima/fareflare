@@ -11,6 +11,9 @@ export class SecretComponent {
   readonly fieldId = 'secret-' + crypto.randomUUID();
   readonly title = input.required<string>();
   readonly value = input.required<string>();
+  /** Inside another titled surface: no heading or panel of its own. */
+  readonly plain = input(false);
+  readonly confirmLabel = input('I’ve saved it');
   readonly dismissed = output<void>();
   readonly copied = signal(false);
   readonly error = signal('');

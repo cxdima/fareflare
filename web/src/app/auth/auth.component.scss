@@ -51,6 +51,13 @@
   justify-items: start;
   margin-top: 1.5rem;
 }
+.auth-links p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.4rem;
+  margin: 0;
+}
 .auth-note {
   color: var(--ff-muted);
   font-size: 0.84rem;

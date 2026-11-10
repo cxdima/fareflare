@@ -15,7 +15,6 @@ import { ApiService } from '../core/api.service';
 import { SessionFacade } from '../core/session.facade';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
-import { SecretComponent } from './shared/secret.component';
 import { MonitorsComponent } from './monitors.component';
 import { AlertsComponent } from './alerts.component';
 import { WebhooksComponent } from './webhooks.component';
@@ -24,6 +23,7 @@ import { SettingsComponent } from './settings.component';
 import { ConsentComponent } from './consent.component';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
+import { TelegramFacade } from '../core/telegram.facade';
 
 const navigation = [
   { id: 'monitors', label: 'Flight monitors', shortLabel: 'Flights', icon: 'bi-airplane' },
@@ -41,7 +41,6 @@ function currentView(): string {
   selector: 'ff-dashboard',
   standalone: true,
   imports: [
-    SecretComponent,
     MonitorsComponent,
     AlertsComponent,
     WebhooksComponent,
@@ -49,7 +48,7 @@ function currentView(): string {
     SettingsComponent,
     ConsentComponent,
   ],
-  providers: [WorkspaceFacade, PreferencesFacade, RegionalFormat],
+  providers: [WorkspaceFacade, PreferencesFacade, RegionalFormat, TelegramFacade],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -72,6 +71,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   );
   readonly main = viewChild<ElementRef<HTMLElement>>('main');
   private timer: ReturnType<typeof setInterval> | undefined;
+  private firstPrice: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
   private readonly hashChanged = () => {
     this.view.set(currentView());
@@ -79,14 +79,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   };
 
   constructor() {
+    effect(() => this.awaitFirstPrice());
     effect(() => {
       if (this.session.ready() && !this.session.account() && !this.session.error()) {
-        void this.router.navigate(['/login'], {
-          queryParams: this.route.snapshot.queryParams,
+        const params = this.route.snapshot.queryParams;
+        // The page that was asked for is kept, so signing in arrives there.
+        const asked = this.session.left() ? '' : location.hash.slice(1);
+        void this.router.navigate([params['invite'] ? '/register' : '/login'], {
+          queryParams: params,
+          fragment: asked || undefined,
           replaceUrl: true,
         });
       }
     });
+  }
+  /** A flight added moments ago gets its first price shown without anyone pressing Refresh. */
+  private awaitFirstPrice(): void {
+    clearTimeout(this.firstPrice);
+    const recent = Date.now() / 1000 - 10 * 60;
+    const waiting = this.workspace
+      .monitors()
+      .some((item) => item.status === 'pending' && !item.latest && (item.created_at ?? 0) > recent);
+    if (!waiting) return;
+    this.firstPrice = setTimeout(() => {
+      if (document.visibilityState === 'visible' && !this.workspace.refreshing())
+        void this.workspace.refresh();
+      else this.awaitFirstPrice();
+    }, 12000);
   }
   async ngOnInit(): Promise<void> {
     window.addEventListener('hashchange', this.hashChanged);
@@ -101,6 +120,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     clearInterval(this.timer);
+    clearTimeout(this.firstPrice);
     window.removeEventListener('hashchange', this.hashChanged);
   }
   select(event: Event, view: string): void {
@@ -115,7 +135,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async logout(): Promise<void> {
     await this.logoutAction.run(async () => {
       await this.api.request('/auth/logout', { method: 'POST' });
-      this.session.clear();
+      this.session.leave();
       await this.router.navigate(['/login']);
     });
   }

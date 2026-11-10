@@ -3,21 +3,23 @@
     <h1>Your flights</h1>
     <p>Track fares and choose when to get an alert.</p>
   </div>
-  <button
-    type="button"
-    class="btn btn-primary btn-flight"
-    [disabled]="
-      !workspace.monitorsLoaded() ||
-      workspace.activeCount() >= workspace.session.config()!.limits.monitors
-    "
-    (click)="creating.set(true)"
-  >
-    Watch a flight
-  </button>
+  @if (!firstRun()) {
+    <button
+      type="button"
+      class="btn btn-primary btn-flight"
+      [disabled]="
+        !workspace.monitorsLoaded() ||
+        workspace.activeCount() >= workspace.session.config()!.limits.monitors
+      "
+      (click)="creating.set(true)"
+    >
+      Watch a flight
+    </button>
+  }
 </div>
 <div class="monitor-overview">
-  <div class="monitor-summary" aria-label="Monitor summary">
-    @if (workspace.monitorsLoaded()) {
+  <div class="monitor-summary" role="group" aria-label="Monitor summary">
+    @if (workspace.monitorsLoaded() && !firstRun()) {
       <span
         ><strong>{{ workspace.activeCount() }}</strong> of
         {{ workspace.session.config()!.limits.monitors }} monitors in use</span
@@ -68,6 +70,30 @@
 </div>
 @if (action.error()) {
   <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+}
+@if (inviting()) {
+  <section class="telegram-invite" aria-labelledby="telegram-invite-title">
+    <div class="telegram-invite-copy">
+      <h2 id="telegram-invite-title">Get alerts on your phone</h2>
+      <p>
+        Right now a price drop only shows up here. Connect Telegram and it reaches you as a message
+        the moment it is recorded.
+      </p>
+    </div>
+    <div
+      class="telegram-invite-action"
+      [class.telegram-invite-linking]="telegram.link() && !telegram.status()?.connected"
+    >
+      <ff-telegram-connect [manage]="false" />
+      <button
+        type="button"
+        class="btn btn-link p-0 telegram-invite-close"
+        (click)="declineInvite()"
+      >
+        {{ telegram.status()?.connected ? 'Done' : 'Not now' }}
+      </button>
+    </div>
+  </section>
 }
 @if (workspace.monitors().length) {
   @if (query() || filter() !== 'all' || workspace.monitorCursor()) {
@@ -138,8 +164,19 @@
                 >{{ monitor.target.adults }} {{ monitor.target.adults === 1 ? 'adult' : 'adults' }},
                 {{ monitor.latest.fare_name || 'Economy' }}</span
               >
-              <span class="ticket-observation"
-                >Last checked {{ timestamp(monitor.latest.observed_at) }}</span
+              @if (lowNote(monitor); as note) {
+                <span class="price-low" [class.price-at-low]="note.atLow">
+                  @if (note.atLow) {
+                    <i class="bi bi-arrow-down-circle-fill" aria-hidden="true"></i>
+                  }
+                  {{ note.text }}
+                </span>
+              }
+              <span class="ticket-observation" [title]="timestamp(monitor.latest.observed_at)"
+                >Checked {{ regional.ago(monitor.latest.observed_at, now()) }}
+                <span class="visually-hidden"
+                  >, {{ timestamp(monitor.latest.observed_at) }}</span
+                ></span
               >
               @if (
                 monitor.stale &&
@@ -154,7 +191,10 @@
                 ><i class="bi bi-hourglass-split"></i
               ></span>
               <strong class="price-pending">Awaiting first check</strong>
-              <span class="price-context">Your price will appear here.</span>
+              <span class="price-context"
+                >The first price usually arrives within a few minutes. This page updates by
+                itself.</span
+              >
             }
           </div>
         </div>
@@ -256,21 +296,53 @@
       </section>
     }
   </div>
-} @else if (workspace.refreshing()) {
-  <div class="empty-state panel" role="status"><p>Loading your flights…</p></div>
+} @else if (!workspace.monitorsLoaded() && !workspace.error()) {
+  <div class="monitor-list" role="status">
+    <span class="visually-hidden">Loading your flights…</span>
+    @for (placeholder of [1, 2]; track placeholder) {
+      <div class="flight-ticket ticket-skeleton" aria-hidden="true">
+        <span class="skeleton-line skeleton-short"></span>
+        <span class="skeleton-line skeleton-title"></span>
+        <span class="skeleton-line skeleton-medium"></span>
+        <span class="skeleton-line skeleton-short"></span>
+      </div>
+    }
+  </div>
 } @else if (!workspace.monitorsLoaded() && workspace.error()) {
   <div class="empty-state panel">
     <h2>Your flights could not load</h2>
     <p>Use Retry above to load your monitors.</p>
   </div>
 } @else {
-  <section class="empty-state panel">
-    <i class="bi bi-airplane" aria-hidden="true"></i>
-    <h2>Which flight are you watching?</h2>
-    <p>Paste a Google Flights link to start tracking its price.</p>
-    <button type="button" class="btn btn-primary btn-flight" (click)="creating.set(true)">
-      Watch your first flight
-    </button>
+  <section class="first-flight panel" aria-labelledby="first-flight-title">
+    <div class="first-flight-copy">
+      <h2 id="first-flight-title">Which flight are you watching?</h2>
+      <p>
+        Paste its Google Flights link. Fareflare checks the price for you and tells you when it
+        drops.
+      </p>
+      <button type="button" class="btn btn-primary btn-flight" (click)="creating.set(true)">
+        Watch your first flight
+      </button>
+      <ol class="first-flight-steps">
+        <li>
+          <strong>Find your trip.</strong> Search
+          <a href="https://www.google.com/travel/flights" target="_blank" rel="noreferrer"
+            >Google Flights<span class="visually-hidden"> (opens a new tab)</span></a
+          >
+          and choose your exact flights.
+        </li>
+        <li><strong>Copy the link</strong> from your browser’s address bar.</li>
+        <li><strong>Paste it here.</strong> The first price arrives within minutes.</li>
+      </ol>
+    </div>
+    <img
+      class="first-flight-photo"
+      src="/assets/above-the-clouds.jpg"
+      width="1024"
+      height="688"
+      alt=""
+    />
   </section>
 }
 @if (workspace.monitorLoadError()) {

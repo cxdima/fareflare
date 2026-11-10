@@ -76,6 +76,8 @@ export async function mock(page: BrowserPage, signedIn = true) {
       return signedIn
         ? reply({ account: { id: 'user', username: 'traveler' }, csrf_token: 'csrf-test' })
         : reply({ detail: 'Sign in' }, 401);
+    if (path === '/auth/password') return reply({ changed: true });
+    if (path === '/auth/recovery-code') return reply({ recovery_code: 'replacement-recovery' });
     if (path.startsWith('/auth/')) {
       signedIn = path !== '/auth/logout';
       return reply({

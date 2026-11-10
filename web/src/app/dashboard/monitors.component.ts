@@ -1,7 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { ApiService } from '../core/api.service';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
+import { TelegramFacade } from '../core/telegram.facade';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -11,11 +20,20 @@ import { MonitorEditorComponent } from './monitor-editor.component';
 import { PriceHistoryComponent } from './price-history.component';
 import { MonitorPresenter } from './monitor-presentation';
 import { AirlineComponent } from './shared/airline.component';
+import { TelegramConnectComponent } from './shared/telegram-connect.component';
+
+const DAY = 86400;
 
 @Component({
   selector: 'ff-monitors',
   standalone: true,
-  imports: [DialogComponent, MonitorEditorComponent, PriceHistoryComponent, AirlineComponent],
+  imports: [
+    DialogComponent,
+    MonitorEditorComponent,
+    PriceHistoryComponent,
+    AirlineComponent,
+    TelegramConnectComponent,
+  ],
   templateUrl: './monitors.component.html',
   styleUrl: './monitors.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +51,21 @@ export class MonitorsComponent {
   readonly tripDate = this.regional.tripDate;
   readonly routeName = routeName;
   readonly statusLabel = statusLabel;
+  readonly telegram = inject(TelegramFacade);
+  /** Advances so "5 minutes ago" stays true while the page is left open. */
+  readonly now = signal(Date.now());
+  private readonly inviteKey = 'fareflare.telegram-invite.' + this.workspace.session.account()?.id;
+  private readonly inviteDeclined = signal(this.stored());
+  /** Stays up once offered, so the result of connecting is seen where it was started. */
+  private readonly inviteOffered = signal(false);
+  readonly inviting = computed(() => this.inviteOffered() && !this.inviteDeclined());
+  /** A new account with nothing watched yet: the page is one invitation to add a flight. */
+  readonly firstRun = computed(
+    () =>
+      this.workspace.monitorsLoaded() &&
+      !this.workspace.monitors().length &&
+      !this.workspace.activeCount(),
+  );
   readonly creating = signal(false);
   readonly editing = signal<Monitor | null>(null);
   readonly history = signal<Monitor | null>(null);
@@ -66,6 +99,45 @@ export class MonitorsComponent {
       return terms.every((term) => search.includes(term));
     });
   });
+  constructor() {
+    const clock = setInterval(() => this.now.set(Date.now()), 30000);
+    inject(DestroyRef).onDestroy(() => clearInterval(clock));
+    void this.telegram.load();
+    effect(() => {
+      const status = this.telegram.status();
+      // Offered once someone has a flight to be told about and nowhere to be told.
+      if (status?.enabled && !status.connected && this.workspace.active().length)
+        this.inviteOffered.set(true);
+    });
+  }
+  declineInvite(): void {
+    this.inviteDeclined.set(true);
+    try {
+      localStorage.setItem(this.inviteKey, 'hidden');
+    } catch {
+      // Private browsing: the choice lasts for this visit only.
+    }
+  }
+  private stored(): boolean {
+    try {
+      return localStorage.getItem(this.inviteKey) === 'hidden';
+    } catch {
+      return false;
+    }
+  }
+  /** Where the latest price stands against the lowest this monitor has recorded. */
+  lowNote(item: Monitor): { atLow: boolean; text: string } | null {
+    const latest = item.latest;
+    const low = item.low_minor;
+    if (!latest || low == null || !item.created_at) return null;
+    const since = this.regional.day(item.created_at);
+    if (latest.amount_minor > low)
+      return { atLow: false, text: `Low since ${since}: ${this.money(low, latest.currency)}` };
+    // On the first day the only price is trivially the lowest; say nothing yet.
+    return latest.observed_at - item.created_at >= DAY
+      ? { atLow: true, text: `Lowest since ${since}` }
+      : null;
+  }
   current(item: Monitor): boolean {
     return !['cancelled', 'expired'].includes(item.status);
   }

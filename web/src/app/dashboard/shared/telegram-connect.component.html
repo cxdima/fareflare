@@ -1,0 +1,75 @@
+@if (telegram.action.error()) {
+  <div class="alert alert-danger" role="alert">{{ telegram.action.error() }}</div>
+}
+@if (telegram.status(); as status) {
+  @if (!status.enabled) {
+    <p class="mb-0">Telegram is not configured on this installation yet.</p>
+  } @else if (status.connected) {
+    <p class="telegram-connected" role="status">
+      <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+      Connected. Price alerts arrive as Telegram messages.
+    </p>
+    @if (manage()) {
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        [disabled]="telegram.action.busy()"
+        (click)="telegram.disconnect()"
+      >
+        Disconnect Telegram
+      </button>
+    }
+  } @else if (telegram.link(); as link) {
+    <ol class="telegram-steps" role="list">
+      <li>
+        <a class="btn btn-primary" [href]="link" target="_blank" rel="noreferrer"
+          ><i class="bi bi-telegram" aria-hidden="true"></i> Open Telegram<span
+            class="visually-hidden"
+          >
+            (opens a new tab)</span
+          ></a
+        >
+      </li>
+      <li>
+        <span>Press <strong>Start</strong> in the chat with the Fareflare bot.</span>
+      </li>
+    </ol>
+    <p class="telegram-waiting" role="status">
+      @if (telegram.waiting()) {
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        Waiting for you to press Start. This page updates by itself.
+      } @else {
+        That link has expired.
+      }
+    </p>
+    <div class="telegram-fallback">
+      <button
+        type="button"
+        class="btn btn-link p-0"
+        [disabled]="telegram.action.busy()"
+        (click)="telegram.check()"
+      >
+        Check now
+      </button>
+      <button
+        type="button"
+        class="btn btn-link p-0"
+        [disabled]="telegram.action.busy()"
+        (click)="telegram.connect()"
+      >
+        Create a new link
+      </button>
+    </div>
+  } @else {
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="telegram.action.busy()"
+      (click)="telegram.connect()"
+    >
+      <i class="bi bi-telegram" aria-hidden="true"></i> Connect Telegram
+    </button>
+  }
+} @else if (!telegram.action.error()) {
+  <p class="mb-0" role="status">Loading Telegram connection…</p>
+}
