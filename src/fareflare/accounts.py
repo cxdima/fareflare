@@ -28,10 +28,27 @@ _SCRYPT_MAXMEM = 256 * 1024 * 1024
 _DUMMY_SALT = bytes.fromhex("86924ed509cef2bf4148bfffc357c86d")
 _TOKEN = re.compile(r"[A-Za-z0-9_-]{43}\Z")
 _ACCOUNT = re.compile(r"acct_[a-f0-9]{32}\Z")
+MAX_USERNAME_LENGTH = 254
+_USERNAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}")
+# An email address is accepted so a password manager can fill what it already
+# knows. It is a name and nothing more: no message is ever sent to it, so it is
+# not verified, and recovery still depends on the recovery code.
+_EMAIL = re.compile(
+    r"[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}"
+    r"@[a-zA-Z0-9][a-zA-Z0-9-]{0,62}(?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,62})*\.[a-zA-Z]{2,24}"
+)
 
 
 class AuthenticationFailed(ValueError):
     """Authentication failed without disclosing whether an account exists."""
+
+
+class IncorrectPassword(ValueError):
+    """A signed-in person confirmed an action with the wrong password.
+
+    Distinct from ``AuthenticationFailed``: the session is still valid, so the
+    browser must not treat this as having been signed out.
+    """
 
 
 def _digest(value: str) -> str:
@@ -39,9 +56,15 @@ def _digest(value: str) -> str:
 
 
 def _username(value: str) -> str:
-    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}", value):
+    """The sign-in name: a short username, or an email address used only as a name."""
+    if (
+        not isinstance(value, str)
+        or len(value) > MAX_USERNAME_LENGTH
+        or not (_USERNAME.fullmatch(value) or _EMAIL.fullmatch(value))
+    ):
         raise ValueError(
-            "Username must contain 3–40 letters, numbers, periods, underscores or hyphens"
+            "Use an email address, or a username of 3–40 letters, numbers, periods, "
+            "underscores or hyphens"
         )
     return value.lower()
 
@@ -190,7 +213,9 @@ class Accounts:
         invite = self._invite(invite_token)
         username_key = "username:" + _digest(username)
         if self.store.get(username_key):
-            raise ValueError("This username is unavailable")
+            raise ValueError(
+                "That email or username is unavailable. Choose another, or sign in if it is yours."
+            )
         tenant, recovery = "acct_" + uuid.uuid4().hex, secrets.token_urlsafe(32)
         account = Document(
             "account:" + tenant,
@@ -234,7 +259,7 @@ class Accounts:
             else None
         )
         if not verify_password(password, stored) or account is None:
-            raise AuthenticationFailed("Invalid username or password")
+            raise AuthenticationFailed("Incorrect email, username or password")
         response, writes = self._session(account)
         try:
             self.store.commit(writes)
@@ -296,7 +321,7 @@ class Accounts:
             or account is None
             or account.data["status"] != "active"
         ):
-            raise AuthenticationFailed("Invalid recovery credentials")
+            raise AuthenticationFailed("Incorrect email, username or recovery code")
         recovery = secrets.token_urlsafe(32)
         updated = account.update(
             {
@@ -418,11 +443,60 @@ class Accounts:
                 continue
         raise Conflict("Concurrent key change; retry revocation")
 
+    def _confirm_password(self, account: Document, password: str, purpose: str) -> None:
+        """Check the signed-in person's password before a sensitive account change."""
+        self._login_limit.consume(purpose + "-" + _digest(account.data["id"]))
+        try:
+            confirmed = verify_password(password, account.data.get("password_hash"))
+        except ValueError:
+            confirmed = False  # Too short or too long to be this account's password.
+        if not confirmed:
+            raise IncorrectPassword("That password is not correct")
+
+    def change_password(
+        self, tenant: str, session_token: str, current_password: str, new_password: str
+    ) -> None:
+        """Replace the password and sign out every other browser.
+
+        The recovery code, API keys, connected applications and Telegram are
+        unchanged: they are revoked separately, or all at once by recovery.
+        """
+        _password(new_password)
+        account = self._account(tenant)
+        self._confirm_password(account, current_password, "password")
+        current = _digest(session_token) if isinstance(session_token, str) else ""
+        kept = [current] if current in account.data.get("session_ids", []) else []
+        try:
+            self.store.commit(
+                [
+                    account.update(
+                        {
+                            **account.data,
+                            "password_hash": hash_password(new_password),
+                            "session_ids": kept,
+                        }
+                    )
+                ]
+            )
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+
+    def new_recovery_code(self, tenant: str, password: str) -> dict:
+        """Replace the recovery code, for someone who is signed in but lost theirs."""
+        account = self._account(tenant)
+        self._confirm_password(account, password, "recovery-code")
+        recovery = secrets.token_urlsafe(32)
+        try:
+            self.store.commit(
+                [account.update({**account.data, "recovery_hash": _digest(recovery)})]
+            )
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+        return {"recovery_code": recovery}
+
     def delete_account(self, tenant: str, password: str) -> dict:
         account = self._account(tenant)
-        self._login_limit.consume("delete-" + _digest(tenant))
-        if not verify_password(password, account.data.get("password_hash")):
-            raise AuthenticationFailed("Invalid username or password")
+        self._confirm_password(account, password, "delete")
         customer = self.store.get("tenant:" + tenant)
         assert customer is not None
         # The primary fence makes sessions, grants, keys and future collection stop

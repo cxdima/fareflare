@@ -146,6 +146,10 @@ class MonitorView(BaseModel):
     created_at: int
     target: TargetView
     latest: ObservationView | None
+    low_minor: int | None = Field(
+        default=None,
+        description="The lowest total this monitor has recorded since it started, in minor units.",
+    )
     last_error: str | None
     collection_failures: int = 0
     next_check_at: int | None

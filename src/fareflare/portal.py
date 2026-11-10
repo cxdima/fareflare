@@ -21,7 +21,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
 
-from fareflare.accounts import Accounts, AuthenticationFailed
+from fareflare.accounts import (
+    MAX_USERNAME_LENGTH,
+    Accounts,
+    AuthenticationFailed,
+    IncorrectPassword,
+)
 from fareflare.api import create_app
 from fareflare.api_reference import render_api_reference
 from fareflare.credentials import RateLimiter
@@ -46,7 +51,7 @@ if TYPE_CHECKING:
 
 class LoginInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    username: str = Field(min_length=1, max_length=80)
+    username: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -56,9 +61,20 @@ class RegisterInput(LoginInput):
 
 class RecoveryInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    username: str = Field(min_length=1, max_length=80)
+    username: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
     recovery_code: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=15, max_length=128)
+
+
+class PasswordChangeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=15, max_length=128)
+
+
+class PasswordConfirmation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class KeyInput(BaseModel):
@@ -162,6 +178,11 @@ def create_portal(
     async def authentication_failed(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=401)
 
+    @app.exception_handler(IncorrectPassword)
+    async def incorrect_password(request, exc):
+        # Not 401: the session is valid, only the confirming password was wrong.
+        return JSONResponse({"detail": str(exc)}, status_code=403)
+
     @app.middleware("http")
     async def product_headers(request: Request, call_next):
         # Preserve old API integrations and Telegram ingress, while browser pages
@@ -258,6 +279,27 @@ def create_portal(
         accounts.logout(request.cookies.get(cookie_name, ""))
         response.delete_cookie(cookie_name, secure=secure, httponly=True, samesite="lax", path="/")
         return {"ok": True}
+
+    @app.post("/auth/password")
+    def change_password(
+        body: PasswordChangeInput, request: Request, identity: Annotated[dict, Depends(session)]
+    ):
+        accounts.change_password(
+            identity["account"]["id"],
+            request.cookies.get(cookie_name, ""),
+            body.current_password,
+            body.new_password,
+        )
+        return {"changed": True}
+
+    @app.post("/auth/recovery-code")
+    def new_recovery_code(body: PasswordConfirmation, identity: Annotated[dict, Depends(session)]):
+        return accounts.new_recovery_code(identity["account"]["id"], body.password)
+
+    @app.get("/.well-known/change-password", include_in_schema=False)
+    def change_password_location():
+        # Password managers and browsers open this to take someone to the right page.
+        return RedirectResponse("/app#settings?section=security", status_code=302)
 
     @app.get("/v1/account")
     def account(identity: Annotated[dict, Depends(session)]):

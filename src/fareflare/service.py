@@ -235,6 +235,8 @@ class MonitoringService:
             **monitor,
             "target": target.data["spec"],
             "latest": target.data.get("latest"),
+            # The lowest price this monitor has recorded since it started.
+            "low_minor": monitor.get("rule_state", {}).get("low_minor"),
             "last_error": target.data.get("last_error"),
             "collection_failures": target.data.get("failures", 0),
             "next_check_at": None

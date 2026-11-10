@@ -98,6 +98,33 @@ def test_api_history_and_alerts_expose_observation_freshness(client, service, fl
     assert client.get(f"/v1/monitors/{monitor['id']}", headers=auth()).json()["stale"] is True
 
 
+def test_a_monitor_reports_the_lowest_price_it_has_recorded(client, service, flight_url, clock):
+    monitor = create(client, flight_url).json()
+    late = create(client, flight_url, tenant="bob", key="bob-request")
+
+    def view(tenant="alice", item=monitor):
+        return client.get(f"/v1/monitors/{item['id']}", headers=auth(tenant)).json()
+
+    # Nothing recorded yet: there is no low to report, and the field says so.
+    assert monitor["low_minor"] is None and view()["low_minor"] is None
+
+    for step, amount in enumerate([45000, 41000, 47000]):
+        clock[0] += 900
+        service.record(
+            Reading(monitor["target_id"], amount, "USD", clock[0], "test-fixture"), f"run-{step}"
+        )
+        service.process_events()
+    shown = view()
+    assert shown["latest"]["amount_minor"] == 47000
+    assert shown["low_minor"] == 41000
+    assert shown["created_at"] == monitor["created_at"]
+    listed = client.get("/v1/monitors", headers=auth()).json()["items"][0]
+    assert listed["low_minor"] == 41000
+    # Each account's low is its own: both watched the same flight over the same prices.
+    assert view("bob", late.json())["low_minor"] == 41000
+    assert "rule_state" not in shown
+
+
 def test_weak_or_duplicate_service_credentials_are_rejected(service):
     for keys in ({}, {"alice": "short"}, {"alice": "x" * 32, "bob": "x" * 32}):
         with pytest.raises(ValueError):

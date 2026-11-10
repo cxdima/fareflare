@@ -6,7 +6,13 @@ import json
 import pytest
 
 from fareflare import accounts as module
-from fareflare.accounts import Accounts, AuthenticationFailed, hash_password, verify_password
+from fareflare.accounts import (
+    Accounts,
+    AuthenticationFailed,
+    IncorrectPassword,
+    hash_password,
+    verify_password,
+)
 from fareflare.credentials import RateLimited
 from fareflare.product_config import ProductConfig
 from fareflare.service import MonitoringService, Reading
@@ -126,7 +132,7 @@ def test_bad_login_is_generic_and_rate_limited(accounts):
     register(accounts)
     for name in ("alice", "unknown"):
         for _ in range(10):
-            with pytest.raises(AuthenticationFailed, match="Invalid username or password"):
+            with pytest.raises(AuthenticationFailed, match="Incorrect email, username or password"):
                 accounts.login(name, REPLACEMENT)
         with pytest.raises(RateLimited):
             accounts.login(name, REPLACEMENT)
@@ -209,7 +215,7 @@ def test_delete_requires_password_revokes_all_access_and_stops_collection(
     key = accounts.issue_api_key(tenant, "client")
     service.record(Reading(monitor["target_id"], 30000, "USD", clock[0], "test"), "initial")
     service.process_events()
-    with pytest.raises(AuthenticationFailed):
+    with pytest.raises(IncorrectPassword):
         accounts.delete_account(tenant, REPLACEMENT)
     assert accounts.delete_account(tenant, PASSWORD) == {"deleted": True}
     assert accounts.authenticate_session(alice["session_token"]) is None
