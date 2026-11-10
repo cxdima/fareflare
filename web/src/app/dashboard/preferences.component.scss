@@ -107,15 +107,30 @@
 }
 .message-options {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.7rem;
+  min-width: 0;
 }
 .message-options legend {
+  float: none;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+/* Help belongs to its option: it sits under the label, and options keep one rhythm. */
+.message-options .form-check {
+  margin: 0;
+}
+.message-options .form-text {
+  margin: 0.1rem 0 0;
+  max-width: 44ch;
+}
+.message-options .quiet-window {
+  margin-top: 0.75rem;
 }
 .telegram-preview {
   align-self: start;
+  position: sticky;
+  top: 1.5rem;
   padding: 1.25rem;
   background: var(--ff-soft);
   border: 1px solid var(--ff-line);
@@ -258,6 +273,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .telegram-preview {
+    position: static;
     padding: 1rem;
   }
   .display-example {

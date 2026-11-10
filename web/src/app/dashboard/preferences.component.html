@@ -197,33 +197,34 @@
               </p>
             }
           </fieldset>
-          <div>
+          <fieldset class="message-options">
+            <legend>How alerts arrive</legend>
             <div class="form-check">
               <input
                 id="show-buttons"
                 class="form-check-input"
                 type="checkbox"
                 [formField]="telegram.telegram_show_buttons"
+                aria-describedby="show-buttons-help"
                 (change)="telegramChanged()"
               /><label for="show-buttons" class="form-check-label">Buttons under alerts</label>
+              <p class="form-text" id="show-buttons-help">
+                Quick links to the flight and to your Fareflare dashboard.
+              </p>
             </div>
-            <p class="form-text">Quick links to the flight and to your Fareflare dashboard.</p>
-          </div>
-          <div>
             <div class="form-check">
               <input
                 id="silent-telegram"
                 class="form-check-input"
                 type="checkbox"
                 [formField]="telegram.telegram_silent"
+                aria-describedby="silent-telegram-help"
                 (change)="telegramChanged()"
               /><label for="silent-telegram" class="form-check-label">Send silently</label>
+              <p class="form-text" id="silent-telegram-help">
+                Telegram receives the alert immediately without a notification sound.
+              </p>
             </div>
-            <p class="form-text">
-              Telegram receives the alert immediately without a notification sound.
-            </p>
-          </div>
-          <div>
             <div class="form-check">
               <input
                 id="quiet-hours"
@@ -233,40 +234,40 @@
                 aria-describedby="quiet-hours-help"
                 (change)="telegramChanged()"
               /><label for="quiet-hours" class="form-check-label">Quiet hours</label>
-            </div>
-            <p class="form-text" id="quiet-hours-help">
-              During these hours alerts still arrive at once, but without a sound. Times use your
-              time zone.
-            </p>
-            @if (telegramModel().quiet_enabled) {
-              <div class="quiet-window">
-                <div>
-                  <label for="quiet-start" class="form-label">From</label
-                  ><input
-                    id="quiet-start"
-                    class="form-control"
-                    type="time"
-                    [formField]="telegram.quiet_start"
-                    (change)="telegramChanged()"
-                  />
-                </div>
-                <div>
-                  <label for="quiet-end" class="form-label">Until</label
-                  ><input
-                    id="quiet-end"
-                    class="form-control"
-                    type="time"
-                    [formField]="telegram.quiet_end"
-                    aria-describedby="quiet-hours-error"
-                    (change)="telegramChanged()"
-                  />
-                </div>
-              </div>
-              <p id="quiet-hours-error" class="field-error">
-                {{ telegram.quiet_end().errors()[0]?.message }}
+              <p class="form-text" id="quiet-hours-help">
+                During these hours alerts still arrive at once, but without a sound. Times use your
+                time zone.
               </p>
-            }
-          </div>
+              @if (telegramModel().quiet_enabled) {
+                <div class="quiet-window">
+                  <div>
+                    <label for="quiet-start" class="form-label">From</label
+                    ><input
+                      id="quiet-start"
+                      class="form-control"
+                      type="time"
+                      [formField]="telegram.quiet_start"
+                      (change)="telegramChanged()"
+                    />
+                  </div>
+                  <div>
+                    <label for="quiet-end" class="form-label">Until</label
+                    ><input
+                      id="quiet-end"
+                      class="form-control"
+                      type="time"
+                      [formField]="telegram.quiet_end"
+                      aria-describedby="quiet-hours-error"
+                      (change)="telegramChanged()"
+                    />
+                  </div>
+                </div>
+                <p id="quiet-hours-error" class="field-error">
+                  {{ telegram.quiet_end().errors()[0]?.message }}
+                </p>
+              }
+            </div>
+          </fieldset>
         </div>
         <div class="telegram-preview">
           <div class="preview-heading">
@@ -277,7 +278,7 @@
             <label for="preview-kind" class="form-label">Show an example of</label
             ><select
               id="preview-kind"
-              class="form-select form-select-sm"
+              class="form-select"
               [value]="previewKind()"
               [disabled]="store.saving()"
               (change)="choosePreview($any($event.target).value)"

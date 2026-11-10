@@ -1,6 +1,6 @@
 :host {
   display: block;
-  max-width: 64rem;
+  max-width: 58rem;
 }
 .settings-sections {
   display: flex;
@@ -33,9 +33,6 @@
 }
 .settings-sections .bi {
   font-size: 0.95rem;
-}
-.settings-content {
-  max-width: 56rem;
 }
 .settings-content > .panel > p {
   max-width: 65ch;

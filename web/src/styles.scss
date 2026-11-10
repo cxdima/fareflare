@@ -108,43 +108,103 @@ select:focus-visible,
   background: #c4d8cd;
   color: var(--ff-ink);
 }
+/*
+ * Buttons. One shape for every action: a pressed-paper key that sits a little
+ * proud of the page, settles when pressed, and on the primary action catches a
+ * single band of light as the pointer arrives, the "flare" in the name.
+ */
 .btn {
+  --ff-btn-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 44px;
-  border-radius: 0.55rem;
+  border-radius: 0.7rem;
   font-weight: 650;
   font-size: 0.9rem;
+  letter-spacing: -0.005em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
   text-decoration: none;
   transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 200ms var(--ff-btn-ease),
+    transform 200ms var(--ff-btn-ease);
+}
+.btn:active:not(:disabled, .disabled) {
+  transform: translateY(1px);
+  transition-duration: 60ms;
 }
 .btn-primary,
 .btn-accent {
   --bs-btn-color: #fffaf5;
-  --bs-btn-bg: #aa4428;
-  --bs-btn-border-color: #94381f;
+  --bs-btn-bg: #ab4529;
+  --bs-btn-border-color: #8d361e;
   --bs-btn-hover-color: #fffaf5;
-  --bs-btn-hover-bg: #91391f;
+  --bs-btn-hover-bg: #a03f24;
   --bs-btn-hover-border-color: #7f301b;
   --bs-btn-active-color: #fffaf5;
-  --bs-btn-active-bg: #79301c;
+  --bs-btn-active-bg: #8b351d;
   --bs-btn-active-border-color: #6c2816;
-  --bs-btn-disabled-color: #fffaf5;
-  --bs-btn-disabled-bg: #aa4428;
-  --bs-btn-disabled-border-color: #94381f;
+  --bs-btn-disabled-color: #55635c;
+  --bs-btn-disabled-bg: #d5ddd4;
+  --bs-btn-disabled-border-color: #c3cec3;
+  --bs-btn-disabled-opacity: 1;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-image: linear-gradient(180deg, rgb(255 236 214 / 14%), rgb(255 236 214 / 0%) 60%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 12%),
-    0 2px 2px rgb(65 40 27 / 12%);
+    inset 0 1px 0 rgb(255 232 212 / 30%),
+    inset 0 -1px 0 rgb(74 24 10 / 30%),
+    0 1px 2px rgb(74 30 16 / 24%),
+    0 10px 18px -12px rgb(171 69 41 / 62%);
 }
-.btn-primary:active,
-.btn-accent:active {
-  box-shadow: inset 0 2px 3px rgb(65 40 27 / 20%);
+/* The flare: one soft band of light crossing the key, once per hover. */
+.btn-primary::after,
+.btn-accent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    rgb(255 236 214 / 0%) 38%,
+    rgb(255 236 214 / 24%) 50%,
+    rgb(255 236 214 / 0%) 62%
+  );
+  transform: translateX(-110%);
+  transition: transform 0s;
+}
+.btn-primary:hover:not(:disabled, .disabled),
+.btn-accent:hover:not(:disabled, .disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 232 212 / 34%),
+    inset 0 -1px 0 rgb(74 24 10 / 30%),
+    0 2px 3px rgb(74 30 16 / 24%),
+    0 14px 22px -12px rgb(171 69 41 / 74%);
+}
+.btn-primary:hover:not(:disabled, .disabled)::after,
+.btn-accent:hover:not(:disabled, .disabled)::after {
+  transform: translateX(110%);
+  transition: transform 700ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+.btn-primary:active:not(:disabled, .disabled),
+.btn-accent:active:not(:disabled, .disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 4px rgb(60 20 8 / 38%),
+    0 1px 1px rgb(74 30 16 / 18%);
+}
+.btn-primary:disabled,
+.btn-primary.disabled,
+.btn-accent:disabled,
+.btn-accent.disabled {
+  background-image: none;
+  box-shadow: none;
 }
 .btn-flight {
   position: relative;
@@ -178,7 +238,27 @@ select:focus-visible,
   --bs-btn-active-color: var(--ff-ink);
   --bs-btn-active-bg: #d2ddd2;
   --bs-btn-active-border-color: #7b9385;
-  box-shadow: 0 1px 1px rgb(36 59 59 / 5%);
+  --bs-btn-disabled-color: #5d6b64;
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: #cdd6cc;
+  --bs-btn-disabled-opacity: 1;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    0 1px 2px rgb(36 59 59 / 8%);
+}
+.btn-outline-primary:hover:not(:disabled, .disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    0 1px 2px rgb(36 59 59 / 8%),
+    0 10px 16px -12px rgb(36 59 59 / 45%);
+}
+.btn-outline-primary:active:not(:disabled, .disabled) {
+  box-shadow: inset 0 2px 3px rgb(36 59 59 / 14%);
+}
+.btn-outline-primary:disabled,
+.btn-outline-primary.disabled {
+  box-shadow: none;
 }
 .btn-link {
   --bs-btn-color: var(--ff-link);
@@ -286,6 +366,11 @@ ff-dashboard details[open] > summary::after {
   }
   .form-select::picker-icon {
     display: none;
+  }
+  /* A customizable select is a flex box: without this its text hugs the top edge
+     whenever the control is taller than one line. */
+  .form-select {
+    align-items: center;
   }
   .form-select:open {
     border-color: var(--ff-link);

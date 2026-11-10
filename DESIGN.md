@@ -31,6 +31,13 @@ separate. Primary flight actions use an oversized plane silhouette as a subtly l
 clipped background texture behind a plain text label. Do not add a separate plane
 icon or divider. Retain a defined edge, visible focus and pressed state. Keep movement brief and respect reduced-motion preferences.
 
+Every button is the same key: 0.7rem corners, a faint top highlight and a soft
+shadow that deepens on hover, and a one-pixel settle when pressed. The primary
+action alone catches a single band of light on hover, the flare in the name; it
+plays once and is removed under reduced motion. Disabled buttons turn neutral grey
+and say nearby why they are unavailable. The page header, the page and the footer
+share one column, and choosing a page in the navigation always opens it at its top.
+
 Signing in asks for one name, labeled "Email or username", and a password. Each of
 sign-in, sign-up and recovery is a page with its own address (`/login`,
 `/register`, `/recover`) and its fields carry `autocomplete` and `passwordrules`,

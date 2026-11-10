@@ -138,6 +138,10 @@ export class MonitorsComponent {
       ? { atLow: true, text: `Lowest since ${since}` }
       : null;
   }
+  /** Every monitor the account may have is in use, so the add action is unavailable. */
+  atLimit(): boolean {
+    return this.workspace.activeCount() >= this.workspace.session.config()!.limits.monitors;
+  }
   current(item: Monitor): boolean {
     return !['cancelled', 'expired'].includes(item.status);
   }

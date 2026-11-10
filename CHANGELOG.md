@@ -95,6 +95,17 @@ Notable changes to Fareflare. The format follows
   usually succeeds; the note appears from the second failure in a row, or at once
   when checks have stopped. It now says "We will keep trying" instead of naming
   the next scheduled check, which was not when the retry happened.
+- **Buttons** share one design: a key that sits slightly proud of the page, settles
+  when pressed and, on the primary action, catches one band of light on hover. A
+  disabled button is plainly grey instead of a pale version of the active one.
+- The page header and footer line up with the page content at every window width,
+  and account settings use one width for the section tabs and the panels.
+- Telegram options in **Account settings → Notifications** are grouped as *Include
+  in alerts* and *How alerts arrive*, each with its explanation directly under it.
+- Each workspace page names itself in the browser tab, for example
+  `Alert activity · Fareflare`.
+- When every monitor is in use, the flights page says why **Watch a flight** is
+  unavailable.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.
@@ -125,6 +136,13 @@ Notable changes to Fareflare. The format follows
 
 ### Fixed
 
+- **Pages opened part-way down.** Choosing a page in the navigation moved focus to
+  it, and the browser scrolled each page to a different place: account settings
+  opened with the header half off screen. Every page now opens at its top, and
+  focus still moves to the page for keyboard and screen-reader users.
+- A select taller than its text, such as *Show an example of* in the message
+  preview, showed its value against the top edge in browsers that support
+  customizable selects.
 - A Google Flights link whose itinerary token held bytes that are not valid text
   caused a server error. It is now refused with the usual "could not be decoded"
   message.

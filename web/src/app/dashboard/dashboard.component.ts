@@ -10,6 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { SessionFacade } from '../core/session.facade';
@@ -60,6 +61,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly title = inject(Title);
   readonly navigation = navigation;
   readonly view = signal(currentView());
   readonly logoutAction = new ActionState();
@@ -74,12 +76,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private firstPrice: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
   private readonly hashChanged = () => {
-    this.view.set(currentView());
-    this.focusMain();
+    // A settings section changes the address too; only a new page starts over.
+    if (currentView() !== this.view()) this.show(currentView());
   };
 
   constructor() {
     effect(() => this.awaitFirstPrice());
+    effect(() => this.title.setTitle(`${this.pageName()} · Fareflare`));
     effect(() => {
       if (this.session.ready() && !this.session.account() && !this.session.error()) {
         const params = this.route.snapshot.queryParams;
@@ -126,9 +129,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   select(event: Event, view: string): void {
     event.preventDefault();
     history.replaceState(null, '', location.pathname + location.search + '#' + view);
-    this.view.set(view);
-    this.focusMain();
+    this.show(view);
   }
+  /**
+   * Open a page at its top. Focus moves to the page for keyboard and screen-reader
+   * users, but must not scroll: focusing a tall page left each one at a different
+   * offset, with the header half off screen.
+   */
+  private show(view: string): void {
+    this.view.set(view);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    requestAnimationFrame(() => this.main()?.nativeElement.focus({ preventScroll: true }));
+  }
+  /** The skip link does scroll: on a phone the page starts below the navigation. */
   focusMain(): void {
     requestAnimationFrame(() => this.main()?.nativeElement.focus());
   }

@@ -7,10 +7,8 @@
     <button
       type="button"
       class="btn btn-primary btn-flight"
-      [disabled]="
-        !workspace.monitorsLoaded() ||
-        workspace.activeCount() >= workspace.session.config()!.limits.monitors
-      "
+      [disabled]="!workspace.monitorsLoaded() || atLimit()"
+      [attr.aria-describedby]="atLimit() ? 'monitor-limit-note' : null"
       (click)="creating.set(true)"
     >
       Watch a flight
@@ -24,6 +22,9 @@
         ><strong>{{ workspace.activeCount() }}</strong> of
         {{ workspace.session.config()!.limits.monitors }} monitors in use</span
       >
+      @if (atLimit()) {
+        <span id="monitor-limit-note">Stop watching a flight to add another.</span>
+      }
     }
     @if (workspace.refreshing()) {
       <span class="summary-refresh" role="status">Refreshing…</span>
