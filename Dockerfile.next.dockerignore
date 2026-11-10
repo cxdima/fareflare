@@ -1,6 +1,0 @@
-*
-!requirements-next.lock
-!src/
-!src/fareflare/
-!src/fareflare/**
-src/fareflare/**/__pycache__

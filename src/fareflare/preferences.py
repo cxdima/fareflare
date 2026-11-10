@@ -1,4 +1,5 @@
 """Validated account preferences shared by API, MCP and notification delivery."""
+
 from __future__ import annotations
 
 import re
@@ -13,12 +14,20 @@ from fareflare.contracts import Money
 Locale = Literal["en-US", "en-GB", "de-DE", "fr-FR", "es-ES", "uk-UA"]
 HourCycle = Literal["auto", "h12", "h23"]
 _DATE_FORMATS: dict[Locale, str] = {
-    "en-US": "%m/%d/%Y", "en-GB": "%d/%m/%Y", "de-DE": "%d.%m.%Y",
-    "fr-FR": "%d/%m/%Y", "es-ES": "%d/%m/%Y", "uk-UA": "%d.%m.%Y",
+    "en-US": "%m/%d/%Y",
+    "en-GB": "%d/%m/%Y",
+    "de-DE": "%d.%m.%Y",
+    "fr-FR": "%d/%m/%Y",
+    "es-ES": "%d/%m/%Y",
+    "uk-UA": "%d.%m.%Y",
 }
 _NUMBER_SEPARATORS: dict[Locale, tuple[str, str]] = {
-    "en-US": (",", "."), "en-GB": (",", "."), "de-DE": (".", ","),
-    "fr-FR": ("\u202f", ","), "es-ES": (".", ","), "uk-UA": ("\u00a0", ","),
+    "en-US": (",", "."),
+    "en-GB": (",", "."),
+    "de-DE": (".", ","),
+    "fr-FR": ("\u202f", ","),
+    "es-ES": (".", ","),
+    "uk-UA": ("\u00a0", ","),
 }
 
 
@@ -47,8 +56,11 @@ class Preferences(BaseModel):
     def valid_time_zone(cls, value: str | None) -> str | None:
         if value is None:
             return value
-        if (not re.fullmatch(r"[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)*", value)
-                or value.startswith(("posix/", "right/")) or value in ("localtime", "posixrules")):
+        if (
+            not re.fullmatch(r"[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)*", value)
+            or value.startswith(("posix/", "right/"))
+            or value in ("localtime", "posixrules")
+        ):
             raise ValueError("Choose a valid IANA time zone")
         try:
             ZoneInfo(value)
@@ -70,7 +82,8 @@ def observed_time(seconds: int, preferences: Preferences) -> str:
     zone = ZoneInfo(preferences.time_zone or "UTC")
     local = datetime.fromtimestamp(seconds, UTC).astimezone(zone)
     twelve_hour = preferences.hour_cycle == "h12" or (
-        preferences.hour_cycle == "auto" and preferences.locale == "en-US")
+        preferences.hour_cycle == "auto" and preferences.locale == "en-US"
+    )
     clock = local.strftime("%I:%M %p").lstrip("0") if twelve_hour else local.strftime("%H:%M")
     offset = local.strftime("%z")
     label = "UTC" if zone.key == "UTC" else f"{zone.key} (UTC{offset[:3]}:{offset[3:]})"
@@ -79,7 +92,7 @@ def observed_time(seconds: int, preferences: Preferences) -> str:
 
 def regional_price(amount_minor: int, currency: str, locale: Locale) -> str:
     value = Money(amount_minor, currency)
-    whole, fraction = divmod(value.amount_minor, 10 ** value.exponent)
+    whole, fraction = divmod(value.amount_minor, 10**value.exponent)
     grouping, decimal = _NUMBER_SEPARATORS[locale]
     number = f"{whole:,}".replace(",", grouping)
     if value.exponent:
@@ -90,4 +103,5 @@ def regional_price(amount_minor: int, currency: str, locale: Locale) -> str:
 def telegram_text(delivery: dict, preferences: Preferences) -> str:
     """Compatibility helper for the shared presenter's plain message body."""
     from fareflare.telegram_messages import alert_message
+
     return alert_message(delivery, preferences).text

@@ -1,7 +1,0 @@
-# Build Dockerfile as fareflare-browser-base before packaging the worker.
-ARG BROWSER_BASE=fareflare-browser-base
-FROM ${BROWSER_BASE}
-COPY requirements-next.lock .
-RUN pip install --no-cache-dir --require-hashes -r requirements-next.lock
-COPY src/fareflare ./fareflare
-CMD ["fareflare.runtime.handler"]

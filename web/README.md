@@ -16,7 +16,7 @@ make serve
 ```
 
 Open `http://127.0.0.1:8001`; the dashboard is `/app`. The local signup URL is in
-`.next/invitation.json`. Keep it private. `npm --prefix web run dev` starts Angular's
+`.fareflare/invitation.json`. Keep it private. `npm --prefix web run dev` starts Angular's
 development server and proxies API requests. Use the built Python portal for
 complete session, CSP, and SEO behavior; its configured public origin must match
 the browser origin for account mutations.

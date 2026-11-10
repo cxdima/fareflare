@@ -3,6 +3,7 @@
 The webhook adapter authenticates private chat updates. This application adapter
 also rechecks that binding at each write, including menu token creation.
 """
+
 from __future__ import annotations
 
 import copy
@@ -32,8 +33,14 @@ from fareflare.telegram_rules import parse_amount, price_example
 
 _TOKEN = re.compile(r"ff:([A-Za-z0-9_-]{24})\Z")
 _MENU_SECONDS = 15 * 60
-_STATUS = {"pending": "Awaiting check", "active": "Watching", "degraded": "Check delayed",
-           "paused": "Paused", "cancelled": "Stopped", "expired": "Departed"}
+_STATUS = {
+    "pending": "Awaiting check",
+    "active": "Watching",
+    "degraded": "Check delayed",
+    "paused": "Paused",
+    "cancelled": "Stopped",
+    "expired": "Departed",
+}
 
 
 class _Unavailable(Exception):
@@ -65,7 +72,13 @@ class _Context:
 class _BoundStore:
     """Fence normal service transactions against disconnects and stale buttons."""
 
-    def __init__(self, store: Store, context: _Context, now: Callable[[], int], action: Document | None = None):
+    def __init__(
+        self,
+        store: Store,
+        context: _Context,
+        now: Callable[[], int],
+        action: Document | None = None,
+    ):
         self.store, self.context, self.now, self.action = store, context, now, action
         self.completed = False
 
@@ -83,12 +96,21 @@ class _BoundStore:
         account = self.get("account:" + ctx.tenant)
         binding = self.get("telegram-account:" + ctx.tenant)
         chat = self.get("telegram-chat:" + ctx.chat_id)
-        if (not account or account.data.get("status") != "active" or account.data.get("auth_epoch") != ctx.epoch
-                or not binding or not binding.data.get("connected") or binding.data.get("auth_epoch") != ctx.epoch
-                or binding.data.get("chat_id") != ctx.chat_id or _connection(binding) != ctx.connection
-                or not chat or not chat.data.get("connected") or chat.data.get("tenant") != ctx.tenant
-                or chat.data.get("auth_epoch") != ctx.epoch
-                or binding.data.get("connection_id") != chat.data.get("connection_id")):
+        if (
+            not account
+            or account.data.get("status") != "active"
+            or account.data.get("auth_epoch") != ctx.epoch
+            or not binding
+            or not binding.data.get("connected")
+            or binding.data.get("auth_epoch") != ctx.epoch
+            or binding.data.get("chat_id") != ctx.chat_id
+            or _connection(binding) != ctx.connection
+            or not chat
+            or not chat.data.get("connected")
+            or chat.data.get("tenant") != ctx.tenant
+            or chat.data.get("auth_epoch") != ctx.epoch
+            or binding.data.get("connection_id") != chat.data.get("connection_id")
+        ):
             raise _Unavailable
         guards = [account, binding, chat]
         if self.action is not None:
@@ -100,9 +122,13 @@ class _BoundStore:
             params = action.data["params"]
             if "monitor_id" in params:
                 monitor = self.get("monitor:" + params["monitor_id"])
-                if (not monitor or monitor.data.get("tenant") != ctx.tenant
-                        or monitor.data.get("notification_epoch", 0) != params["monitor_epoch"]
-                        or "expected_policy" in params and monitor.data["policy"] != params["expected_policy"]):
+                if (
+                    not monitor
+                    or monitor.data.get("tenant") != ctx.tenant
+                    or monitor.data.get("notification_epoch", 0) != params["monitor_epoch"]
+                    or "expected_policy" in params
+                    and monitor.data["policy"] != params["expected_policy"]
+                ):
                     raise _Unavailable
                 guards.append(monitor)
             if action.data.get("confirmation"):
@@ -139,21 +165,42 @@ class _BoundStore:
 
 
 class TelegramBot:
-    def __init__(self, service: MonitoringService, accounts: Accounts, public_url: str, *,
-                 clock: Callable[[], float] = time.time):
-        self.service, self.accounts, self.store, self.clock = service, accounts, service.store, clock
+    def __init__(
+        self,
+        service: MonitoringService,
+        accounts: Accounts,
+        public_url: str,
+        *,
+        clock: Callable[[], float] = time.time,
+    ):
+        self.service, self.accounts, self.store, self.clock = (
+            service,
+            accounts,
+            service.store,
+            clock,
+        )
         self.public_url = public_url.rstrip("/")
         parts = urlsplit(self.public_url)
-        if (parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password
-                or parts.query or parts.fragment):
+        if (
+            parts.scheme not in ("http", "https")
+            or not parts.hostname
+            or parts.username
+            or parts.password
+            or parts.query
+            or parts.fragment
+        ):
             raise ValueError("Configure a valid public application URL")
 
     def _now(self) -> int:
         return int(self.clock())
 
     def _context(self, tenant: str, chat_id: str, epoch: int) -> _Context:
-        if (not isinstance(tenant, str) or not isinstance(chat_id, str) or not chat_id.isdigit()
-                or type(epoch) is not int):
+        if (
+            not isinstance(tenant, str)
+            or not isinstance(chat_id, str)
+            or not chat_id.isdigit()
+            or type(epoch) is not int
+        ):
             raise _Unavailable
         binding = self.store.get("telegram-account:" + tenant)
         if not binding:
@@ -162,8 +209,15 @@ class TelegramBot:
         _BoundStore(self.store, ctx, self._now).guards()
         return ctx
 
-    def handle(self, tenant: str, chat_id: str, auth_epoch: int, text: str | None = None,
-               callback_data: str | None = None, update_id: int = 0) -> TelegramMessage:
+    def handle(
+        self,
+        tenant: str,
+        chat_id: str,
+        auth_epoch: int,
+        text: str | None = None,
+        callback_data: str | None = None,
+        update_id: int = 0,
+    ) -> TelegramMessage:
         del update_id  # Update delivery deduplication belongs to the webhook adapter.
         try:
             ctx = self._context(tenant, chat_id, auth_epoch)
@@ -191,67 +245,127 @@ class TelegramBot:
                 return self._home(ctx)
             draft = self.store.get("telegram-draft:" + tenant)
             if draft and draft.data.get("input") == "price":
-                return self._price_confirmation(ctx, draft, argument.strip() if command == "/target" else text)
+                return self._price_confirmation(
+                    ctx, draft, argument.strip() if command == "/target" else text
+                )
             return self._help(ctx, "Send a Google Flights link or choose a command below.")
         except (_Unavailable, AuthenticationFailed):
-            return self._plain("This control is no longer current. Use /start for a fresh menu. If disconnected, reconnect from Fareflare Account settings.")
+            return self._plain(
+                "This control is no longer current. Use /start for a fresh menu. If disconnected, reconnect from Fareflare Account settings."
+            )
         except _Applied:
-            return self._plain("This action was already applied. Use /flights or /settings to see the current state.")
+            return self._plain(
+                "This action was already applied. Use /flights or /settings to see the current state."
+            )
         except NotFound:
-            return self._plain("That flight is no longer available. Use /flights for your current list.")
+            return self._plain(
+                "That flight is no longer available. Use /flights for your current list."
+            )
         except Conflict:
-            return self._plain("Your account changed while this request was running. Open /flights or /settings and try again.")
+            return self._plain(
+                "Your account changed while this request was running. Open /flights or /settings and try again."
+            )
         except ValueError as error:
             # Provider and storage diagnostics must not become bot messages.
             if str(error) == "Monitor quota reached":
                 unit = "flight" if self.service.monitor_limit == 1 else "flights"
-                return self._plain(f"Your account can watch {self.service.monitor_limit} {unit}. Use /flights to stop one before adding another.")
+                return self._plain(
+                    f"Your account can watch {self.service.monitor_limit} {unit}. Use /flights to stop one before adding another."
+                )
             if str(error) == "Development collection capacity reached; try again later":
-                return self._plain("Fareflare is at its current collection capacity. Try adding this flight later.")
-            return self._plain("This request could not be completed. Check your flight link or use Fareflare for more details.")
+                return self._plain(
+                    "Fareflare is at its current collection capacity. Try adding this flight later."
+                )
+            return self._plain(
+                "This request could not be completed. Check your flight link or use Fareflare for more details."
+            )
 
     def _plain(self, text: str) -> TelegramMessage:
-        return TelegramMessage(text=text, reply_markup={"inline_keyboard": [
-            [{"text": "Open Fareflare", "url": self.public_url + "/app"}]]})
+        return TelegramMessage(
+            text=text,
+            reply_markup={
+                "inline_keyboard": [[{"text": "Open Fareflare", "url": self.public_url + "/app"}]]
+            },
+        )
 
-    def _button(self, ctx: _Context, label: str, action: str, params: dict | None = None, *,
-                style: str | None = None, confirmation: bool = False, draft: Document | None = None) -> dict:
+    def _button(
+        self,
+        ctx: _Context,
+        label: str,
+        action: str,
+        params: dict | None = None,
+        *,
+        style: str | None = None,
+        confirmation: bool = False,
+        draft: Document | None = None,
+    ) -> dict:
         token = secrets.token_urlsafe(18)
         expires = self._now() + _MENU_SECONDS
-        doc = Document("telegram-action:" + _hash(token), "telegram-actions:" + ctx.tenant,
-                       {"tenant": ctx.tenant, "chat_id": ctx.chat_id, "auth_epoch": ctx.epoch,
-                        "connection": ctx.connection, "action": action, "params": params or {},
-                        "used": False, "confirmation": confirmation, "expires_at": expires}, expires_at=expires)
+        doc = Document(
+            "telegram-action:" + _hash(token),
+            "telegram-actions:" + ctx.tenant,
+            {
+                "tenant": ctx.tenant,
+                "chat_id": ctx.chat_id,
+                "auth_epoch": ctx.epoch,
+                "connection": ctx.connection,
+                "action": action,
+                "params": params or {},
+                "used": False,
+                "confirmation": confirmation,
+                "expires_at": expires,
+            },
+            expires_at=expires,
+        )
         ctx.pending.append(doc)
         if confirmation:
-            draft = draft or self.store.get("telegram-draft:" + ctx.tenant) or Document(
-                "telegram-draft:" + ctx.tenant, "telegram-drafts", {})
-            ctx.pending.append(draft.update({"action": doc.key, "generation": doc.key}, expires_at=expires))
+            draft = (
+                draft
+                or self.store.get("telegram-draft:" + ctx.tenant)
+                or Document("telegram-draft:" + ctx.tenant, "telegram-drafts", {})
+            )
+            ctx.pending.append(
+                draft.update({"action": doc.key, "generation": doc.key}, expires_at=expires)
+            )
         button = {"text": label, "callback_data": "ff:" + token}
         if style:
             button["style"] = style
         return button
 
     def _cancel_button(self, ctx: _Context, label: str = "Cancel") -> dict:
-        draft = next((doc for doc in reversed(ctx.pending) if doc.key == "telegram-draft:" + ctx.tenant), None)
+        draft = next(
+            (doc for doc in reversed(ctx.pending) if doc.key == "telegram-draft:" + ctx.tenant),
+            None,
+        )
         if draft is None:
             raise ValueError("Inline cancellation requires its originating draft")
         return self._button(ctx, label, "cancel", {"draft_generation": draft.data["generation"]})
 
-    def _message(self, ctx: _Context, title: str, lines: list[str], rows: list[list[dict]],
-                 notice: str | None = None) -> TelegramMessage:
+    def _message(
+        self,
+        ctx: _Context,
+        title: str,
+        lines: list[str],
+        rows: list[list[dict]],
+        notice: str | None = None,
+    ) -> TelegramMessage:
         parts = ([notice, ""] if notice else []) + [title, "", *lines]
         plain = "\n".join(parts)
         if len(plain.encode("utf-16-le")) // 2 > 4000:
             raise ValueError("Telegram view exceeds the message limit")
-        html = "\n".join(escape(part) if part != title else "<b>" + escape(part) + "</b>" for part in parts)
+        html = "\n".join(
+            escape(part) if part != title else "<b>" + escape(part) + "</b>" for part in parts
+        )
         if ctx.pending:
             _BoundStore(self.store, ctx, self._now).commit(ctx.pending)
             ctx.pending.clear()
         return TelegramMessage(text=plain, html=html, reply_markup={"inline_keyboard": rows})
 
     def _nav(self, ctx: _Context) -> list[dict]:
-        return [self._button(ctx, "Flights", "flights"), self._button(ctx, "Alert settings", "settings")]
+        return [
+            self._button(ctx, "Flights", "flights"),
+            self._button(ctx, "Alert settings", "settings"),
+        ]
 
     def _preferences(self, tenant: str) -> Preferences:
         return merge_preferences(self.service.preferences(tenant))
@@ -259,27 +373,62 @@ class TelegramBot:
     def _home(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
         page = self.service.monitors_page(ctx.tenant, limit=1)
         prefs = self._preferences(ctx.tenant)
-        return self._message(ctx, "Your flight dashboard", [
-            f"Watching {page['active_count']} of {self.service.monitor_limit} available flights",
-            "Alerts are muted. Price checks continue." if prefs.muted else "Price alerts are on.",
-            "", "Add a Google Flights link, review recorded prices, or manage your alerts."], [
-                [self._button(ctx, "My flights", "flights"), self._button(ctx, "Watch a flight", "add", style="primary")],
-                [self._button(ctx, "Alert settings", "settings"), {"text": "Open Fareflare", "url": self.public_url + "/app"}],
-            ], notice)
+        return self._message(
+            ctx,
+            "Your flight dashboard",
+            [
+                f"Watching {page['active_count']} of {self.service.monitor_limit} available flights",
+                "Alerts are muted. Price checks continue."
+                if prefs.muted
+                else "Price alerts are on.",
+                "",
+                "Add a Google Flights link, review recorded prices, or manage your alerts.",
+            ],
+            [
+                [
+                    self._button(ctx, "My flights", "flights"),
+                    self._button(ctx, "Watch a flight", "add", style="primary"),
+                ],
+                [
+                    self._button(ctx, "Alert settings", "settings"),
+                    {"text": "Open Fareflare", "url": self.public_url + "/app"},
+                ],
+            ],
+            notice,
+        )
 
     def _help(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
-        return self._message(ctx, "Fareflare commands", [
-            "/flights — prices, history and flight controls", "/add — watch a Google Flights link",
-            "/settings — message style, sound and muting", "/cancel — cancel a pending confirmation",
-            "/stop — disconnect Telegram", "", "You can also paste a Google Flights link directly.",
-            "Prices are checked periodically and can change before booking."], [self._nav(ctx)], notice)
+        return self._message(
+            ctx,
+            "Fareflare commands",
+            [
+                "/flights — prices, history and flight controls",
+                "/add — watch a Google Flights link",
+                "/settings — message style, sound and muting",
+                "/cancel — cancel a pending confirmation",
+                "/stop — disconnect Telegram",
+                "",
+                "You can also paste a Google Flights link directly.",
+                "Prices are checked periodically and can change before booking.",
+            ],
+            [self._nav(ctx)],
+            notice,
+        )
 
     def _add_help(self, ctx: _Context) -> TelegramMessage:
-        return self._message(ctx, "Watch a flight", [
-            "Paste a full Google Flights link here. I’ll show the itinerary before you confirm.",
-            "", "Select your flights on Google Flights, then copy the address from your browser.",
-            "Short share links must be opened first. Supported route-search links also work.",
-            "", "Use /cancel to discard a pending confirmation."], [self._nav(ctx)])
+        return self._message(
+            ctx,
+            "Watch a flight",
+            [
+                "Paste a full Google Flights link here. I’ll show the itinerary before you confirm.",
+                "",
+                "Select your flights on Google Flights, then copy the address from your browser.",
+                "Short share links must be opened first. Supported route-search links also work.",
+                "",
+                "Use /cancel to discard a pending confirmation.",
+            ],
+            [self._nav(ctx)],
+        )
 
     @staticmethod
     def _route(target: dict) -> str:
@@ -288,17 +437,25 @@ class TelegramBot:
 
     @staticmethod
     def _dates(target: dict, prefs: Preferences) -> str:
-        return " / ".join(regional_date(date.fromisoformat(segment["date"]), prefs.locale)
-                          for segment in target["segments"])
+        return " / ".join(
+            regional_date(date.fromisoformat(segment["date"]), prefs.locale)
+            for segment in target["segments"]
+        )
 
     @staticmethod
     def _itinerary_details(target: dict) -> list[str]:
-        cabin = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}.get(target["cabin"], "Cabin not specified")
+        cabin = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}.get(
+            target["cabin"], "Cabin not specified"
+        )
         adults = target["adults"]
         party = f"{adults} adult" + ("s" if adults != 1 else "") + " · " + cabin
         if target.get("kind") == "search":
             return ["Route search", party]
-        flights = ", ".join(leg["airline"] + " " + leg["number"] for segment in target["segments"] for leg in segment["legs"])
+        flights = ", ".join(
+            leg["airline"] + " " + leg["number"]
+            for segment in target["segments"]
+            for leg in segment["legs"]
+        )
         return [flights, party]
 
     def _flights(self, ctx: _Context, cursor: str | None = None) -> TelegramMessage:
@@ -308,27 +465,61 @@ class TelegramBot:
         for monitor in page["items"]:
             target, latest = monitor["target"], monitor.get("latest")
             route = self._route(target)
-            lines += [route + "  " + self._dates(target, prefs), _STATUS.get(monitor["status"], "Unknown")]
+            lines += [
+                route + "  " + self._dates(target, prefs),
+                _STATUS.get(monitor["status"], "Unknown"),
+            ]
             if latest:
-                lines.append("Last observed " + regional_price(latest["amount_minor"], latest["currency"], prefs.locale))
+                lines.append(
+                    "Last observed "
+                    + regional_price(latest["amount_minor"], latest["currency"], prefs.locale)
+                )
             lines.append("")
-            rows.append([self._button(ctx, route + " · " + self._dates(target, prefs), "detail", {"id": monitor["id"]})])
+            rows.append(
+                [
+                    self._button(
+                        ctx,
+                        route + " · " + self._dates(target, prefs),
+                        "detail",
+                        {"id": monitor["id"]},
+                    )
+                ]
+            )
         if not lines:
             lines = ["No flights yet. Paste a Google Flights link to start watching."]
         if page["next_cursor"]:
-            rows.append([self._button(ctx, "Next flights", "flights", {"cursor": page["next_cursor"]})])
+            rows.append(
+                [self._button(ctx, "Next flights", "flights", {"cursor": page["next_cursor"]})]
+            )
         if cursor:
             rows.append([self._button(ctx, "First page", "flights")])
-        rows += [[self._button(ctx, "Watch a flight", "add", style="primary"), self._button(ctx, "Alert settings", "settings")]]
+        rows += [
+            [
+                self._button(ctx, "Watch a flight", "add", style="primary"),
+                self._button(ctx, "Alert settings", "settings"),
+            ]
+        ]
         return self._message(ctx, "Your flights", lines, rows)
 
     def _detail(self, ctx: _Context, identifier: str, notice: str | None = None) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
-        prefs, target, latest = self._preferences(ctx.tenant), monitor["target"], monitor.get("latest")
-        lines = [self._dates(target, prefs), *self._itinerary_details(target), _STATUS.get(monitor["status"], "Unknown"), ""]
+        prefs, target, latest = (
+            self._preferences(ctx.tenant),
+            monitor["target"],
+            monitor.get("latest"),
+        )
+        lines = [
+            self._dates(target, prefs),
+            *self._itinerary_details(target),
+            _STATUS.get(monitor["status"], "Unknown"),
+            "",
+        ]
         if latest:
-            lines += ["Last observed price: " + regional_price(latest["amount_minor"], latest["currency"], prefs.locale),
-                      "Checked " + observed_time(latest["observed_at"], prefs)]
+            lines += [
+                "Last observed price: "
+                + regional_price(latest["amount_minor"], latest["currency"], prefs.locale),
+                "Checked " + observed_time(latest["observed_at"], prefs),
+            ]
             if latest.get("fare_name"):
                 lines.append("Fare: " + single_line(latest["fare_name"]))
         else:
@@ -340,9 +531,21 @@ class TelegramBot:
         rows = [[self._button(ctx, "Recent prices", "history", {"id": identifier})]]
         params = {"monitor_id": identifier, "monitor_epoch": monitor.get("notification_epoch", 0)}
         if monitor["status"] == "paused":
-            rows.append([self._button(ctx, "Resume watching", "status", {**params, "status": "active"}, style="success")])
+            rows.append(
+                [
+                    self._button(
+                        ctx,
+                        "Resume watching",
+                        "status",
+                        {**params, "status": "active"},
+                        style="success",
+                    )
+                ]
+            )
         elif monitor["status"] in ("pending", "active", "degraded"):
-            rows.append([self._button(ctx, "Pause watching", "status", {**params, "status": "paused"})])
+            rows.append(
+                [self._button(ctx, "Pause watching", "status", {**params, "status": "paused"})]
+            )
             if monitor.get("collection_status") == "blocked":
                 rows.append([self._button(ctx, "Retry collection", "retry", params)])
         if monitor["status"] not in ("cancelled", "expired"):
@@ -355,24 +558,41 @@ class TelegramBot:
         rows.append(self._nav(ctx))
         return self._message(ctx, self._route(target), lines, rows, notice)
 
-    def _history(self, ctx: _Context, identifier: str, cursor: str | None = None) -> TelegramMessage:
+    def _history(
+        self, ctx: _Context, identifier: str, cursor: str | None = None
+    ) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
         prefs = self._preferences(ctx.tenant)
         page = self.service.history_page(ctx.tenant, identifier, limit=5, cursor=cursor)
         items = page["items"]
         lines = []
         for item in items:
-            lines += [regional_price(item["amount_minor"], item["currency"], prefs.locale),
-                      observed_time(item["observed_at"], prefs), ""]
+            lines += [
+                regional_price(item["amount_minor"], item["currency"], prefs.locale),
+                observed_time(item["observed_at"], prefs),
+                "",
+            ]
         if items:
             lowest = min(items, key=lambda item: item["amount_minor"])
-            lines += ["Lowest in these readings: " + regional_price(lowest["amount_minor"], lowest["currency"], prefs.locale),
-                      "Each entry is a recorded observation, not a forecast."]
+            lines += [
+                "Lowest in these readings: "
+                + regional_price(lowest["amount_minor"], lowest["currency"], prefs.locale),
+                "Each entry is a recorded observation, not a forecast.",
+            ]
         else:
             lines = ["No prices recorded yet. Collection starts after you confirm a flight."]
         rows = []
         if page["next_cursor"]:
-            rows.append([self._button(ctx, "Earlier prices", "history", {"id": identifier, "cursor": page["next_cursor"]})])
+            rows.append(
+                [
+                    self._button(
+                        ctx,
+                        "Earlier prices",
+                        "history",
+                        {"id": identifier, "cursor": page["next_cursor"]},
+                    )
+                ]
+            )
         if cursor:
             rows.append([self._button(ctx, "Latest prices", "history", {"id": identifier})])
         rows.append([self._button(ctx, "Back to flight", "detail", {"id": identifier})])
@@ -380,21 +600,54 @@ class TelegramBot:
 
     def _settings(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
-        return self._message(ctx, "Your alert settings", [
-            "Notifications: " + ("muted" if prefs.muted else "on"),
-            "Telegram sound: " + ("silent" if prefs.telegram_silent else "standard"),
-            "Message style: " + prefs.telegram_style,
-            "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
-            "Regional format: " + prefs.locale,
-            "", "Muting stops delivery; price checks and history continue."], [
-                [self._button(ctx, "Turn alerts on" if prefs.muted else "Mute alerts", "preferences", {"muted": not prefs.muted})],
-                [self._button(ctx, "Enable notification sound" if prefs.telegram_silent else "Send silently", "preferences",
-                              {"telegram_silent": not prefs.telegram_silent})],
-                [self._button(ctx, "Use detailed messages" if prefs.telegram_style == "compact" else "Use compact messages", "preferences",
-                              {"telegram_style": "detailed" if prefs.telegram_style == "compact" else "compact"})],
+        return self._message(
+            ctx,
+            "Your alert settings",
+            [
+                "Notifications: " + ("muted" if prefs.muted else "on"),
+                "Telegram sound: " + ("silent" if prefs.telegram_silent else "standard"),
+                "Message style: " + prefs.telegram_style,
+                "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
+                "Regional format: " + prefs.locale,
+                "",
+                "Muting stops delivery; price checks and history continue.",
+            ],
+            [
+                [
+                    self._button(
+                        ctx,
+                        "Turn alerts on" if prefs.muted else "Mute alerts",
+                        "preferences",
+                        {"muted": not prefs.muted},
+                    )
+                ],
+                [
+                    self._button(
+                        ctx,
+                        "Enable notification sound" if prefs.telegram_silent else "Send silently",
+                        "preferences",
+                        {"telegram_silent": not prefs.telegram_silent},
+                    )
+                ],
+                [
+                    self._button(
+                        ctx,
+                        "Use detailed messages"
+                        if prefs.telegram_style == "compact"
+                        else "Use compact messages",
+                        "preferences",
+                        {
+                            "telegram_style": "detailed"
+                            if prefs.telegram_style == "compact"
+                            else "compact"
+                        },
+                    )
+                ],
                 [{"text": "Time zone and more settings", "url": self.public_url + "/app#settings"}],
                 [self._button(ctx, "My flights", "flights")],
-            ], notice)
+            ],
+            notice,
+        )
 
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
         try:
@@ -402,55 +655,147 @@ class TelegramBot:
             if self.service.capability_check:
                 self.service.capability_check(target)
             if self.service._departure_day_elapsed(target):
-                return self._plain("That itinerary has already departed. Choose a future flight and send its Google Flights link.")
+                return self._plain(
+                    "That itinerary has already departed. Choose a future flight and send its Google Flights link."
+                )
         except ValueError:
-            return self._message(ctx, "This flight link is not supported", [
-                "Open the link in Google Flights and copy the full browser address after selecting your flights.",
-                "Fareflare currently supports a limited set of itineraries and route searches.",
-                "Nothing has been added."], [[{"text": "Supported flight links", "url": self.public_url + "/guides/choosing-a-flight-link"}], self._nav(ctx)])
+            return self._message(
+                ctx,
+                "This flight link is not supported",
+                [
+                    "Open the link in Google Flights and copy the full browser address after selecting your flights.",
+                    "Fareflare currently supports a limited set of itineraries and route searches.",
+                    "Nothing has been added.",
+                ],
+                [
+                    [
+                        {
+                            "text": "Supported flight links",
+                            "url": self.public_url + "/guides/choosing-a-flight-link",
+                        }
+                    ],
+                    self._nav(ctx),
+                ],
+            )
         prefs = self._preferences(ctx.tenant)
         interval = max(900, self.service.min_interval_seconds)
-        return self._message(ctx, "Watch " + self._route(target) + "?", [
-            self._dates(target, prefs), *self._itinerary_details(target),
-            "Currency: " + target["currency"], "", "Alert on a new observed low.",
-            f"Checks requested every {interval // 60} min. A price is not available until the first check.",
-            "", "Confirm to add this flight to your account."], [
-                [self._button(ctx, "Start watching", "create", {"url": url, "interval": interval}, style="primary", confirmation=True)],
+        return self._message(
+            ctx,
+            "Watch " + self._route(target) + "?",
+            [
+                self._dates(target, prefs),
+                *self._itinerary_details(target),
+                "Currency: " + target["currency"],
+                "",
+                "Alert on a new observed low.",
+                f"Checks requested every {interval // 60} min. A price is not available until the first check.",
+                "",
+                "Confirm to add this flight to your account.",
+            ],
+            [
+                [
+                    self._button(
+                        ctx,
+                        "Start watching",
+                        "create",
+                        {"url": url, "interval": interval},
+                        style="primary",
+                        confirmation=True,
+                    )
+                ],
                 [self._cancel_button(ctx)],
-            ])
+            ],
+        )
 
     def _stop_confirm(self, ctx: _Context, identifier: str) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
-        return self._message(ctx, "Stop watching " + self._route(monitor["target"]) + "?", [
-            "This flight will stop checking prices and sending alerts. Recorded history remains available.",
-            "A stopped flight cannot be resumed; you can add its link again."], [
-                [self._button(ctx, "Stop watching", "status", {"monitor_id": identifier,
-                    "monitor_epoch": monitor.get("notification_epoch", 0), "status": "cancelled"}, style="danger", confirmation=True)],
+        return self._message(
+            ctx,
+            "Stop watching " + self._route(monitor["target"]) + "?",
+            [
+                "This flight will stop checking prices and sending alerts. Recorded history remains available.",
+                "A stopped flight cannot be resumed; you can add its link again.",
+            ],
+            [
+                [
+                    self._button(
+                        ctx,
+                        "Stop watching",
+                        "status",
+                        {
+                            "monitor_id": identifier,
+                            "monitor_epoch": monitor.get("notification_epoch", 0),
+                            "status": "cancelled",
+                        },
+                        style="danger",
+                        confirmation=True,
+                    )
+                ],
                 [self._cancel_button(ctx, "Keep watching")],
-            ])
+            ],
+        )
 
     def _rules(self, ctx: _Context, identifier: str, notice: str | None = None) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
         prefs, policy = self._preferences(ctx.tenant), monitor["policy"]
         currency = monitor["target"]["currency"]
-        lines = ["Notify on: " + ("a new observed low" if policy["kind"] == "new_low" else
-                 "a price at or below " + regional_price(policy["threshold_minor"], currency, prefs.locale))]
+        lines = [
+            "Notify on: "
+            + (
+                "a new observed low"
+                if policy["kind"] == "new_low"
+                else "a price at or below "
+                + regional_price(policy["threshold_minor"], currency, prefs.locale)
+            )
+        ]
         if policy["kind"] == "new_low":
-            lines.append("Minimum drop: " + regional_price(policy["min_drop_minor"], currency, prefs.locale))
-        lines += ["Price rebounds: " + ("on" if policy["notify_rebounds"] else "off"), "",
-                  "Rules apply to future observations. A target price is not a prediction."]
-        params = {"monitor_id": identifier, "monitor_epoch": monitor.get("notification_epoch", 0),
-                  "expected_policy": policy}
+            lines.append(
+                "Minimum drop: " + regional_price(policy["min_drop_minor"], currency, prefs.locale)
+            )
+        lines += [
+            "Price rebounds: " + ("on" if policy["notify_rebounds"] else "off"),
+            "",
+            "Rules apply to future observations. A target price is not a prediction.",
+        ]
+        params = {
+            "monitor_id": identifier,
+            "monitor_epoch": monitor.get("notification_epoch", 0),
+            "expected_policy": policy,
+        }
         new_low = {**policy, "kind": "new_low", "threshold_minor": None}
         rebound = {**policy, "notify_rebounds": not policy["notify_rebounds"]}
-        rows = [[self._button(ctx, "New observed lows", "policy", {**params, "policy": new_low}),
-                 self._button(ctx, "Set target price", "price-prompt", {"id": identifier, "field": "target"})]]
+        rows = [
+            [
+                self._button(ctx, "New observed lows", "policy", {**params, "policy": new_low}),
+                self._button(
+                    ctx, "Set target price", "price-prompt", {"id": identifier, "field": "target"}
+                ),
+            ]
+        ]
         if policy["kind"] == "new_low":
-            rows.append([self._button(ctx, "Set minimum drop", "price-prompt", {"id": identifier, "field": "drop"})])
-        rows += [[self._button(ctx, "Disable rebound alerts" if policy["notify_rebounds"] else "Enable rebound alerts",
-                              "policy", {**params, "policy": rebound})],
-                 [self._button(ctx, "Back to flight", "detail", {"id": identifier})]]
-        return self._message(ctx, "Alert rules: " + self._route(monitor["target"]), lines, rows, notice)
+            rows.append(
+                [
+                    self._button(
+                        ctx, "Set minimum drop", "price-prompt", {"id": identifier, "field": "drop"}
+                    )
+                ]
+            )
+        rows += [
+            [
+                self._button(
+                    ctx,
+                    "Disable rebound alerts"
+                    if policy["notify_rebounds"]
+                    else "Enable rebound alerts",
+                    "policy",
+                    {**params, "policy": rebound},
+                )
+            ],
+            [self._button(ctx, "Back to flight", "detail", {"id": identifier})],
+        ]
+        return self._message(
+            ctx, "Alert rules: " + self._route(monitor["target"]), lines, rows, notice
+        )
 
     def _price_prompt(self, ctx: _Context, identifier: str, field_name: str) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
@@ -458,55 +803,146 @@ class TelegramBot:
             raise _Unavailable
         currency, prefs = monitor["target"]["currency"], self._preferences(ctx.tenant)
         expires = self._now() + _MENU_SECONDS
-        draft = self.store.get("telegram-draft:" + ctx.tenant) or Document("telegram-draft:" + ctx.tenant, "telegram-drafts", {})
-        ctx.pending.append(draft.update({"input": "price", "field": field_name, "monitor_id": identifier,
-            "monitor_epoch": monitor.get("notification_epoch", 0), "tenant": ctx.tenant, "chat_id": ctx.chat_id,
-            "auth_epoch": ctx.epoch, "connection": ctx.connection, "generation": secrets.token_urlsafe(18),
-            "expires_at": expires}, expires_at=expires))
-        return self._message(ctx, "Set a " + ("minimum drop" if field_name == "drop" else "target price"), [
-            self._route(monitor["target"]), "Currency: " + currency,
-            "Send the amount, for example " + price_example(currency, prefs.locale) + ".",
-            "Do not include currency symbols or thousands separators.",
-            "Use whole yen." if currency == "JPY" else "Use the decimal separator from your regional settings.",
-            "Zero disables the minimum drop." if field_name == "drop" else "The target must be greater than zero.",
-            "", "You’ll review the rule before saving. Use /cancel to leave this prompt."],
-            [[self._cancel_button(ctx)]])
+        draft = self.store.get("telegram-draft:" + ctx.tenant) or Document(
+            "telegram-draft:" + ctx.tenant, "telegram-drafts", {}
+        )
+        ctx.pending.append(
+            draft.update(
+                {
+                    "input": "price",
+                    "field": field_name,
+                    "monitor_id": identifier,
+                    "monitor_epoch": monitor.get("notification_epoch", 0),
+                    "tenant": ctx.tenant,
+                    "chat_id": ctx.chat_id,
+                    "auth_epoch": ctx.epoch,
+                    "connection": ctx.connection,
+                    "generation": secrets.token_urlsafe(18),
+                    "expires_at": expires,
+                },
+                expires_at=expires,
+            )
+        )
+        return self._message(
+            ctx,
+            "Set a " + ("minimum drop" if field_name == "drop" else "target price"),
+            [
+                self._route(monitor["target"]),
+                "Currency: " + currency,
+                "Send the amount, for example " + price_example(currency, prefs.locale) + ".",
+                "Do not include currency symbols or thousands separators.",
+                "Use whole yen."
+                if currency == "JPY"
+                else "Use the decimal separator from your regional settings.",
+                "Zero disables the minimum drop."
+                if field_name == "drop"
+                else "The target must be greater than zero.",
+                "",
+                "You’ll review the rule before saving. Use /cancel to leave this prompt.",
+            ],
+            [[self._cancel_button(ctx)]],
+        )
 
     def _price_confirmation(self, ctx: _Context, draft: Document, value: str) -> TelegramMessage:
         data = draft.data
-        if (data.get("tenant") != ctx.tenant or data.get("chat_id") != ctx.chat_id
-                or data.get("auth_epoch") != ctx.epoch or data.get("connection") != ctx.connection
-                or data.get("expires_at", 0) <= self._now()):
-            return self._plain("That price prompt expired. Use /flights, open a flight and choose Alert rules again.")
+        if (
+            data.get("tenant") != ctx.tenant
+            or data.get("chat_id") != ctx.chat_id
+            or data.get("auth_epoch") != ctx.epoch
+            or data.get("connection") != ctx.connection
+            or data.get("expires_at", 0) <= self._now()
+        ):
+            return self._plain(
+                "That price prompt expired. Use /flights, open a flight and choose Alert rules again."
+            )
         monitor = self.service.get_monitor(ctx.tenant, data["monitor_id"])
         if monitor.get("notification_epoch", 0) != data["monitor_epoch"]:
             raise _Unavailable
-        prefs, currency, policy = self._preferences(ctx.tenant), monitor["target"]["currency"], monitor["policy"]
+        prefs, currency, policy = (
+            self._preferences(ctx.tenant),
+            monitor["target"]["currency"],
+            monitor["policy"],
+        )
         try:
             amount = parse_amount(value, currency, prefs.locale, allow_zero=data["field"] == "drop")
         except ValueError:
-            return self._plain("Enter a valid " + currency + " amount, such as " + price_example(currency, prefs.locale)
-                               + ", without currency symbols or thousands separators. Use /cancel to leave this prompt.")
+            return self._plain(
+                "Enter a valid "
+                + currency
+                + " amount, such as "
+                + price_example(currency, prefs.locale)
+                + ", without currency symbols or thousands separators. Use /cancel to leave this prompt."
+            )
         if data["field"] == "drop":
-            updated = {**policy, "kind": "new_low", "threshold_minor": None, "min_drop_minor": amount}
-            description = "Alert on a new observed low after a drop of at least " + regional_price(amount, currency, prefs.locale) + "."
+            updated = {
+                **policy,
+                "kind": "new_low",
+                "threshold_minor": None,
+                "min_drop_minor": amount,
+            }
+            description = (
+                "Alert on a new observed low after a drop of at least "
+                + regional_price(amount, currency, prefs.locale)
+                + "."
+            )
         else:
-            updated = {**policy, "kind": "below_price", "threshold_minor": amount, "min_drop_minor": 0}
-            description = "Alert when an observed price reaches or crosses below " + regional_price(amount, currency, prefs.locale) + "."
-        params = {"monitor_id": monitor["id"], "monitor_epoch": monitor.get("notification_epoch", 0),
-                  "expected_policy": policy, "policy": updated}
-        return self._message(ctx, "Save this alert rule?", [self._route(monitor["target"]), description,
-            "", "This changes future alerts. It does not change the flight or its currency."], [
-                [self._button(ctx, "Save alert rule", "policy", params, style="primary", confirmation=True, draft=draft)],
-                [self._cancel_button(ctx)]])
+            updated = {
+                **policy,
+                "kind": "below_price",
+                "threshold_minor": amount,
+                "min_drop_minor": 0,
+            }
+            description = (
+                "Alert when an observed price reaches or crosses below "
+                + regional_price(amount, currency, prefs.locale)
+                + "."
+            )
+        params = {
+            "monitor_id": monitor["id"],
+            "monitor_epoch": monitor.get("notification_epoch", 0),
+            "expected_policy": policy,
+            "policy": updated,
+        }
+        return self._message(
+            ctx,
+            "Save this alert rule?",
+            [
+                self._route(monitor["target"]),
+                description,
+                "",
+                "This changes future alerts. It does not change the flight or its currency.",
+            ],
+            [
+                [
+                    self._button(
+                        ctx,
+                        "Save alert rule",
+                        "policy",
+                        params,
+                        style="primary",
+                        confirmation=True,
+                        draft=draft,
+                    )
+                ],
+                [self._cancel_button(ctx)],
+            ],
+        )
 
     def _callback(self, ctx: _Context, data: str) -> TelegramMessage:
         match = _TOKEN.fullmatch(data) if isinstance(data, str) else None
         action = self.store.get("telegram-action:" + _hash(match[1])) if match else None
-        if (not action or action.data.get("tenant") != ctx.tenant or action.data.get("chat_id") != ctx.chat_id
-                or action.data.get("auth_epoch") != ctx.epoch or action.data.get("connection") != ctx.connection
-                or action.data.get("expires_at", 0) <= self._now()):
-            return self._home(ctx, "This button expired or belongs to another session. Choose a fresh control below.")
+        if (
+            not action
+            or action.data.get("tenant") != ctx.tenant
+            or action.data.get("chat_id") != ctx.chat_id
+            or action.data.get("auth_epoch") != ctx.epoch
+            or action.data.get("connection") != ctx.connection
+            or action.data.get("expires_at", 0) <= self._now()
+        ):
+            return self._home(
+                ctx,
+                "This button expired or belongs to another session. Choose a fresh control below.",
+            )
         if action.data.get("used"):
             raise _Applied
         kind, params = action.data["action"], action.data["params"]
@@ -528,8 +964,14 @@ class TelegramBot:
             return self._price_prompt(ctx, params["id"], params["field"])
         if kind == "cancel":
             draft = self.store.get("telegram-draft:" + ctx.tenant)
-            if not draft or not params.get("draft_generation") or draft.data.get("generation") != params["draft_generation"]:
-                return self._home(ctx, "This confirmation is no longer current. Your newer request is unchanged.")
+            if (
+                not draft
+                or not params.get("draft_generation")
+                or draft.data.get("generation") != params["draft_generation"]
+            ):
+                return self._home(
+                    ctx, "This confirmation is no longer current. Your newer request is unchanged."
+                )
             _BoundStore(self.store, ctx, self._now, action).commit([draft.update({"action": None})])
             return self._home(ctx, "Pending confirmation cancelled.")
         guarded = _BoundStore(self.store, ctx, self._now, action)
@@ -537,8 +979,12 @@ class TelegramBot:
         service = copy.copy(self.service)
         service.store = guarded
         if kind == "create":
-            monitor = service.create_monitor(ctx.tenant, params["url"], "telegram:" + action.key.split(":", 1)[1],
-                                             interval_seconds=params["interval"])
+            monitor = service.create_monitor(
+                ctx.tenant,
+                params["url"],
+                "telegram:" + action.key.split(":", 1)[1],
+                interval_seconds=params["interval"],
+            )
             guarded.complete()
             return self._detail(ctx, monitor["id"], "Flight added. The first check is scheduled.")
         if kind == "status":

@@ -65,8 +65,8 @@ make invite
 make serve
 ```
 
-Open the signup URL saved in `.next/invitation.json`. The application runs at
-`http://127.0.0.1:8001`, and local data stays in `.next/product.sqlite3`.
+Open the signup URL saved in `.fareflare/invitation.json`. The application runs at
+`http://127.0.0.1:8001`, and local data stays in `.fareflare/product.sqlite3`.
 Save the recovery code shown at signup; account recovery does not use email.
 Invitation files contain credentials and must stay private.
 
@@ -106,8 +106,8 @@ Both API entry points use a shared script-free HTML reference. The
 | ---------------- | --------------------------------------------------------------------------- |
 | `src/fareflare/` | Domain models, account services, API/MCP, collectors, persistence, delivery |
 | `web/`           | Angular website, dashboard, and Playwright tests                            |
-| `tests_next/`    | Backend behavior, security, integration, and collector fixtures             |
-| `infra-next/`    | Terraform for the API, worker, storage, scheduling, and alarms              |
+| `tests/`    | Backend behavior, security, integration, and collector fixtures             |
+| `infra/`    | Terraform for the API, worker, storage, scheduling, and alarms              |
 | `examples/`      | Synthetic demos and a signed webhook receiver example                       |
 | `docs/`          | Setup, architecture, operations, and verification records                   |
 
@@ -119,7 +119,7 @@ Use the default Makefile commands above for the account-based application.
 Create an API key in **API & MCP**. Send it in the `Authorization: Bearer` header;
 never put it in a URL. The application serves `/docs` and `/openapi.json` for the
 HTTP API. The remote MCP endpoint is `/mcp`, with OAuth/PKCE or an API key for
-clients that support custom headers. See [integration details](docs/NEXT.md).
+clients that support custom headers. See [integration details](docs/INTEGRATIONS.md).
 
 ## Contributing
 

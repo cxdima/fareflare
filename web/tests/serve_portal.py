@@ -1,4 +1,5 @@
 """Ephemeral local browser fixture: actual portal, no AWS, Google requests or worker."""
+
 import json
 import sys
 import tempfile
@@ -22,7 +23,9 @@ with tempfile.TemporaryDirectory(prefix="fareflare-browser-") as directory:
     invitations = [Accounts(store, config).create_invite()["token"] for _ in range(6)]
     fixture = ROOT / "web" / "artifacts" / "portal-fixture.json"
     fixture.parent.mkdir(exist_ok=True)
-    fixture.write_text(json.dumps({"invites": invitations[:3], "preferences_invites": invitations[3:]}))
+    fixture.write_text(
+        json.dumps({"invites": invitations[:3], "preferences_invites": invitations[3:]})
+    )
     fixture.chmod(0o600)
     service = MonitoringService(store, capability_check=supported_target)
     app = create_portal(service, config, static_dir=ROOT / "web" / "dist")

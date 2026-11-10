@@ -1,7 +1,7 @@
 {
   "review_date": "2026-11-02",
   "scope": "Anonymous Google Flights browser exploration and local repository review; no account watch, AWS, deployment or Telegram mutations.",
-  "sample": "examples/next-demo.json",
+  "sample": "examples/demo.json",
   "browser_observations": [
     {
       "case": "selected_one_adult_usd",

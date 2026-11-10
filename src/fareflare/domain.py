@@ -1,4 +1,5 @@
 """Deterministic alert rules. Monetary amounts are integer minor units."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,17 +43,28 @@ def evaluate(policy: AlertPolicy, state: dict, amount: int) -> tuple[dict, str |
             reason = "tracking_started"
         elif amount < low and baseline is not None and baseline - amount >= policy.min_drop_minor:
             reason = "new_low"
-    elif (policy.threshold_minor is not None and amount <= policy.threshold_minor
-          and (previous is None or previous > policy.threshold_minor)):
+    elif (
+        policy.threshold_minor is not None
+        and amount <= policy.threshold_minor
+        and (previous is None or previous > policy.threshold_minor)
+    ):
         reason = "below_price"
-    updated = {**state, "price_minor": amount,
-               "low_minor": min(low, amount) if low is not None else amount}
+    updated = {
+        **state,
+        "price_minor": amount,
+        "low_minor": min(low, amount) if low is not None else amount,
+    }
     if low is None or amount < low:
         updated["rebounded"] = False
     if reason:
         updated["last_alert_minor"] = amount
-    elif (policy.notify_rebounds and low is not None and previous == low and amount > low
-          and not state.get("rebounded", False)):
+    elif (
+        policy.notify_rebounds
+        and low is not None
+        and previous == low
+        and amount > low
+        and not state.get("rebounded", False)
+    ):
         reason = "rebound"
         updated["rebounded"] = True
     return updated, reason

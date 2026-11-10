@@ -2,7 +2,7 @@
   "verified_at": "2026-11-05T07:59:06+00:00",
   "environment": "Local macOS ARM64; anonymous disposable Chrome; no account; no purchase or airline navigation",
   "capability": "Cheapest matching Google Flights result, fixed-date one-way nonstop, one adult, USD, US English, Economy excluding Basic",
-  "fixture": "tests_next/fixtures/search_nonstop_oneway_usd.json",
+  "fixture": "tests/fixtures/search_nonstop_oneway_usd.json",
   "observed_result_count": 19,
   "criteria": {
     "origin": "DEN",

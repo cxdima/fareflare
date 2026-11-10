@@ -19,7 +19,7 @@ Both entry points now disable the default documentation applications and use the
 
 ## Verification
 
-- `tests_next/test_api_reference.py` checks both reference rendering and the standalone routing contract, including HTML escaping and protected API access.
+- `tests/test_api_reference.py` checks both reference rendering and the standalone routing contract, including HTML escaping and protected API access.
 - `web/tests/stack.spec.ts` checks the served public site and mocked authenticated workspace, loaded scripts, Bootstrap styles, React runtime markers and the script-free reference.
 - Keep the dependency lockfile committed and run the browser regression after changes to documentation viewers, embedded widgets or frontend dependencies.
 

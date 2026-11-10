@@ -3,6 +3,7 @@
 The transport never follows redirects, reads response bodies, or uses proxy
 environment variables. Authentication follows the Standard Webhooks v1 format.
 """
+
 from __future__ import annotations
 
 import base64
@@ -28,10 +29,17 @@ _ID = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
 _SIGNING_HEADERS = frozenset({"webhook-id", "webhook-timestamp", "webhook-signature"})
 # Explicit transition/special ranges supplement Python's versioned is_global table.
-_V4_SPECIAL = tuple(ipaddress.ip_network(network) for network in (
-    "0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "192.88.99.0/24", "224.0.0.0/4",
-    "240.0.0.0/4",
-))
+_V4_SPECIAL = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "0.0.0.0/8",
+        "100.64.0.0/10",
+        "192.0.0.0/24",
+        "192.88.99.0/24",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+    )
+)
 _V6_UNICAST = ipaddress.ip_network("2000::/3")
 _V6_SPECIAL = tuple(ipaddress.ip_network(network) for network in ("2001::/23", "2002::/16"))
 # libc name resolution has no portable timeout. Hung lookups consume at most four
@@ -42,8 +50,14 @@ _DNS_SLOTS = threading.BoundedSemaphore(4)
 def _public_address(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
     try:
         address = ipaddress.ip_address(value)
-        if ("%" in value or not address.is_global or address.is_multicast
-                or address.is_reserved or address.is_loopback or address.is_link_local):
+        if (
+            "%" in value
+            or not address.is_global
+            or address.is_multicast
+            or address.is_reserved
+            or address.is_loopback
+            or address.is_link_local
+        ):
             raise ValueError
         if isinstance(address, ipaddress.IPv4Address):
             if any(address in network for network in _V4_SPECIAL):
@@ -58,14 +72,23 @@ def _public_address(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address
 def normalize_webhook_url(url: str) -> str:
     """Validate syntax without network access; DNS is validated on every send."""
     try:
-        if (not isinstance(url, str) or not 1 <= len(url) <= _MAX_URL
-                or any(ord(character) <= 32 or ord(character) == 127 for character in url)
-                or "\\" in url or "#" in url):
+        if (
+            not isinstance(url, str)
+            or not 1 <= len(url) <= _MAX_URL
+            or any(ord(character) <= 32 or ord(character) == 127 for character in url)
+            or "\\" in url
+            or "#" in url
+        ):
             raise ValueError
         parts = urlsplit(url)
-        if (parts.scheme != "https" or not parts.hostname or parts.username is not None
-                or parts.password is not None or parts.port not in (None, 443)
-                or parts.netloc.endswith(":")):
+        if (
+            parts.scheme != "https"
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+            or parts.port not in (None, 443)
+            or parts.netloc.endswith(":")
+        ):
             raise ValueError
         host = parts.hostname.rstrip(".").encode("idna").decode("ascii").lower()
         if not host or len(host) > 253 or "%" in host:
@@ -109,18 +132,32 @@ def _secret_bytes(secret: str) -> bytes:
 
 def sign_webhook(secret: str, event_id: str, timestamp: int, payload: bytes) -> dict[str, str]:
     """Sign the exact transmitted bytes; reuse event_id across delivery retries."""
-    if (not isinstance(event_id, str) or not _ID.fullmatch(event_id)
-            or type(timestamp) is not int or not 0 <= timestamp <= 99999999999
-            or not isinstance(payload, bytes) or len(payload) > _MAX_PAYLOAD):
+    if (
+        not isinstance(event_id, str)
+        or not _ID.fullmatch(event_id)
+        or type(timestamp) is not int
+        or not 0 <= timestamp <= 99999999999
+        or not isinstance(payload, bytes)
+        or len(payload) > _MAX_PAYLOAD
+    ):
         raise ValueError("Invalid webhook signing input")
     signed = f"{event_id}.{timestamp}.".encode("ascii") + payload
     digest = hmac.new(_secret_bytes(secret), signed, hashlib.sha256).digest()
-    return {"webhook-id": event_id, "webhook-timestamp": str(timestamp),
-            "webhook-signature": "v1," + base64.b64encode(digest).decode("ascii")}
+    return {
+        "webhook-id": event_id,
+        "webhook-timestamp": str(timestamp),
+        "webhook-signature": "v1," + base64.b64encode(digest).decode("ascii"),
+    }
 
 
-def verify_webhook(secret: str, payload: bytes, headers: Mapping[str, str], *,
-                   now: int | None = None, tolerance: int = 300) -> bool:
+def verify_webhook(
+    secret: str,
+    payload: bytes,
+    headers: Mapping[str, str],
+    *,
+    now: int | None = None,
+    tolerance: int = 300,
+) -> bool:
     """Authenticate bytes and time; receivers must also deduplicate webhook-id."""
     try:
         if type(tolerance) is not int or not 0 <= tolerance <= 3600:
@@ -132,7 +169,9 @@ def verify_webhook(secret: str, payload: bytes, headers: Mapping[str, str], *,
         timestamp = int(timestamp_text)
         if abs((int(time.time()) if now is None else now) - timestamp) > tolerance:
             return False
-        expected = sign_webhook(secret, normalized["webhook-id"], timestamp, payload)["webhook-signature"]
+        expected = sign_webhook(secret, normalized["webhook-id"], timestamp, payload)[
+            "webhook-signature"
+        ]
         signatures = normalized["webhook-signature"]
         if not isinstance(signatures, str) or len(signatures) > 1024 or not signatures.isascii():
             return False
@@ -156,8 +195,9 @@ def _resolve_addresses(host: str, timeout: float) -> tuple[str, ...]:
 
     def resolve() -> None:
         try:
-            records = socket.getaddrinfo(host + ".", 443, socket.AF_UNSPEC,
-                                         socket.SOCK_STREAM, socket.IPPROTO_TCP)
+            records = socket.getaddrinfo(
+                host + ".", 443, socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP
+            )
             results.put((True, records))
         except OSError:
             results.put((False, None))
@@ -190,7 +230,11 @@ class WebhookHTTPTransport:
     """A fresh, IP-pinned HTTPS connection per attempt, with no connection pool."""
 
     def __init__(self, timeout: float = 10):
-        if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 15:
+        if (
+            not isinstance(timeout, (int, float))
+            or not math.isfinite(timeout)
+            or not 0 < timeout <= 15
+        ):
             raise ValueError("Webhook timeout must be between 0 and 15 seconds")
         self.timeout = float(timeout)
         self._context = ssl.create_default_context()
@@ -224,10 +268,13 @@ class WebhookHTTPTransport:
             if not isinstance(payload, bytes) or len(payload) > _MAX_PAYLOAD:
                 return False
             safe_headers = {key.lower(): value for key, value in headers.items()}
-            if (set(safe_headers) != _SIGNING_HEADERS
-                    or any(not isinstance(value, str) or not value.isascii() or len(value) > 1024
-                           or any(ord(char) < 32 or ord(char) == 127 for char in value)
-                           for value in safe_headers.values())):
+            if set(safe_headers) != _SIGNING_HEADERS or any(
+                not isinstance(value, str)
+                or not value.isascii()
+                or len(value) > 1024
+                or any(ord(char) < 32 or ord(char) == 127 for char in value)
+                for value in safe_headers.values()
+            ):
                 return False
             parts = urlsplit(normalized)
             host = parts.hostname
@@ -244,17 +291,29 @@ class WebhookHTTPTransport:
             raw.settimeout(remaining())
             # Numeric addresses are passed straight to the socket; no second DNS lookup.
             raw.connect((str(address), 443))
-            secure = self._context.wrap_socket(raw, server_hostname=host, do_handshake_on_connect=False)
+            secure = self._context.wrap_socket(
+                raw, server_hostname=host, do_handshake_on_connect=False
+            )
             current_socket[0] = secure
             secure.settimeout(remaining())
             secure.do_handshake()
             secure.settimeout(remaining())
-            connection = http.client.HTTPSConnection(host, 443, timeout=remaining(), context=self._context)
+            connection = http.client.HTTPSConnection(
+                host, 443, timeout=remaining(), context=self._context
+            )
             connection.sock = secure
             request_target = parts.path + ("?" + parts.query if parts.query else "")
-            connection.request("POST", request_target, body=payload,
-                               headers={**safe_headers, "Content-Type": "application/json",
-                                        "User-Agent": "Fareflare-Webhooks/1", "Connection": "close"})
+            connection.request(
+                "POST",
+                request_target,
+                body=payload,
+                headers={
+                    **safe_headers,
+                    "Content-Type": "application/json",
+                    "User-Agent": "Fareflare-Webhooks/1",
+                    "Connection": "close",
+                },
+            )
             secure.settimeout(remaining())
             response = connection.getresponse()
             # http.client bounds status/header lines and header count. The body is

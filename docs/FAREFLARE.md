@@ -32,10 +32,10 @@ make invite
 make serve
 ```
 
-Open the invitation URL in `.next/invitation.json`. The file contains a single-use
+Open the invitation URL in `.fareflare/invitation.json`. The file contains a single-use
 credential: keep it private. The dashboard, API, and MCP share
 `http://127.0.0.1:8001`; the flight dashboard is at `/app`, and local customer data
-is stored in `.next/product.sqlite3`. Public guides and landing pages are also
+is stored in `.fareflare/product.sqlite3`. Public guides and landing pages are also
 served by Python, with crawlable initial HTML and matching structured data.
 Keep the recovery code shown at signup. There is no email reset service.
 
@@ -48,7 +48,7 @@ PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
 
 Use `--chrome-binary` and `--chromedriver` for explicit executable paths. Run the
 worker periodically; each invocation collects only due monitors. Local delivery
-supports the dashboard inbox and verified HTTPS webhooks. `make next-demo` and `make next-webhook-demo` exercise
+supports the dashboard inbox and verified HTTPS webhooks. `make demo` and `make webhook-demo` exercise
 the durable pipeline using clearly labeled synthetic prices without external calls.
 
 ## Use the dashboard
@@ -137,13 +137,13 @@ reuse the same value after a network failure. Prices use integer minor units.
 
 The remote MCP URL is the application origin followed by `/mcp`. It supports OAuth
 authorization with explicit consent and PKCE, or a bearer API key for clients that
-accept custom headers. The local stdio adapter is available with `make next-mcp` when configured with an API URL and key.
+accept custom headers. The local stdio adapter is available with `make mcp` when configured with an API URL and key.
 OAuth access is scoped to MCP; customer API keys work with both interfaces.
 
 Connect Telegram from the dashboard and start the bot using the generated link.
 Without a connection, default alerts remain in the dashboard. An explicitly selected
 webhook receives alerts only at that endpoint. Register and verify ownership before
-selecting it. See [webhook setup](NEXT.md#customer-webhooks) for signatures, retries,
+selecting it. See [webhook setup](INTEGRATIONS.md#customer-webhooks) for signatures, retries,
 and receiver verification. Delivery is at least once; deduplicate using the event ID.
 Use `/help` in Telegram for connection status and `/stop` to disconnect.
 Verify a real Telegram price alert separately during rollout; a working connection
@@ -151,9 +151,9 @@ flow alone does not establish successful alert delivery.
 
 ## Deploy your own instance
 
-`infra-next/` provisions a DynamoDB document store, an ARM64 browser worker, a separate
+`infra/` provisions a DynamoDB document store, an ARM64 browser worker, a separate
 API Lambda, an HTTP API, a schedule, scoped IAM permissions, and CloudWatch alarms.
-Build the browser-base `Dockerfile` as `fareflare-browser-base`, then build `Dockerfile.next`
+Build the browser-base `Dockerfile` as `fareflare-browser-base`, then build `Dockerfile.worker`
 for collection. Build the dashboard before `Dockerfile.api`. Push both images to your
 own ECR repositories and supply immutable digest URIs to Terraform.
 Follow the [release procedure](OPERATIONS.md#release-api-and-worker-images) to keep
@@ -171,7 +171,7 @@ Issue a deployed invite explicitly:
 ```bash
 PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
   --public-url https://YOUR-HTTP-API.execute-api.REGION.amazonaws.com \
-  invite .next/invitation.json --table fareflare-YOUR-NAME \
+  invite .fareflare/invitation.json --table fareflare-YOUR-NAME \
   --aws-account YOUR_ACCOUNT_ID --region REGION
 ```
 

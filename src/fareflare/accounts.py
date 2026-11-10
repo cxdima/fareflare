@@ -3,6 +3,7 @@
 No mail or payment provider is required. Passwords use the OWASP scrypt baseline;
 session, invite, API and recovery credentials are stored only as hashes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -39,7 +40,9 @@ def _digest(value: str) -> str:
 
 def _username(value: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}", value):
-        raise ValueError("Username must contain 3–40 letters, numbers, periods, underscores or hyphens")
+        raise ValueError(
+            "Username must contain 3–40 letters, numbers, periods, underscores or hyphens"
+        )
     return value.lower()
 
 
@@ -50,8 +53,9 @@ def _password(value: str) -> bytes:
 
 
 def _derive(password: bytes, salt: bytes) -> bytes:
-    return hashlib.scrypt(password, salt=salt, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P,
-                          maxmem=_SCRYPT_MAXMEM, dklen=32)
+    return hashlib.scrypt(
+        password, salt=salt, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P, maxmem=_SCRYPT_MAXMEM, dklen=32
+    )
 
 
 def hash_password(value: str) -> str:
@@ -66,9 +70,12 @@ def verify_password(value: str, stored: str | None) -> bool:
     salt, expected = _DUMMY_SALT, bytes(32)
     if isinstance(stored, str):
         pieces = stored.split("$")
-        if (len(pieces) == 6 and pieces[:4] == ["scrypt", "131072", "8", "1"]
-                and re.fullmatch(r"[a-f0-9]{32}", pieces[4])
-                and re.fullmatch(r"[a-f0-9]{64}", pieces[5])):
+        if (
+            len(pieces) == 6
+            and pieces[:4] == ["scrypt", "131072", "8", "1"]
+            and re.fullmatch(r"[a-f0-9]{32}", pieces[4])
+            and re.fullmatch(r"[a-f0-9]{64}", pieces[5])
+        ):
             salt, expected, valid = bytes.fromhex(pieces[4]), bytes.fromhex(pieces[5]), True
     matches = hmac.compare_digest(_derive(password, salt), expected)
     return valid and matches
@@ -79,8 +86,12 @@ def _csrf(token: str) -> str:
 
 
 class Accounts:
-    def __init__(self, store: Store, config: ProductConfig | None = None,
-                 clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        store: Store,
+        config: ProductConfig | None = None,
+        clock: Callable[[], float] = time.time,
+    ):
         self.store, self.config, self.clock = store, config or ProductConfig(), clock
         self._credentials = Credentials(store, clock)
         self._login_limit = RateLimiter(store, clock, per_minute=10)
@@ -120,9 +131,20 @@ class Accounts:
         if type(lifetime_seconds) is not int or not 60 <= lifetime_seconds <= 30 * 86400:
             raise ValueError("Invitation lifetime must be 60 seconds to 30 days")
         token, expires = secrets.token_urlsafe(32), self._now() + lifetime_seconds
-        self.store.commit([Document("invite:" + _digest(token), "invites", {
-            "created_at": self._now(), "expires_at": expires, "used": False,
-        }, expires_at=expires)])
+        self.store.commit(
+            [
+                Document(
+                    "invite:" + _digest(token),
+                    "invites",
+                    {
+                        "created_at": self._now(),
+                        "expires_at": expires,
+                        "used": False,
+                    },
+                    expires_at=expires,
+                )
+            ]
+        )
         return {"token": token, "expires_at": expires}
 
     def _invite(self, token: str | None) -> Document | None:
@@ -138,14 +160,28 @@ class Accounts:
     def _session(self, account: Document) -> tuple[dict, list[Document]]:
         token, expires = secrets.token_urlsafe(32), self._now() + _SESSION_LIFETIME
         identifier = _digest(token)
-        session = Document("session:" + identifier, "sessions:" + account.data["id"], {
-            "tenant": account.data["id"], "auth_epoch": account.data["auth_epoch"],
-            "expires_at": expires, "revoked": False,
-        }, expires_at=expires)
-        data = {**account.data, "session_ids": [*account.data.get("session_ids", []), identifier][-_MAX_SESSIONS:],
-                "last_login_at": self._now()}
-        return {"account": self._public(account), "session_token": token, "csrf_token": _csrf(token),
-                "expires_at": expires}, [account.update(data), session]
+        session = Document(
+            "session:" + identifier,
+            "sessions:" + account.data["id"],
+            {
+                "tenant": account.data["id"],
+                "auth_epoch": account.data["auth_epoch"],
+                "expires_at": expires,
+                "revoked": False,
+            },
+            expires_at=expires,
+        )
+        data = {
+            **account.data,
+            "session_ids": [*account.data.get("session_ids", []), identifier][-_MAX_SESSIONS:],
+            "last_login_at": self._now(),
+        }
+        return {
+            "account": self._public(account),
+            "session_token": token,
+            "csrf_token": _csrf(token),
+            "expires_at": expires,
+        }, [account.update(data), session]
 
     def register(self, username: str, password: str, invite_token: str | None = None) -> dict:
         username = _username(username)
@@ -156,16 +192,28 @@ class Accounts:
         if self.store.get(username_key):
             raise ValueError("This username is unavailable")
         tenant, recovery = "acct_" + uuid.uuid4().hex, secrets.token_urlsafe(32)
-        account = Document("account:" + tenant, "accounts", {
-            "id": tenant, "username": username, "created_at": self._now(), "status": "active",
-            "password_hash": hash_password(password), "recovery_hash": _digest(recovery),
-            "auth_epoch": 1, "key_ids": [], "session_ids": [],
-        })
+        account = Document(
+            "account:" + tenant,
+            "accounts",
+            {
+                "id": tenant,
+                "username": username,
+                "created_at": self._now(),
+                "status": "active",
+                "password_hash": hash_password(password),
+                "recovery_hash": _digest(recovery),
+                "auth_epoch": 1,
+                "key_ids": [],
+                "session_ids": [],
+            },
+        )
         response, writes = self._session(account)
-        writes.extend([
-            Document(username_key, "usernames", {"account_id": tenant}),
-            Document("tenant:" + tenant, "tenants", {"monitors": 0, "webhooks": 0}),
-        ])
+        writes.extend(
+            [
+                Document(username_key, "usernames", {"account_id": tenant}),
+                Document("tenant:" + tenant, "tenants", {"monitors": 0, "webhooks": 0}),
+            ]
+        )
         if invite:
             writes.append(invite.update({**invite.data, "used": True}))
         try:
@@ -180,7 +228,11 @@ class Accounts:
         self._login_limit.consume("login-" + _digest(username))
         index = self.store.get("username:" + _digest(username))
         account = self.store.get("account:" + index.data["account_id"]) if index else None
-        stored = account.data.get("password_hash") if account and account.data["status"] == "active" else None
+        stored = (
+            account.data.get("password_hash")
+            if account and account.data["status"] == "active"
+            else None
+        )
         if not verify_password(password, stored) or account is None:
             raise AuthenticationFailed("Invalid username or password")
         response, writes = self._session(account)
@@ -201,11 +253,15 @@ class Accounts:
             account = self._account(session.data["tenant"])
         except AuthenticationFailed:
             return None
-        if (session.data["auth_epoch"] != account.data["auth_epoch"]
-                or identifier not in account.data.get("session_ids", [])):
+        if session.data["auth_epoch"] != account.data[
+            "auth_epoch"
+        ] or identifier not in account.data.get("session_ids", []):
             return None
-        return {"account": self._public(account), "csrf_token": _csrf(token),
-                "expires_at": session.data["expires_at"]}
+        return {
+            "account": self._public(account),
+            "csrf_token": _csrf(token),
+            "expires_at": session.data["expires_at"],
+        }
 
     def logout(self, token: str) -> None:
         if not isinstance(token, str) or not _TOKEN.fullmatch(token):
@@ -228,15 +284,30 @@ class Accounts:
         self._recovery_limit.consume("recovery-" + _digest(username))
         index = self.store.get("username:" + _digest(username))
         account = self.store.get("account:" + index.data["account_id"]) if index else None
-        supplied = _digest(recovery_code) if isinstance(recovery_code, str) and _TOKEN.fullmatch(recovery_code) else ""
+        supplied = (
+            _digest(recovery_code)
+            if isinstance(recovery_code, str) and _TOKEN.fullmatch(recovery_code)
+            else ""
+        )
         expected = account.data.get("recovery_hash", "") if account else ""
-        if (not supplied or not hmac.compare_digest(supplied, expected) or account is None
-                or account.data["status"] != "active"):
+        if (
+            not supplied
+            or not hmac.compare_digest(supplied, expected)
+            or account is None
+            or account.data["status"] != "active"
+        ):
             raise AuthenticationFailed("Invalid recovery credentials")
         recovery = secrets.token_urlsafe(32)
-        updated = account.update({**account.data, "password_hash": hash_password(new_password),
-                                  "recovery_hash": _digest(recovery), "auth_epoch": account.data["auth_epoch"] + 1,
-                                  "session_ids": [], "key_ids": []})
+        updated = account.update(
+            {
+                **account.data,
+                "password_hash": hash_password(new_password),
+                "recovery_hash": _digest(recovery),
+                "auth_epoch": account.data["auth_epoch"] + 1,
+                "session_ids": [],
+                "key_ids": [],
+            }
+        )
         response, writes = self._session(updated)
         try:
             self.store.commit(writes)
@@ -245,9 +316,13 @@ class Accounts:
         return {**response, "recovery_code": recovery}
 
     def issue_api_key(self, tenant: str, name: str, lifetime_seconds: int = 90 * 86400) -> dict:
-        if (not isinstance(name, str) or not 1 <= len(name.strip()) <= 80
-                or any(ord(character) < 32 for character in name)
-                or type(lifetime_seconds) is not int or not 60 <= lifetime_seconds <= 365 * 86400):
+        if (
+            not isinstance(name, str)
+            or not 1 <= len(name.strip()) <= 80
+            or any(ord(character) < 32 for character in name)
+            or type(lifetime_seconds) is not int
+            or not 60 <= lifetime_seconds <= 365 * 86400
+        ):
             raise ValueError("Provide a key name and a lifetime between 60 seconds and one year")
         for _ in range(5):
             account = self._account(tenant)
@@ -260,12 +335,24 @@ class Accounts:
                 raise ValueError("API key quota reached (10 active keys)")
             token = secrets.token_urlsafe(32)
             identifier = _digest(token)
-            key = Document("credential:" + identifier, "credentials:" + tenant, {
-                "tenant": tenant, "revoked": False, "created_at": self._now(), "name": name.strip(),
-                "expires_at": self._now() + lifetime_seconds, "auth_epoch": account.data["auth_epoch"],
-            }, due=self._now(), expires_at=self._now() + lifetime_seconds + 30 * 86400)
+            key = Document(
+                "credential:" + identifier,
+                "credentials:" + tenant,
+                {
+                    "tenant": tenant,
+                    "revoked": False,
+                    "created_at": self._now(),
+                    "name": name.strip(),
+                    "expires_at": self._now() + lifetime_seconds,
+                    "auth_epoch": account.data["auth_epoch"],
+                },
+                due=self._now(),
+                expires_at=self._now() + lifetime_seconds + 30 * 86400,
+            )
             try:
-                self.store.commit([key, account.update({**account.data, "key_ids": [*active, identifier]})])
+                self.store.commit(
+                    [key, account.update({**account.data, "key_ids": [*active, identifier]})]
+                )
                 return {"id": identifier, "api_key": token}
             except Conflict:
                 continue
@@ -283,9 +370,13 @@ class Accounts:
             return None
         identifier = _digest(token)
         key = self.store.get("credential:" + identifier)
-        if (key and not key.data["revoked"] and key.data["expires_at"] > self._now()
-                and key.data.get("auth_epoch") == account.data["auth_epoch"]
-                and identifier in account.data.get("key_ids", [])):
+        if (
+            key
+            and not key.data["revoked"]
+            and key.data["expires_at"] > self._now()
+            and key.data.get("auth_epoch") == account.data["auth_epoch"]
+            and identifier in account.data.get("key_ids", [])
+        ):
             return tenant
         return None
 
@@ -298,9 +389,16 @@ class Accounts:
             if not current or current.data["tenant"] != tenant:
                 continue
             data = current.data
-            items.append({"id": current.key.removeprefix("credential:"), "name": data.get("name", "API key"),
-                          "created_at": data.get("created_at", 0), "expires_at": data["expires_at"],
-                          "revoked": data["revoked"] or data.get("auth_epoch") != account.data["auth_epoch"]})
+            items.append(
+                {
+                    "id": current.key.removeprefix("credential:"),
+                    "name": data.get("name", "API key"),
+                    "created_at": data.get("created_at", 0),
+                    "expires_at": data["expires_at"],
+                    "revoked": data["revoked"]
+                    or data.get("auth_epoch") != account.data["auth_epoch"],
+                }
+            )
         return {"items": items, "next_cursor": page.cursor}
 
     def revoke_api_key(self, tenant: str, identifier: str) -> None:
@@ -329,13 +427,28 @@ class Accounts:
         assert customer is not None
         # The primary fence makes sessions, grants, keys and future collection stop
         # immediately. GSI discovery below is only cleanup, never the security gate.
-        self.store.commit([
-            account.update({"id": tenant, "username": "", "created_at": account.data["created_at"],
-                            "status": "deleted", "auth_epoch": account.data["auth_epoch"] + 1,
-                            "session_ids": [], "key_ids": []}),
-            customer.update({**customer.data, "preferences": {"muted": True, "muted_routes": []},
-                             "notification_epoch": customer.data.get("notification_epoch", 0) + 1}),
-        ])
+        self.store.commit(
+            [
+                account.update(
+                    {
+                        "id": tenant,
+                        "username": "",
+                        "created_at": account.data["created_at"],
+                        "status": "deleted",
+                        "auth_epoch": account.data["auth_epoch"] + 1,
+                        "session_ids": [],
+                        "key_ids": [],
+                    }
+                ),
+                customer.update(
+                    {
+                        **customer.data,
+                        "preferences": {"muted": True, "muted_routes": []},
+                        "notification_epoch": customer.data.get("notification_epoch", 0) + 1,
+                    }
+                ),
+            ]
+        )
         self.cleanup_deleted_account(tenant)
         return {"deleted": True}
 
@@ -363,24 +476,56 @@ class Accounts:
         for index in self.store.query("monitors:" + tenant):
             for _ in range(5):
                 monitor = self.store.get(index.key)
-                if not monitor or monitor.data["tenant"] != tenant or monitor.data["status"] == "cancelled":
+                if (
+                    not monitor
+                    or monitor.data["tenant"] != tenant
+                    or monitor.data["status"] == "cancelled"
+                ):
                     break
                 target = self.store.get("target:" + monitor.data["target_id"])
                 customer = self.store.get("tenant:" + tenant)
                 assert target is not None and customer is not None
-                subscribers = [mid for mid in target.data["subscribers"] if mid != monitor.data["id"]]
+                subscribers = [
+                    mid for mid in target.data["subscribers"] if mid != monitor.data["id"]
+                ]
                 writes = [
-                    monitor.update({**monitor.data, "status": "cancelled",
-                                    "quota_released": True,
-                                    "notification_epoch": monitor.data.get("notification_epoch", 0) + 1}),
+                    monitor.update(
+                        {
+                            **monitor.data,
+                            "status": "cancelled",
+                            "quota_released": True,
+                            "notification_epoch": monitor.data.get("notification_epoch", 0) + 1,
+                        }
+                    ),
                     target.update({**target.data, "subscribers": subscribers}),
-                    customer.update({**customer.data, "monitors": max(0, customer.data["monitors"]
-                                    - (0 if monitor.data.get("quota_released", False) else 1))}),
+                    customer.update(
+                        {
+                            **customer.data,
+                            "monitors": max(
+                                0,
+                                customer.data["monitors"]
+                                - (0 if monitor.data.get("quota_released", False) else 1),
+                            ),
+                        }
+                    ),
                 ]
                 capacity = self.store.get("capacity:collection")
-                if not subscribers and capacity and monitor.data["target_id"] in capacity.data["targets"]:
-                    writes.append(capacity.update({"targets": [identifier for identifier in capacity.data["targets"]
-                                                               if identifier != monitor.data["target_id"]]}))
+                if (
+                    not subscribers
+                    and capacity
+                    and monitor.data["target_id"] in capacity.data["targets"]
+                ):
+                    writes.append(
+                        capacity.update(
+                            {
+                                "targets": [
+                                    identifier
+                                    for identifier in capacity.data["targets"]
+                                    if identifier != monitor.data["target_id"]
+                                ]
+                            }
+                        )
+                    )
                 try:
                     self.store.commit(writes)
                     break
@@ -389,10 +534,19 @@ class Accounts:
         for index in self.store.query("webhooks:" + tenant):
             for _ in range(5):
                 endpoint = self.store.get(index.key)
-                if not endpoint or endpoint.data["tenant"] != tenant or endpoint.data["status"] == "deleted":
+                if (
+                    not endpoint
+                    or endpoint.data["tenant"] != tenant
+                    or endpoint.data["status"] == "deleted"
+                ):
                     break
-                data = {**endpoint.data, "status": "deleted", "generation": endpoint.data["generation"] + 1,
-                        "challenge_hash": None, "challenge_expires_at": 0}
+                data = {
+                    **endpoint.data,
+                    "status": "deleted",
+                    "generation": endpoint.data["generation"] + 1,
+                    "challenge_hash": None,
+                    "challenge_expires_at": 0,
+                }
                 data.pop("signing_secret", None)
                 try:
                     self.store.commit([endpoint.update(data)])

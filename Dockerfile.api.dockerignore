@@ -1,5 +1,5 @@
 *
-!requirements-next.lock
+!requirements.lock
 !src/
 !src/fareflare/
 !src/fareflare/**

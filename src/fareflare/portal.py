@@ -1,4 +1,5 @@
 """Same-origin customer application: sessions, account controls, API and dashboard."""
+
 import hashlib
 import hmac
 import re
@@ -75,9 +76,14 @@ class ConsentInput(BaseModel):
     approve: bool
 
 
-def create_portal(service: MonitoringService, config: ProductConfig,
-                  accounts: Accounts | None = None, static_dir: Path | None = None,
-                  telegram: "TelegramConnections | None" = None, telegram_webhook_secret: str | None = None):
+def create_portal(
+    service: MonitoringService,
+    config: ProductConfig,
+    accounts: Accounts | None = None,
+    static_dir: Path | None = None,
+    telegram: "TelegramConnections | None" = None,
+    telegram_webhook_secret: str | None = None,
+):
     accounts = accounts or Accounts(service.store, config, clock=service.clock)
     public_url = config.public_url.rstrip("/")
     origin = urlsplit(public_url)
@@ -92,8 +98,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     def check_origin(request: Request) -> None:
         supplied = request.headers.get("origin")
-        if ((supplied and supplied != public_url)
-                or request.headers.get("sec-fetch-site") == "cross-site"):
+        if (supplied and supplied != public_url) or request.headers.get(
+            "sec-fetch-site"
+        ) == "cross-site":
             raise HTTPException(403, "Use this application's own origin")
 
     def session(request: Request) -> dict:
@@ -120,22 +127,36 @@ def create_portal(service: MonitoringService, config: ProductConfig,
             return tenant
         return session(request)["account"]["id"]
 
-    app = create_app(service, principal_resolver=principal, limiter=limiter,
-                     live_collection=True, public_url=config.public_url)
+    app = create_app(
+        service,
+        principal_resolver=principal,
+        limiter=limiter,
+        live_collection=True,
+        public_url=config.public_url,
+    )
     app.title = config.product_name + " API"
     # Use the same script-free API reference with the portal navigation and stylesheet.
-    app.router.routes = [route for route in app.router.routes
-                         if getattr(route, "path", "") != "/docs"]
+    app.router.routes = [
+        route for route in app.router.routes if getattr(route, "path", "") != "/docs"
+    ]
 
     @app.exception_handler(RequestValidationError)
     async def validation_failed(request, exc):
-        return JSONResponse({"detail": [{"loc": error["loc"], "msg": error["msg"], "type": error["type"]}
-                                        for error in exc.errors()]}, status_code=422)
+        return JSONResponse(
+            {
+                "detail": [
+                    {"loc": error["loc"], "msg": error["msg"], "type": error["type"]}
+                    for error in exc.errors()
+                ]
+            },
+            status_code=422,
+        )
 
     @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
     def reference():
-        return render_api_reference(app.openapi(), config.product_name,
-                                    static_dir=static_dir, public_url=public_url)
+        return render_api_reference(
+            app.openapi(), config.product_name, static_dir=static_dir, public_url=public_url
+        )
 
     @app.exception_handler(AuthenticationFailed)
     async def authentication_failed(request, exc):
@@ -145,10 +166,18 @@ def create_portal(service: MonitoringService, config: ProductConfig,
     async def product_headers(request: Request, call_next):
         # Preserve old API integrations and Telegram ingress, while browser pages
         # move to the canonical origin. Never build a redirect from request headers.
-        if (request.url.hostname in config.additional_hosts and request.method in ("GET", "HEAD")
-                and not request.url.path.startswith(("/v1/", "/oauth/", "/telegram/", "/.well-known/"))
-                and request.url.path != "/mcp"):
-            return RedirectResponse(public_url + request.url.path + ("?" + request.url.query if request.url.query else ""), status_code=308)
+        if (
+            request.url.hostname in config.additional_hosts
+            and request.method in ("GET", "HEAD")
+            and not request.url.path.startswith(("/v1/", "/oauth/", "/telegram/", "/.well-known/"))
+            and request.url.path != "/mcp"
+        ):
+            return RedirectResponse(
+                public_url
+                + request.url.path
+                + ("?" + request.url.query if request.url.query else ""),
+                status_code=308,
+            )
         request.state.csp_nonce = secrets.token_urlsafe(24)
         response = await call_next(request)
         nonce = request.state.csp_nonce
@@ -164,14 +193,18 @@ def create_portal(service: MonitoringService, config: ProductConfig,
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         if response.status_code == 200 and getattr(request.state, "asset_cache", None):
             response.headers["Cache-Control"] = request.state.asset_cache
-        if (request.url.path.startswith(("/v1/", "/auth/", "/oauth/", "/telegram/"))
-                or request.url.path in ("/mcp", "/site-content.json", "/docs")
-                or any(key in request.query_params for key in ("invite", "authorize", "code", "token"))):
+        if (
+            request.url.path.startswith(("/v1/", "/auth/", "/oauth/", "/telegram/"))
+            or request.url.path in ("/mcp", "/site-content.json", "/docs")
+            or any(key in request.query_params for key in ("invite", "authorize", "code", "token"))
+        ):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         return response
 
     if origin.hostname:
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=[origin.hostname, *config.additional_hosts])
+        app.add_middleware(
+            TrustedHostMiddleware, allowed_hosts=[origin.hostname, *config.additional_hosts]
+        )
 
     def auth_attempt(request: Request) -> None:
         check_origin(request)
@@ -181,10 +214,18 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         auth_limiter.consume("auth_" + hashlib.sha256(address.encode()).hexdigest())
 
     def signed_in(result: dict, response: Response) -> dict:
-        response.set_cookie(cookie_name, result["session_token"],
-                            max_age=max(0, result["expires_at"] - int(service.clock())),
-                            secure=secure, httponly=True, samesite="lax", path="/")
-        return {key: result[key] for key in ("account", "csrf_token", "recovery_code") if key in result}
+        response.set_cookie(
+            cookie_name,
+            result["session_token"],
+            max_age=max(0, result["expires_at"] - int(service.clock())),
+            secure=secure,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+        return {
+            key: result[key] for key in ("account", "csrf_token", "recovery_code") if key in result
+        }
 
     @app.get("/v1/config")
     def public_config():
@@ -195,7 +236,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         auth_attempt(request)
         address = request.client.host if request.client else "unknown"
         signup_limiter.consume("signup_" + hashlib.sha256(address.encode()).hexdigest())
-        return signed_in(accounts.register(body.username, body.password, body.invite_token), response)
+        return signed_in(
+            accounts.register(body.username, body.password, body.invite_token), response
+        )
 
     @app.post("/auth/login")
     def login(body: LoginInput, request: Request, response: Response):
@@ -205,7 +248,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
     @app.post("/auth/recover")
     def recover(body: RecoveryInput, request: Request, response: Response):
         auth_attempt(request)
-        return signed_in(accounts.recover(body.username, body.recovery_code, body.new_password), response)
+        return signed_in(
+            accounts.recover(body.username, body.recovery_code, body.new_password), response
+        )
 
     @app.post("/auth/logout")
     def logout(request: Request, response: Response):
@@ -219,8 +264,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         return {"account": identity["account"], "csrf_token": identity["csrf_token"]}
 
     @app.delete("/v1/account")
-    def delete_account(body: DeleteAccountInput, response: Response,
-                       identity: Annotated[dict, Depends(session)]):
+    def delete_account(
+        body: DeleteAccountInput, response: Response, identity: Annotated[dict, Depends(session)]
+    ):
         accounts.delete_account(identity["account"]["id"], body.password)
         response.delete_cookie(cookie_name, secure=secure, httponly=True, samesite="lax", path="/")
         return {"deleted": True}
@@ -240,7 +286,11 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     @app.get("/v1/telegram")
     def telegram_status(identity: Annotated[dict, Depends(session)]):
-        return telegram.status(identity["account"]["id"]) if telegram else {"enabled": False, "connected": False}
+        return (
+            telegram.status(identity["account"]["id"])
+            if telegram
+            else {"enabled": False, "connected": False}
+        )
 
     @app.post("/v1/telegram")
     def telegram_connect(identity: Annotated[dict, Depends(session)]):
@@ -259,7 +309,9 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         if telegram is None or telegram_webhook_secret is None:
             raise HTTPException(404, "Not found")
         supplied = request.headers.getlist("x-telegram-bot-api-secret-token")
-        if len(supplied) != 1 or not hmac.compare_digest(supplied[0].encode(), telegram_webhook_secret.encode()):
+        if len(supplied) != 1 or not hmac.compare_digest(
+            supplied[0].encode(), telegram_webhook_secret.encode()
+        ):
             raise HTTPException(403, "Invalid webhook credential")
         if not telegram.handle_update(body):
             raise HTTPException(503, "Retry this update")
@@ -274,8 +326,11 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         return oauth.complete_consent(identity["account"]["id"], request_id, body.approve)
 
     @app.get("/v1/oauth/grants")
-    def connected_apps(identity: Annotated[dict, Depends(session)], limit: int = Query(100, ge=1, le=100),
-                       cursor: str | None = Query(None, max_length=4096)):
+    def connected_apps(
+        identity: Annotated[dict, Depends(session)],
+        limit: int = Query(100, ge=1, le=100),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
         return oauth.list_grants(identity["account"]["id"], limit=limit, cursor=cursor)
 
     @app.delete("/v1/oauth/grants/{identifier}")
@@ -285,9 +340,13 @@ def create_portal(service: MonitoringService, config: ProductConfig,
 
     app.mount("/oauth", oauth.build_app())
     app.router.routes.extend(oauth.discovery_routes())
-    mcp = make_hosted_mcp(app, lambda token: accounts.authenticate_api_key(token) or oauth.bearer_to_tenant(token),
-                         allowed_hosts=[origin.netloc], allowed_origins=[public_url],
-                         resource_metadata_url=public_url + "/.well-known/oauth-protected-resource/mcp")
+    mcp = make_hosted_mcp(
+        app,
+        lambda token: accounts.authenticate_api_key(token) or oauth.bearer_to_tenant(token),
+        allowed_hosts=[origin.netloc],
+        allowed_origins=[public_url],
+        resource_metadata_url=public_url + "/.well-known/oauth-protected-resource/mcp",
+    )
     app.router.routes.append(Route("/mcp", endpoint=mcp))
 
     if static_dir and static_dir.is_dir():
@@ -296,13 +355,29 @@ def create_portal(service: MonitoringService, config: ProductConfig,
         # Only packaged public assets are reachable. Never expose source maps,
         # dotfiles, deployment configuration, or a path outside the build root.
         root = static_dir.resolve()
-        allowed_suffixes = {".js", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico",
-                            ".woff", ".woff2", ".ttf", ".webmanifest"}
-        files = {"/" + path.relative_to(static_dir).as_posix(): path
-                 for path in static_dir.rglob("*")
-                 if path.is_file() and (path.suffix.lower() in allowed_suffixes or path.name == "3rdpartylicenses.txt")
-                 and not any(part.startswith(".") for part in path.relative_to(static_dir).parts)
-                 and path.resolve().is_relative_to(root)}
+        allowed_suffixes = {
+            ".js",
+            ".css",
+            ".svg",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".avif",
+            ".ico",
+            ".woff",
+            ".woff2",
+            ".ttf",
+            ".webmanifest",
+        }
+        files = {
+            "/" + path.relative_to(static_dir).as_posix(): path
+            for path in static_dir.rglob("*")
+            if path.is_file()
+            and (path.suffix.lower() in allowed_suffixes or path.name == "3rdpartylicenses.txt")
+            and not any(part.startswith(".") for part in path.relative_to(static_dir).parts)
+            and path.resolve().is_relative_to(root)
+        }
 
         @app.get("/site-content.json", include_in_schema=False)
         def site_content():
@@ -328,23 +403,38 @@ def create_portal(service: MonitoringService, config: ProductConfig,
             if path in files:
                 asset = files[path]
                 fingerprinted = re.search(r"[.-](?:[A-Z0-9]{8,}|[a-f0-9]{8,})\.[^.]+$", asset.name)
-                cache = "public, max-age=31536000, immutable" if fingerprinted else "public, max-age=3600"
+                cache = (
+                    "public, max-age=31536000, immutable"
+                    if fingerprinted
+                    else "public, max-age=3600"
+                )
                 request.state.asset_cache = cache
                 return FileResponse(asset, headers={"Cache-Control": cache})
-            secret_query = any(key in request.query_params for key in ("invite", "authorize", "code", "token"))
+            secret_query = any(
+                key in request.query_params for key in ("invite", "authorize", "code", "token")
+            )
             if path in pages and not secret_query:
                 page, indexable, status = pages[path], True, 200
             elif path in PRIVATE_PATHS or path in pages and secret_query:
                 page, indexable, status = private_page(path), False, 200
             else:
-                page = Page("/404", "Page not found — Fareflare", "This page is not available.",
-                            "404", "Page not found.", "Check the address or return to Fareflare.")
+                page = Page(
+                    "/404",
+                    "Page not found — Fareflare",
+                    "This page is not available.",
+                    "404",
+                    "Page not found.",
+                    "Check the address or return to Fareflare.",
+                )
                 indexable, status = False, 404
             headers = {"Cache-Control": "no-store"}
             if not indexable:
                 headers["X-Robots-Tag"] = "noindex, nofollow"
-            return HTMLResponse(render_document(shell, page, config, request.state.csp_nonce, indexable=indexable),
-                                status_code=status, headers=headers)
+            return HTMLResponse(
+                render_document(shell, page, config, request.state.csp_nonce, indexable=indexable),
+                status_code=status,
+                headers=headers,
+            )
 
     app.state.accounts = accounts
     app.state.oauth = oauth

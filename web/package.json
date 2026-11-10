@@ -1,6 +1,6 @@
 {
   "name": "fareflare-web",
-  "version": "0.2.0",
+  "version": "2.1.0",
   "scripts": {
     "ng": "ng",
     "dev": "ng serve --host 127.0.0.1 --port 5173 --proxy-config proxy.conf.json",

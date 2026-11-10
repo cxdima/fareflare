@@ -1,23 +1,42 @@
 [project]
 name = "fareflare"
-version = "2.0.0"
+version = "2.1.0"
 description = "Open-source flight price monitoring with Telegram alerts, webhooks, an HTTP API, and MCP"
+readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["flights", "price-tracking", "telegram", "webhooks", "mcp", "self-hosted"]
+
+[project.urls]
+Homepage = "https://fareflare.dev"
+Documentation = "https://github.com/cxdima/fareflare/tree/main/docs"
+Repository = "https://github.com/cxdima/fareflare"
+Issues = "https://github.com/cxdima/fareflare/issues"
+Changelog = "https://github.com/cxdima/fareflare/blob/main/CHANGELOG.md"
 
 [tool.pytest.ini_options]
-testpaths = ["tests_next"]
+testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
 timeout = 60
+filterwarnings = [
+    # botocore still calls the deprecated naive-UTC helper; not actionable here.
+    "ignore:datetime.datetime.utcnow:DeprecationWarning:botocore",
+]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
-src = ["src", "tests_next"]
+target-version = "py312"
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+# The formatter owns line length; long string literals are left intact.
 ignore = ["E501"]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.pyright]
 include = ["src/fareflare"]

@@ -1,7 +1,8 @@
 """Runnable customer workflow using synthetic prices and an in-process receiver.
 
-No Google, AWS, Telegram, or external HTTPS calls. Run: make next-webhook-demo.
+No Google, AWS, Telegram, or external HTTPS calls. Run: make webhook-demo.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,29 +44,41 @@ def main() -> dict:
             return True
 
     receiver = Receiver()
-    sample = json.loads((Path(__file__).parent / "next-demo.json").read_text())
+    sample = json.loads((Path(__file__).parent / "demo.json").read_text())
     with tempfile.TemporaryDirectory(prefix="gfpt-webhook-demo-") as directory:
         store = SQLiteStore(Path(directory) / "demo.sqlite3")
         service = MonitoringService(store, lambda: now[0], webhook_transport=receiver)
         # This credential exists only in the temporary demonstration API.
         import secrets
+
         key = secrets.token_urlsafe(32)
         with TestClient(create_app(service, {"demo": key})) as client:
             headers = {"Authorization": "Bearer " + key}
-            response = client.post("/v1/webhooks", json={"url": "https://receiver.example.com/prices"},
-                                   headers={**headers, "Idempotency-Key": "demo-webhook"})
+            response = client.post(
+                "/v1/webhooks",
+                json={"url": "https://receiver.example.com/prices"},
+                headers={**headers, "Idempotency-Key": "demo-webhook"},
+            )
             response.raise_for_status()
             endpoint = response.json()
             receiver.secret = endpoint["signing_secret"]
             path = "/v1/webhooks/" + endpoint["id"]
             client.post(path + "/challenge", headers=headers).raise_for_status()
-            client.post(path + "/verify", json={"token": receiver.token}, headers=headers).raise_for_status()
-            response = client.post("/v1/monitors", json={"url": sample["url"], "webhook_id": endpoint["id"]},
-                                   headers={**headers, "Idempotency-Key": "demo-monitor"})
+            client.post(
+                path + "/verify", json={"token": receiver.token}, headers=headers
+            ).raise_for_status()
+            response = client.post(
+                "/v1/monitors",
+                json={"url": sample["url"], "webhook_id": endpoint["id"]},
+                headers={**headers, "Idempotency-Key": "demo-monitor"},
+            )
             response.raise_for_status()
             monitor = response.json()
             for index, amount in enumerate(sample["synthetic_prices_minor"][:2]):
-                service.record(Reading(monitor["target_id"], amount, "USD", now[0], "synthetic-demo"), f"demo-{index}")
+                service.record(
+                    Reading(monitor["target_id"], amount, "USD", now[0], "synthetic-demo"),
+                    f"demo-{index}",
+                )
                 service.process_events()
                 service.deliver_due(RoutedSink(service.webhooks), limit=1)
                 # The following attempt uses a newly constructed application.
@@ -76,11 +89,21 @@ def main() -> dict:
             assert len(alerts) == 2 and all(alert["status"] == "sent" for alert in alerts)
             assert len(receiver.events) == 2 and receiver.attempts == 3
             client.post(path + "/disable", headers=headers).raise_for_status()
-            result = {"simulation": True, "external_requests": 0, "endpoint_verified": True,
-                      "monitor_created": True, "signed_alerts_received": len(receiver.events),
-                      "delivery_attempts": receiver.attempts, "retry_survived_restart": True,
-                      "prices_minor": [event["data"]["observation"]["amount_minor"] for event in receiver.events.values()],
-                      "endpoint_disabled": client.get(path, headers=headers).json()["status"] == "disabled"}
+            result = {
+                "simulation": True,
+                "external_requests": 0,
+                "endpoint_verified": True,
+                "monitor_created": True,
+                "signed_alerts_received": len(receiver.events),
+                "delivery_attempts": receiver.attempts,
+                "retry_survived_restart": True,
+                "prices_minor": [
+                    event["data"]["observation"]["amount_minor"]
+                    for event in receiver.events.values()
+                ],
+                "endpoint_disabled": client.get(path, headers=headers).json()["status"]
+                == "disabled",
+            }
             print(json.dumps(result, indent=2))
             return result
 

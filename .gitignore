@@ -1,12 +1,14 @@
-# ── Secrets ───────────────────────────────────────────────────────────────────
+# Secrets and local operator state
 .env
 *.env
+.fareflare/
+# Earlier releases kept local state in .next/; keep ignoring it so private
+# invitations, snapshots and plans can never be committed by accident.
+.next/
 
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 .Python
 .venv/
 venv/
@@ -17,36 +19,30 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.next/
 .coverage
 htmlcov/
+
+# Frontend
 web/node_modules/
 web/playwright-report/
-.playwright-mcp/
 web/test-results/
+web/artifacts/
+.playwright-mcp/
+
+# Terraform: state and variable files contain deployment secrets
 **/.terraform/
 **/.terraform.lock.hcl
-!infra-next/.terraform.lock.hcl
+!infra/.terraform.lock.hcl
 **/terraform.tfstate*
-
-# ── Terraform ─────────────────────────────────────────────────────────────────
-infra/.terraform/
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
-infra/terraform.tfstate.*.backup
-infra/.terraform.lock.hcl
 *.tfvars
 *.tfvars.json
+*.tfplan
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
 
-# ── AWS ───────────────────────────────────────────────────────────────────────
-/tmp/gfpt_out.json
-/tmp/gfpt_meta.json
-
-# ── IDE / OS ──────────────────────────────────────────────────────────────────
+# IDE and OS
 .idea/
 .vscode/
 *.swp

@@ -6,7 +6,7 @@
 
 - [Setup and supported flights](FAREFLARE.md): local installation, collection,
   account configuration, and deployment prerequisites.
-- [API, MCP, and webhooks](NEXT.md): integration contracts, authentication,
+- [API, MCP, and webhooks](INTEGRATIONS.md): integration contracts, authentication,
   signatures, and delivery behavior.
 - [Account preferences](ACCOUNT_PREFERENCES.md): time zones, regional formatting,
   Telegram messages, muting and their API/MCP contract.

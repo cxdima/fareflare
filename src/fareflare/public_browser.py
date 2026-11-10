@@ -1,4 +1,5 @@
 """Anonymous local browser adapter; never opens a personal Chrome profile."""
+
 from __future__ import annotations
 
 import logging
@@ -33,15 +34,25 @@ _WaitResult = TypeVar("_WaitResult")
 def _browser_failure_reason(error: Exception) -> str:
     """Extract only a known diagnostic label, never URLs or driver exception text."""
     message = str(error)
-    for code in ("ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET", "ERR_PROXY_CONNECTION_FAILED",
-                 "ERR_NAME_NOT_RESOLVED", "ERR_CERT_AUTHORITY_INVALID", "ERR_HTTP_RESPONSE_CODE_FAILURE"):
+    for code in (
+        "ERR_CONNECTION_CLOSED",
+        "ERR_CONNECTION_RESET",
+        "ERR_PROXY_CONNECTION_FAILED",
+        "ERR_NAME_NOT_RESOLVED",
+        "ERR_CERT_AUTHORITY_INVALID",
+        "ERR_HTTP_RESPONSE_CODE_FAILURE",
+    ):
         if "net::" + code in message:
             return code
-    for phrase, label in (("tab crashed", "tab_crashed"), ("invalid session id", "session_lost"),
-                          ("disconnected", "disconnected")):
+    for phrase, label in (
+        ("tab crashed", "tab_crashed"),
+        ("invalid session id", "session_lost"),
+        ("disconnected", "disconnected"),
+    ):
         if phrase in message.lower():
             return label
     return "unclassified"
+
 
 # Scope prices to the summary and the explicit eligibility marker. In particular,
 # never select the cheapest dollar amount from the page or click a booking button.
@@ -103,16 +114,27 @@ return {
 def anonymous_browser(chrome_binary: str | None = None, chromedriver: str | None = None):
     with tempfile.TemporaryDirectory(prefix="fareflare-public-") as profile:
         options = Options()
-        for argument in ("--headless=new", "--disable-sync", "--disable-extensions",
-                         "--no-first-run", "--lang=en-US", "--window-size=1280,1000",
-                         f"--user-data-dir={profile}"):
+        for argument in (
+            "--headless=new",
+            "--disable-sync",
+            "--disable-extensions",
+            "--no-first-run",
+            "--lang=en-US",
+            "--window-size=1280,1000",
+            f"--user-data-dir={profile}",
+        ):
             options.add_argument(argument)
         if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
             # Match the stable Lambda runtime's process constraints. Keep each
             # invocation's profile private; never kill other browser processes.
-            for argument in ("--no-sandbox", "--disable-dev-shm-usage", "--single-process",
-                             "--disable-gpu", "--disable-software-rasterizer",
-                             "--disable-crash-reporter"):
+            for argument in (
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--single-process",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-crash-reporter",
+            ):
                 options.add_argument(argument)
         if chrome_binary:
             options.binary_location = chrome_binary
@@ -143,8 +165,12 @@ def _check_page(driver) -> None:
         raise QuoteUnavailable("login_required")
     if parts.path.startswith("/sorry"):
         raise QuoteUnavailable("challenge")
-    if (parts.scheme != "https" or parts.hostname not in ("google.com", "www.google.com")
-            or parts.path not in ("/travel/flights", "/travel/flights/booking", "/travel/flights/search")):
+    if (
+        parts.scheme != "https"
+        or parts.hostname not in ("google.com", "www.google.com")
+        or parts.path
+        not in ("/travel/flights", "/travel/flights/booking", "/travel/flights/search")
+    ):
         raise QuoteUnavailable("unexpected_page")
 
 
@@ -161,19 +187,26 @@ class _CollectionDeadline:
             raise TimeoutException()
         return min(maximum, budget)
 
-    def wait(self, browser: WebDriver,
-             condition: Callable[[WebDriver], _WaitResult | Literal[False]]) -> _WaitResult:
+    def wait(
+        self, browser: WebDriver, condition: Callable[[WebDriver], _WaitResult | Literal[False]]
+    ) -> _WaitResult:
         return WebDriverWait(browser, self.remaining(25)).until(condition)
 
 
 # These can occur while an otherwise correct booking page is being updated.
 # Identity, currency parsing and eligibility rules still run on every snapshot.
-_PENDING_QUOTE_CODES = frozenset({"incomplete_trip_context", "ambiguous_fare", "price_disagreement"})
+_PENDING_QUOTE_CODES = frozenset(
+    {"incomplete_trip_context", "ambiguous_fare", "price_disagreement"}
+)
 
 
 class PublicGoogleFlightsProvider:
-    def __init__(self, chrome_binary: str | None = None, chromedriver: str | None = None,
-                 clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        chrome_binary: str | None = None,
+        chromedriver: str | None = None,
+        clock: Callable[[], float] = time.time,
+    ):
         self.chrome_binary, self.chromedriver, self.clock = chrome_binary, chromedriver, clock
 
     def collect(self, target: dict) -> Reading:
@@ -198,6 +231,7 @@ class PublicGoogleFlightsProvider:
         # Revalidate the navigation URL before a browser sees it, even if callers
         # constructed a target themselves instead of using the importer.
         from fareflare.links import import_link
+
         checked = import_link(target["url"])
         if checked != target:
             raise QuoteUnavailable("itinerary_changed")
@@ -216,7 +250,9 @@ class PublicGoogleFlightsProvider:
                     raise QuoteUnavailable("challenge")
                 # Insights and unrelated offers can still be loading after
                 # the selected fare is ready. Validate that fare below.
-                return "Lowest total price" in text and "Cheapest option matching your search" in text
+                return (
+                    "Lowest total price" in text and "Cheapest option matching your search" in text
+                )
 
             phase = "summary"
             deadline.wait(driver, ready)
@@ -227,7 +263,9 @@ class PublicGoogleFlightsProvider:
                 raise QuoteUnavailable("incomplete_trip_context")
             for index in range(len(details)):
                 # Expanding a slice can replace sibling DOM nodes: reacquire each time.
-                current = driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Flight details."]')
+                current = driver.find_elements(
+                    By.CSS_SELECTOR, 'button[aria-label^="Flight details."]'
+                )
                 driver.set_page_load_timeout(deadline.remaining(20))
                 [button for button in current if button.is_displayed()][index].click()
 
@@ -257,8 +295,12 @@ class PublicGoogleFlightsProvider:
             raise QuoteUnavailable("timeout") from None
         except (WebDriverException, TypeError, KeyError, IndexError) as exc:
             # WebDriver diagnostics can contain page data; return only stable codes.
-            log.warning("Public browser failure phase=%s kind=%s reason=%s",
-                        phase, type(exc).__name__, _browser_failure_reason(exc))
+            log.warning(
+                "Public browser failure phase=%s kind=%s reason=%s",
+                phase,
+                type(exc).__name__,
+                _browser_failure_reason(exc),
+            )
             raise QuoteUnavailable("browser_failed") from None
 
     def _collect_search(self, target: dict, batch: _BrowserBatch) -> Reading:
@@ -268,6 +310,7 @@ class PublicGoogleFlightsProvider:
             verified_search_minimum,
             verified_search_reading,
         )
+
         if import_link(target["url"], allow_search=True) != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
@@ -278,22 +321,34 @@ class PublicGoogleFlightsProvider:
             driver.set_page_load_timeout(deadline.remaining(35))
             driver.get(target["url"])
 
-            def wait_for(condition: Callable[[WebDriver], _WaitResult | Literal[False]]) -> _WaitResult:
+            def wait_for(
+                condition: Callable[[WebDriver], _WaitResult | Literal[False]],
+            ) -> _WaitResult:
                 return deadline.wait(driver, condition)
 
             def page_ready(browser):
                 _check_page(browser)
                 if "unusual traffic" in browser.find_element(By.TAG_NAME, "body").text.lower():
                     raise QuoteUnavailable("challenge")
-                return [button for button in browser.find_elements(
-                    By.CSS_SELECTOR, 'button[aria-label^="Sorted by"]') if button.is_displayed()]
+                return [
+                    button
+                    for button in browser.find_elements(
+                        By.CSS_SELECTOR, 'button[aria-label^="Sorted by"]'
+                    )
+                    if button.is_displayed()
+                ]
 
             sort = wait_for(page_ready)[0]
             if sort.get_attribute("aria-label") != "Sorted by price, Change sort order.":
                 driver.set_page_load_timeout(deadline.remaining(20))
                 sort.click()
-                choice = wait_for(lambda browser: [item for item in browser.find_elements(
-                    By.CSS_SELECTOR, '[role="menuitemradio"]') if item.is_displayed() and item.text == "Price"])
+                choice = wait_for(
+                    lambda browser: [
+                        item
+                        for item in browser.find_elements(By.CSS_SELECTOR, '[role="menuitemradio"]')
+                        if item.is_displayed() and item.text == "Price"
+                    ]
+                )
                 driver.set_page_load_timeout(deadline.remaining(20))
                 choice[0].click()
             phase = "search_results"
@@ -307,8 +362,13 @@ class PublicGoogleFlightsProvider:
                 if evidence.more_results:
                     if expansions >= 3:
                         raise QuoteUnavailable("unsupported_itinerary")
-                    visible = [button for button in browser.find_elements(
-                        By.CSS_SELECTOR, 'button[aria-label="View more flights"]') if button.is_displayed()]
+                    visible = [
+                        button
+                        for button in browser.find_elements(
+                            By.CSS_SELECTOR, 'button[aria-label="View more flights"]'
+                        )
+                        if button.is_displayed()
+                    ]
                     if visible:
                         driver.set_page_load_timeout(deadline.remaining(20))
                         visible[0].click()
@@ -326,19 +386,35 @@ class PublicGoogleFlightsProvider:
             phase = "search_selection"
             driver.set_script_timeout(deadline.remaining(10))
             fresh = SearchPageEvidence(**driver.execute_script(_SEARCH_SNAPSHOT))
-            if (verified_search_minimum(target, fresh) != verified_search_minimum(target, search)
-                    or fresh.rows[0]["label"] != search.rows[0]["label"]):
+            if (
+                verified_search_minimum(target, fresh) != verified_search_minimum(target, search)
+                or fresh.rows[0]["label"] != search.rows[0]["label"]
+            ):
                 raise QuoteUnavailable("price_disagreement")
-            details = [button for button in driver.find_elements(
-                By.CSS_SELECTOR, 'li button[aria-label^="Flight details."]') if button.is_displayed()
-                and button.find_element(By.XPATH, 'ancestor::li[1]').find_element(
-                    By.CSS_SELECTOR, '[role="link"][aria-label^="From "]').get_attribute("aria-label") == search.rows[0]["label"]]
+            details = [
+                button
+                for button in driver.find_elements(
+                    By.CSS_SELECTOR, 'li button[aria-label^="Flight details."]'
+                )
+                if button.is_displayed()
+                and button.find_element(By.XPATH, "ancestor::li[1]")
+                .find_element(By.CSS_SELECTOR, '[role="link"][aria-label^="From "]')
+                .get_attribute("aria-label")
+                == search.rows[0]["label"]
+            ]
             if len(details) != 1:
                 raise QuoteUnavailable("ambiguous_fare")
             driver.set_page_load_timeout(deadline.remaining(20))
             details[0].click()
-            selections = wait_for(lambda browser: [button for button in browser.find_elements(
-                By.CSS_SELECTOR, 'button[aria-label="Select flight"]') if button.is_displayed()])
+            selections = wait_for(
+                lambda browser: [
+                    button
+                    for button in browser.find_elements(
+                        By.CSS_SELECTOR, 'button[aria-label="Select flight"]'
+                    )
+                    if button.is_displayed()
+                ]
+            )
             if len(selections) != 1:
                 raise QuoteUnavailable("ambiguous_fare")
             # This navigates to Google's quote page, never to an airline or a purchase.
@@ -351,12 +427,19 @@ class PublicGoogleFlightsProvider:
                 body = browser.find_element(By.TAG_NAME, "body").text
                 if "unusual traffic" in body.lower():
                     raise QuoteUnavailable("challenge")
-                return "Lowest total price" in body and "Cheapest option matching your search" in body
+                return (
+                    "Lowest total price" in body and "Cheapest option matching your search" in body
+                )
 
             wait_for(booking_ready)
             selected = import_link(driver.current_url)
-            details = [button for button in driver.find_elements(
-                By.CSS_SELECTOR, 'button[aria-label^="Flight details."]') if button.is_displayed()]
+            details = [
+                button
+                for button in driver.find_elements(
+                    By.CSS_SELECTOR, 'button[aria-label^="Flight details."]'
+                )
+                if button.is_displayed()
+            ]
             if len(details) != 1:
                 raise QuoteUnavailable("incomplete_trip_context")
             driver.set_page_load_timeout(deadline.remaining(20))
@@ -371,7 +454,9 @@ class PublicGoogleFlightsProvider:
                 if not evidence.flight_numbers:
                     return False
                 try:
-                    return verified_search_reading(target, search, selected, evidence, int(self.clock()))
+                    return verified_search_reading(
+                        target, search, selected, evidence, int(self.clock())
+                    )
                 except QuoteUnavailable as exc:
                     if exc.code not in _PENDING_QUOTE_CODES:
                         raise
@@ -386,8 +471,12 @@ class PublicGoogleFlightsProvider:
             log.warning("Public search timeout phase=%s", phase)
             raise QuoteUnavailable("timeout") from None
         except (WebDriverException, TypeError, KeyError, IndexError, ValueError) as exc:
-            log.warning("Public search failure phase=%s kind=%s reason=%s",
-                        phase, type(exc).__name__, _browser_failure_reason(exc))
+            log.warning(
+                "Public search failure phase=%s kind=%s reason=%s",
+                phase,
+                type(exc).__name__,
+                _browser_failure_reason(exc),
+            )
             raise QuoteUnavailable("browser_failed") from None
 
 
@@ -417,8 +506,13 @@ class _BrowserBatch:
             raise
 
     def browser_for(self, target: dict):
-        scope = (target["market"], target["currency"], target["adults"],
-                 target["cabin"], target["provider_query"].get("hl", "en-US"))
+        scope = (
+            target["market"],
+            target["currency"],
+            target["adults"],
+            target["cabin"],
+            target["provider_query"].get("hl", "en-US"),
+        )
         if self._driver is not None and scope != self._scope:
             self._discard_browser()
         if self._driver is None:
@@ -427,7 +521,8 @@ class _BrowserBatch:
                 self.browser_launches += 1
                 try:
                     self._driver = self._stack.enter_context(
-                        anonymous_browser(self.provider.chrome_binary, self.provider.chromedriver))
+                        anonymous_browser(self.provider.chrome_binary, self.provider.chromedriver)
+                    )
                     break
                 except QuoteUnavailable as exc:
                     elapsed = time.monotonic() - started
@@ -436,8 +531,10 @@ class _BrowserBatch:
                     # The failed context has already removed its profile. Retry
                     # only fast startup failures, with a new isolated profile;
                     # callers retain their original cumulative deadline.
-                    log.warning("Public browser startup retry attempt=2 reason=browser_start_failed elapsed_ms=%d",
-                                max(0, int(elapsed * 1000)))
+                    log.warning(
+                        "Public browser startup retry attempt=2 reason=browser_start_failed elapsed_ms=%d",
+                        max(0, int(elapsed * 1000)),
+                    )
             assert self._driver is not None
             self._scope = scope
         else:
@@ -445,7 +542,8 @@ class _BrowserBatch:
             # loading the next explicit URL. A fresh validation still follows.
             _check_page(self._driver)
             self._driver.execute_script(
-                "window.stop(); window.localStorage.clear(); window.sessionStorage.clear();")
+                "window.stop(); window.localStorage.clear(); window.sessionStorage.clear();"
+            )
             self._driver.delete_all_cookies()
             self._driver.set_page_load_timeout(5)
             self._driver.get("about:blank")

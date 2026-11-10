@@ -14,8 +14,8 @@ private, encrypted, versioned S3 bucket for Terraform state.
 ```bash
 umask 077
 mkdir -p .next
-cp infra-next/backend.hcl.example .next/backend.hcl
-cp infra-next/terraform.tfvars.example infra-next/production.auto.tfvars
+cp infra/backend.hcl.example .fareflare/backend.hcl
+cp infra/terraform.tfvars.example infra/production.auto.tfvars
 ```
 
 Edit the copied files. Set your state bucket, a unique state key, region,
@@ -24,9 +24,9 @@ The AWS provider rejects a different authenticated account. Never share state
 between installations. Backend files and variable files stay out of Git.
 
 ```bash
-terraform -chdir=infra-next init -backend-config=../.next/backend.hcl
-terraform -chdir=infra-next plan -out=../.next/fareflare.tfplan
-terraform -chdir=infra-next apply ../.next/fareflare.tfplan
+terraform -chdir=infra init -backend-config=../.fareflare/backend.hcl
+terraform -chdir=infra plan -out=../.fareflare/fareflare.tfplan
+terraform -chdir=infra apply ../.fareflare/fareflare.tfplan
 ```
 
 Review the saved plan before applying. On the **first** deployment, empty image
@@ -55,7 +55,7 @@ docker buildx build --platform linux/arm64 --provenance=false --sbom=false --loa
   -f Dockerfile.api -t "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE" .
 docker buildx build --platform linux/arm64 --provenance=false --sbom=false --load \
   --build-arg BROWSER_BASE=fareflare-browser-base \
-  -f Dockerfile.next -t "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE" .
+  -f Dockerfile.worker -t "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE" .
 ```
 
 Set `FAREFLARE_API_REPOSITORY`, `FAREFLARE_WORKER_REPOSITORY`, and
@@ -67,8 +67,8 @@ revision, browser base, new digests, and previous digests privately.
 ```bash
 docker push "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE"
 docker push "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE"
-terraform -chdir=infra-next plan -out=../.next/fareflare.tfplan
-terraform -chdir=infra-next apply ../.next/fareflare.tfplan
+terraform -chdir=infra plan -out=../.fareflare/fareflare.tfplan
+terraform -chdir=infra apply ../.fareflare/fareflare.tfplan
 ```
 
 Validate health, account registration, tenant isolation, API key revocation, and
@@ -93,7 +93,7 @@ Issue a deployed invitation with an explicit account guard:
 ```bash
 PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
   --public-url https://YOUR-API.execute-api.REGION.amazonaws.com \
-  invite .next/invitation-UNIQUE.json --table fareflare-production \
+  invite .fareflare/invitation-UNIQUE.json --table fareflare-production \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION
 ```
 
@@ -144,7 +144,7 @@ PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
   --url https://YOUR-API.execute-api.REGION.amazonaws.com/telegram/webhook \
-  --snapshot .next/telegram-before-UNIQUE.json --enable-callbacks
+  --snapshot .fareflare/telegram-before-UNIQUE.json --enable-callbacks
 ```
 
 The script verifies AWS identity, saves a new private snapshot before changing
@@ -172,7 +172,7 @@ Apply the displayed profile after deploying the matching commands:
 PYTHONPATH=src .venv/bin/python scripts/configure_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
-  --apply --snapshot .next/telegram-profile-before-UNIQUE.json
+  --apply --snapshot .fareflare/telegram-profile-before-UNIQUE.json
 ```
 
 The profile tool verifies AWS and bot identity, exclusively creates a mode-0600
@@ -194,7 +194,7 @@ Restore the saved route when rolling back:
 PYTHONPATH=src .venv/bin/python scripts/route_telegram.py \
   --secret-arn "$FAREFLARE_TELEGRAM_SECRET_ARN" \
   --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION \
-  --restore .next/telegram-before-UNIQUE.json
+  --restore .fareflare/telegram-before-UNIQUE.json
 ```
 
 The restore checks the bot identity, secret, snapshot permissions, and current

@@ -1,0 +1,7 @@
+# Collection worker. Build Dockerfile.browser as fareflare-browser-base first.
+ARG BROWSER_BASE=fareflare-browser-base
+FROM ${BROWSER_BASE}
+COPY requirements.lock .
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+COPY src/fareflare ./fareflare
+CMD ["fareflare.runtime.handler"]

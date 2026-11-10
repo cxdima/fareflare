@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Preview or apply Fareflare bot metadata with a private rollback snapshot."""
+
 from __future__ import annotations
 
 import argparse
@@ -89,12 +90,19 @@ def _validate_settings(value: object) -> dict:
         if not isinstance(value[field], str) or len(value[field]) > maximum:
             raise ConfigurationError("Invalid bot metadata settings")
     commands = value["commands"]
-    if (not isinstance(commands, list) or len(commands) > 100
-            or any(not isinstance(command, dict) or set(command) != {"command", "description"}
-                   or not isinstance(command["command"], str)
-                   or not re.fullmatch(r"[a-z0-9_]{1,32}", command["command"])
-                   or not isinstance(command["description"], str)
-                   or not 1 <= len(command["description"]) <= 256 for command in commands)):
+    if (
+        not isinstance(commands, list)
+        or len(commands) > 100
+        or any(
+            not isinstance(command, dict)
+            or set(command) != {"command", "description"}
+            or not isinstance(command["command"], str)
+            or not re.fullmatch(r"[a-z0-9_]{1,32}", command["command"])
+            or not isinstance(command["description"], str)
+            or not 1 <= len(command["description"]) <= 256
+            for command in commands
+        )
+    ):
         raise ConfigurationError("Invalid bot command settings")
     menu = value["menu_button"]
     if not isinstance(menu, dict) or menu.get("type") not in {"default", "commands", "web_app"}:
@@ -102,8 +110,10 @@ def _validate_settings(value: object) -> dict:
     if menu["type"] in {"default", "commands"} and set(menu) != {"type"}:
         raise ConfigurationError("Invalid bot menu settings")
     if menu["type"] == "web_app" and (
-        set(menu) != {"type", "text", "web_app"} or not isinstance(menu["text"], str)
-        or not isinstance(menu["web_app"], dict) or set(menu["web_app"]) != {"url"}
+        set(menu) != {"type", "text", "web_app"}
+        or not isinstance(menu["text"], str)
+        or not isinstance(menu["web_app"], dict)
+        or set(menu["web_app"]) != {"url"}
         or not isinstance(menu["web_app"]["url"], str)
         or not menu["web_app"]["url"].startswith("https://")
     ):
@@ -111,19 +121,40 @@ def _validate_settings(value: object) -> dict:
     return value
 
 
-def configure(*, secret_arn: str, aws_account: str, region: str, apply: bool = False,
-              snapshot: Path | None = None, restore: Path | None = None,
-              aws_client=None, transport=None) -> dict:
+def configure(
+    *,
+    secret_arn: str,
+    aws_account: str,
+    region: str,
+    apply: bool = False,
+    snapshot: Path | None = None,
+    restore: Path | None = None,
+    aws_client=None,
+    transport=None,
+) -> dict:
     """Only default-language metadata, private command scope and default menu are changed."""
-    if (not re.fullmatch(r"[0-9]{12}", aws_account)
-            or not re.fullmatch(r"[a-z]{2}-[a-z]+-\d", region)):
+    if not re.fullmatch(r"[0-9]{12}", aws_account) or not re.fullmatch(
+        r"[a-z]{2}-[a-z]+-\d", region
+    ):
         raise ConfigurationError("Provide the expected AWS account ID and region")
     arn = secret_arn.split(":", 5)
-    if (len(arn) != 6 or arn[:3] != ["arn", "aws", "secretsmanager"] or arn[3] != region
-            or arn[4] != aws_account or not arn[5].startswith("secret:") or len(arn[5]) <= 7):
+    if (
+        len(arn) != 6
+        or arn[:3] != ["arn", "aws", "secretsmanager"]
+        or arn[3] != region
+        or arn[4] != aws_account
+        or not arn[5].startswith("secret:")
+        or len(arn[5]) <= 7
+    ):
         raise ConfigurationError("The secret ARN must belong to the expected account and region")
-    if (apply and snapshot is None or snapshot is not None and not apply
-            or restore is not None and (apply or snapshot is not None)):
+    if (
+        apply
+        and snapshot is None
+        or snapshot is not None
+        and not apply
+        or restore is not None
+        and (apply or snapshot is not None)
+    ):
         raise ConfigurationError("Use --apply with --snapshot, --restore, or neither to preview")
     saved = _read_snapshot(restore) if restore is not None else None
     client_factory = aws_client or boto3.client
@@ -131,18 +162,26 @@ def configure(*, secret_arn: str, aws_account: str, region: str, apply: bool = F
         identity = client_factory("sts", region_name=region).get_caller_identity()
         if identity.get("Account") != aws_account:
             raise ConfigurationError("AWS identity does not match the expected account")
-        response = client_factory("secretsmanager", region_name=region).get_secret_value(SecretId=secret_arn)
+        response = client_factory("secretsmanager", region_name=region).get_secret_value(
+            SecretId=secret_arn
+        )
         config = json.loads(response["SecretString"])
         token, username = config["bot_token"], config["bot_username"]
-        if (not isinstance(token, str) or not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token)
-                or not isinstance(username, str) or not re.fullmatch(r"[A-Za-z0-9_]{5,32}", username)):
+        if (
+            not isinstance(token, str)
+            or not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token)
+            or not isinstance(username, str)
+            or not re.fullmatch(r"[A-Za-z0-9_]{5,32}", username)
+        ):
             raise ConfigurationError("Configured bot credentials are invalid")
     except (BotoCoreError, ClientError, KeyError, TypeError, json.JSONDecodeError):
         raise ConfigurationError("Unable to load the configured bot credentials") from None
     bot_id = token.partition(":")[0]
     if saved is not None and (
-        saved.get("version") != 1 or saved.get("aws_account") != aws_account
-        or saved.get("secret_arn") != secret_arn or saved.get("bot_id") != bot_id
+        saved.get("version") != 1
+        or saved.get("aws_account") != aws_account
+        or saved.get("secret_arn") != secret_arn
+        or saved.get("bot_id") != bot_id
         or not isinstance(saved.get("bot_username"), str)
         or saved.get("bot_username", "").lower() != username.lower()
     ):
@@ -150,22 +189,32 @@ def configure(*, secret_arn: str, aws_account: str, region: str, apply: bool = F
     desired = _validate_settings(saved.get("previous") if saved is not None else DESIRED)
     expected = _validate_settings(saved.get("desired")) if saved is not None else None
     install_telegram_log_redaction()
-    with httpx.Client(timeout=10, follow_redirects=False, trust_env=False, transport=transport) as client:
+    with httpx.Client(
+        timeout=10, follow_redirects=False, trust_env=False, transport=transport
+    ) as client:
+
         def call(method: str, payload: dict | None = None):
             try:
-                response = client.post(f"https://api.telegram.org/bot{token}/{method}", json=payload or {})
+                response = client.post(
+                    f"https://api.telegram.org/bot{token}/{method}", json=payload or {}
+                )
                 response.raise_for_status()
                 data = response.json()
                 if not isinstance(data, dict) or data.get("ok") is not True or "result" not in data:
                     raise ValueError
                 return data["result"]
             except (httpx.HTTPError, ValueError):
-                raise ConfigurationError("Telegram request failed; inspect the snapshot before retrying") from None
+                raise ConfigurationError(
+                    "Telegram request failed; inspect the snapshot before retrying"
+                ) from None
 
         def scope(field: str) -> dict:
             if field == "menu_button":
                 return {}
-            return {"language_code": "", **({"scope": PRIVATE_SCOPE} if field == "commands" else {})}
+            return {
+                "language_code": "",
+                **({"scope": PRIVATE_SCOPE} if field == "commands" else {}),
+            }
 
         def read(field: str):
             value = call(_METHODS[field][0], scope(field))
@@ -176,35 +225,62 @@ def configure(*, secret_arn: str, aws_account: str, region: str, apply: bool = F
             return value[field]
 
         bot = call("getMe")
-        if (not isinstance(bot, dict) or bot.get("is_bot") is not True
-                or str(bot.get("id")) != bot_id or not isinstance(bot.get("username"), str)
-                or bot["username"].lower() != username.lower()):
+        if (
+            not isinstance(bot, dict)
+            or bot.get("is_bot") is not True
+            or str(bot.get("id")) != bot_id
+            or not isinstance(bot.get("username"), str)
+            or bot["username"].lower() != username.lower()
+        ):
             raise ConfigurationError("Telegram identity does not match the configured bot")
         current = _validate_settings({field: read(field) for field in _METHODS})
-        if expected is not None and any(current[key] not in (desired[key], expected[key]) for key in _METHODS):
-            raise ConfigurationError("Bot metadata changed after this snapshot; refusing unrelated changes")
+        if expected is not None and any(
+            current[key] not in (desired[key], expected[key]) for key in _METHODS
+        ):
+            raise ConfigurationError(
+                "Bot metadata changed after this snapshot; refusing unrelated changes"
+            )
         changed = [field for field in _METHODS if current[field] != desired[field]]
-        result = {"bot_username": username, "changed": changed, "applied": False, "desired": desired}
+        result = {
+            "bot_username": username,
+            "changed": changed,
+            "applied": False,
+            "desired": desired,
+        }
         if not changed or not apply and saved is None:
             return result
         if saved is None:
             assert snapshot is not None
-            _write_snapshot(snapshot, {
-                "version": 1, "created_at": datetime.now(UTC).isoformat(), "aws_account": aws_account,
-                "secret_arn": secret_arn, "bot_id": bot_id, "bot_username": username,
-                "previous": current, "desired": desired,
-            })
+            _write_snapshot(
+                snapshot,
+                {
+                    "version": 1,
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "aws_account": aws_account,
+                    "secret_arn": secret_arn,
+                    "bot_id": bot_id,
+                    "bot_username": username,
+                    "previous": current,
+                    "desired": desired,
+                },
+            )
         for field in changed:
             if read(field) != current[field]:
-                raise ConfigurationError("Bot metadata changed during configuration; inspect the snapshot")
+                raise ConfigurationError(
+                    "Bot metadata changed during configuration; inspect the snapshot"
+                )
             method = _METHODS[field][1]
             payload = {**scope(field), field: desired[field]}
             if field == "commands" and not desired[field]:
                 method, payload = "deleteMyCommands", scope(field)
             if call(method, payload) is not True:
-                raise ConfigurationError("Telegram did not confirm configuration; inspect the snapshot")
+                raise ConfigurationError(
+                    "Telegram did not confirm configuration; inspect the snapshot"
+                )
             if read(field) != desired[field]:
-                raise ConfigurationError("Configuration readback did not match; inspect the snapshot")
+                raise ConfigurationError(
+                    "Configuration readback did not match; inspect the snapshot"
+                )
         result["applied"] = True
         return result
 
@@ -222,7 +298,10 @@ def main(argv: list[str] | None = None) -> None:
     try:
         result = configure(**vars(args))
     except (ConfigurationError, OSError) as exc:
-        parser.exit(1, f"Configuration failed: {exc if isinstance(exc, ConfigurationError) else 'Cannot access private snapshot file'}\n")
+        parser.exit(
+            1,
+            f"Configuration failed: {exc if isinstance(exc, ConfigurationError) else 'Cannot access private snapshot file'}\n",
+        )
     print(json.dumps(result, indent=2))
 
 

@@ -51,7 +51,7 @@ Final results:
 The live browser run completed at 2026-11-05T22:11:38.115Z. It created a disposable
 account, checked its recovery/session behavior, exercised an API key and MCP's
 20 tools, revoked the key, and deleted the account. It created no monitors or
-outgoing alerts. Raw reports and credentials remain in ignored `.next/`.
+outgoing alerts. Raw reports and credentials remain in ignored `.fareflare/`.
 
 ## Deployment
 

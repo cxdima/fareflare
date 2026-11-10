@@ -22,7 +22,7 @@ and reviewing configuration changes.
 
 ## Deployment practices
 
-- Keep `.env`, `.next/`, Terraform state, backend settings, and variable files out
+- Keep `.env`, `.fareflare/`, Terraform state, backend settings, and variable files out
   of Git. Use Secrets Manager for deployed Telegram credentials.
 - Keep account endpoints on HTTPS. Preserve secure cookies, CSRF checks, CSP,
   request limits, tenant authorization, and invitation requirements.

@@ -1,4 +1,5 @@
 """Authenticated API over the shared application service. No collection side effects."""
+
 import hmac
 import re
 from collections.abc import Callable
@@ -9,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
+from fareflare import __version__
 from fareflare.api_reference import render_api_reference
 from fareflare.credentials import Credentials, RateLimited, RateLimiter
 from fareflare.domain import AlertPolicy
@@ -167,25 +169,40 @@ class AlertList(BaseModel):
     next_cursor: str | None = None
 
 
-def create_app(service: MonitoringService, api_keys: dict[str, str] | None = None, *,
-               credentials: Credentials | None = None, limiter: RateLimiter | None = None,
-               live_collection: bool = False, public_url: str | None = None,
-               principal_resolver: Callable[[Request], str | None] | None = None) -> FastAPI:
+def create_app(
+    service: MonitoringService,
+    api_keys: dict[str, str] | None = None,
+    *,
+    credentials: Credentials | None = None,
+    limiter: RateLimiter | None = None,
+    live_collection: bool = False,
+    public_url: str | None = None,
+    principal_resolver: Callable[[Request], str | None] | None = None,
+) -> FastAPI:
     """api_keys maps tenant names to separate high-entropy service credentials."""
     api_keys = api_keys or {}
-    if ((not api_keys and credentials is None and principal_resolver is None) or any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", owner)
-                           or not isinstance(key, str) or len(key) < 32
-                           for owner, key in api_keys.items())
-            or len(set(api_keys.values())) != len(api_keys)):
+    if (
+        (not api_keys and credentials is None and principal_resolver is None)
+        or any(
+            not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", owner)
+            or not isinstance(key, str)
+            or len(key) < 32
+            for owner, key in api_keys.items()
+        )
+        or len(set(api_keys.values())) != len(api_keys)
+    ):
         raise ValueError("Configure unique API keys of at least 32 characters per tenant")
-    app = FastAPI(title="Fareflare API", version="0.2.0", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Fareflare API", version=__version__, docs_url=None, redoc_url=None)
     bearer = HTTPBearer(auto_error=False)
 
     @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
     def reference():
         return render_api_reference(app.openapi())
 
-    def authenticate(request: Request, authorization: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> str:
+    def authenticate(
+        request: Request,
+        authorization: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    ) -> str:
         if principal_resolver:
             tenant = principal_resolver(request)
             if tenant:
@@ -238,25 +255,42 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
     @app.get("/health")
     def health():
         health = service.store.get("health:worker")
-        return {"ok": True, "service": "fareflare", "live_collection": live_collection,
-                "last_worker_at": health.data["last_worker_at"] if health else None}
+        return {
+            "ok": True,
+            "service": "fareflare",
+            "live_collection": live_collection,
+            "last_worker_at": health.data["last_worker_at"] if health else None,
+        }
 
     @app.post("/v1/monitors", status_code=202, response_model=MonitorView)
-    def create(body: MonitorInput, tenant: Annotated[str, Depends(authenticate)],
-               idempotency_key: Annotated[str, Header(min_length=8, max_length=128)]):
-        return service.create_monitor(tenant, body.url, idempotency_key,
-                                      AlertPolicy(**body.policy.model_dump()), body.interval_seconds,
-                                      webhook_id=body.webhook_id)
+    def create(
+        body: MonitorInput,
+        tenant: Annotated[str, Depends(authenticate)],
+        idempotency_key: Annotated[str, Header(min_length=8, max_length=128)],
+    ):
+        return service.create_monitor(
+            tenant,
+            body.url,
+            idempotency_key,
+            AlertPolicy(**body.policy.model_dump()),
+            body.interval_seconds,
+            webhook_id=body.webhook_id,
+        )
 
     @app.post("/v1/webhooks", status_code=201, response_model=WebhookRegistrationView)
-    def register_webhook(body: WebhookInput, tenant: Annotated[str, Depends(authenticate)],
-                         idempotency_key: Annotated[str, Header(min_length=8, max_length=128)]):
+    def register_webhook(
+        body: WebhookInput,
+        tenant: Annotated[str, Depends(authenticate)],
+        idempotency_key: Annotated[str, Header(min_length=8, max_length=128)],
+    ):
         return service.webhooks.register(tenant, body.url, idempotency_key)
 
     @app.get("/v1/webhooks", response_model=WebhookList)
-    def list_webhooks(tenant: Annotated[str, Depends(authenticate)],
-                      limit: int = Query(100, ge=1, le=1000),
-                      cursor: str | None = Query(None, max_length=4096)):
+    def list_webhooks(
+        tenant: Annotated[str, Depends(authenticate)],
+        limit: int = Query(100, ge=1, le=1000),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
         return service.webhooks.list(tenant, limit, cursor)
 
     @app.get("/v1/webhooks/{webhook_id}", response_model=WebhookView)
@@ -268,8 +302,11 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
         return service.webhooks.challenge(tenant, webhook_id)
 
     @app.post("/v1/webhooks/{webhook_id}/verify", response_model=WebhookView)
-    def verify_webhook(webhook_id: str, body: WebhookVerificationInput,
-                       tenant: Annotated[str, Depends(authenticate)]):
+    def verify_webhook(
+        webhook_id: str,
+        body: WebhookVerificationInput,
+        tenant: Annotated[str, Depends(authenticate)],
+    ):
         return service.webhooks.verify(tenant, webhook_id, body.token)
 
     @app.post("/v1/webhooks/{webhook_id}/disable", response_model=WebhookView)
@@ -281,8 +318,11 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
         return service.webhooks.delete(tenant, webhook_id)
 
     @app.get("/v1/monitors", response_model=MonitorList)
-    def list_monitors(tenant: Annotated[str, Depends(authenticate)], limit: int = Query(100, ge=1, le=1000),
-                      cursor: str | None = Query(None, max_length=4096)):
+    def list_monitors(
+        tenant: Annotated[str, Depends(authenticate)],
+        limit: int = Query(100, ge=1, le=1000),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
         return service.monitors_page(tenant, limit, cursor)
 
     @app.get("/v1/monitors/{monitor_id}", response_model=MonitorView)
@@ -290,17 +330,26 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
         return service.get_monitor(tenant, monitor_id)
 
     @app.patch("/v1/monitors/{monitor_id}", response_model=MonitorView)
-    def update_monitor(monitor_id: str, body: StatusInput, tenant: Annotated[str, Depends(authenticate)]):
+    def update_monitor(
+        monitor_id: str, body: StatusInput, tenant: Annotated[str, Depends(authenticate)]
+    ):
         return service.set_status(tenant, monitor_id, body.status)
 
     @app.get("/v1/monitors/{monitor_id}/history", response_model=ObservationList)
-    def history(monitor_id: str, tenant: Annotated[str, Depends(authenticate)],
-                limit: int = Query(100, ge=1, le=1000), cursor: str | None = Query(None, max_length=4096)):
+    def history(
+        monitor_id: str,
+        tenant: Annotated[str, Depends(authenticate)],
+        limit: int = Query(100, ge=1, le=1000),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
         return service.history_page(tenant, monitor_id, limit, cursor)
 
     @app.get("/v1/alerts", response_model=AlertList)
-    def alerts(tenant: Annotated[str, Depends(authenticate)], limit: int = Query(100, ge=1, le=1000),
-               cursor: str | None = Query(None, max_length=4096)):
+    def alerts(
+        tenant: Annotated[str, Depends(authenticate)],
+        limit: int = Query(100, ge=1, le=1000),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
         return service.alerts_page(tenant, limit, cursor)
 
     @app.post("/v1/alerts/{delivery_id}/retry", status_code=202, response_model=AlertView)
@@ -325,20 +374,49 @@ def create_app(service: MonitoringService, api_keys: dict[str, str] | None = Non
 
     @app.post("/v1/preferences/telegram-preview")
     def telegram_preview(body: PreferencesInput, tenant: Annotated[str, Depends(authenticate)]):
-        preferences = merge_preferences(service.preferences(tenant), body.model_dump(exclude_unset=True))
+        preferences = merge_preferences(
+            service.preferences(tenant), body.model_dump(exclude_unset=True)
+        )
         sample = {
-            "id": "example-alert", "reason": "new_low",
-            "observation": {"amount_minor": 19100, "currency": "USD", "price_basis": "total",
-                            "fare_name": "Economy", "observed_at": int(service.clock())},
-            "itinerary": {"adults": 1, "url": "https://www.google.com/travel/flights?tfs=CBoQAho_EgoyMDI3LTAzLTE0Ih8KA0RFThIKMjAyNy0wMy0xNBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1",
-                          "segments": [{"date": "2027-03-14", "legs": [{
-                              "origin": "DEN", "destination": "DFW", "airline": "UA", "number": "414"}]}]},
+            "id": "example-alert",
+            "reason": "new_low",
+            "observation": {
+                "amount_minor": 19100,
+                "currency": "USD",
+                "price_basis": "total",
+                "fare_name": "Economy",
+                "observed_at": int(service.clock()),
+            },
+            "itinerary": {
+                "adults": 1,
+                "url": "https://www.google.com/travel/flights?tfs=CBoQAho_EgoyMDI3LTAzLTE0Ih8KA0RFThIKMjAyNy0wMy0xNBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1",
+                "segments": [
+                    {
+                        "date": "2027-03-14",
+                        "legs": [
+                            {
+                                "origin": "DEN",
+                                "destination": "DFW",
+                                "airline": "UA",
+                                "number": "414",
+                            }
+                        ],
+                    }
+                ],
+            },
         }
         message = alert_message(sample, preferences, public_url)
-        buttons = [{"text": button["text"], "url": button["url"]}
-                   for row in (message.reply_markup or {}).get("inline_keyboard", [])
-                   for button in row if "url" in button]
-        return {"text": "Example alert — sample data\n\n" + message.text, "buttons": buttons,
-                "silent": preferences.telegram_silent, "time_zone": preferences.time_zone or "UTC"}
+        buttons = [
+            {"text": button["text"], "url": button["url"]}
+            for row in (message.reply_markup or {}).get("inline_keyboard", [])
+            for button in row
+            if "url" in button
+        ]
+        return {
+            "text": "Example alert — sample data\n\n" + message.text,
+            "buttons": buttons,
+            "silent": preferences.telegram_silent,
+            "time_zone": preferences.time_zone or "UTC",
+        }
 
     return app

@@ -1,4 +1,5 @@
 """Revocable hashed API credentials and a shared, atomic per-tenant rate limit."""
+
 from __future__ import annotations
 
 import hashlib
@@ -19,12 +20,26 @@ class Credentials:
         self.store, self.clock = store, clock
 
     def issue(self, tenant: str, lifetime_seconds: int = 90 * 86400) -> tuple[str, str]:
-        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", tenant) or not 60 <= lifetime_seconds <= 365 * 86400:
+        if (
+            not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", tenant)
+            or not 60 <= lifetime_seconds <= 365 * 86400
+        ):
             raise ValueError("Invalid credential owner or lifetime")
         secret = secrets.token_urlsafe(32)
         identifier = hashlib.sha256(secret.encode()).hexdigest()
-        self.store.commit([Document("credential:" + identifier, "credentials:" + tenant,
-            {"tenant": tenant, "revoked": False, "expires_at": int(self.clock()) + lifetime_seconds})])
+        self.store.commit(
+            [
+                Document(
+                    "credential:" + identifier,
+                    "credentials:" + tenant,
+                    {
+                        "tenant": tenant,
+                        "revoked": False,
+                        "expires_at": int(self.clock()) + lifetime_seconds,
+                    },
+                )
+            ]
+        )
         return identifier, secret
 
     def authenticate(self, secret: str) -> str | None:
@@ -50,7 +65,9 @@ class RateLimiter:
         now = int(self.clock())
         key = f"rate:{tenant}:{now // 60}"
         for _ in range(5):
-            doc = self.store.get(key) or Document(key, "rate_limits", {"count": 0}, expires_at=now + 120)
+            doc = self.store.get(key) or Document(
+                key, "rate_limits", {"count": 0}, expires_at=now + 120
+            )
             if doc.data["count"] >= self.per_minute:
                 raise RateLimited("Request limit reached; retry next minute")
             try:
