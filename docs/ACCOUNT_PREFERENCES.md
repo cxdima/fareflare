@@ -26,6 +26,7 @@ Section buttons work with the keyboard and indicate the current section. Switchi
 | `telegram_show_fare` | `true` | Include the fare name when available. |
 | `telegram_show_buttons` | `true` | Show link buttons beneath Telegram alerts. |
 | `telegram_silent` | `false` | Send Telegram alerts without notification sound; webhooks are unaffected. |
+| `quiet_hours` | `null` | A daily window such as `22:00-07:00` during which Telegram messages make no sound. See [below](#quiet-hours). |
 | `muted` | `false` | Stop outgoing notifications, including webhooks, while collection/history continue. |
 | `muted_routes` | `[]` | Mute up to 100 airport pairs, such as `DEN-DFW`. |
 | `diagnostics` | `false` | Show failure codes and send notices about failing price checks. See [below](#technical-details-are-opt-in). |
@@ -112,8 +113,24 @@ Presentation changes preserve queued alerts and use current preferences at deliv
 
 Tests cover partial updates, tenant isolation, validation, delivery and preview behavior, DST transitions, fractional-hour zones, airport dates, currency preservation and UI persistence. Native behavior follows [JavaScript Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat) and Python's [ZoneInfo](https://docs.python.org/3/library/zoneinfo.html).
 
+## Quiet hours
+
+`quiet_hours` is two 24-hour times joined by a hyphen, `HH:MM-HH:MM`, read in the
+account's `time_zone` (UTC when none is saved). The window starts at the first time
+and ends just before the second, and may run past midnight: `22:00-07:00` covers
+22:00 through 06:59. The two times must differ; `null` turns quiet hours off.
+
+Inside the window a Telegram alert or diagnostic notice is delivered at once, as
+usual, but without a notification sound. Nothing is held back, delayed or dropped: a
+fare can be gone by morning, so the message is waiting when you look. Webhooks are
+not affected, and `telegram_silent` still silences every message when it is on.
+
+The window follows the local clock through daylight-saving changes. Set it in
+**Account settings → Notifications**, or switch a 22:00–07:00 window on and off
+from the bot's `/settings`.
+
 ## Possible next additions
 
-- **Quiet hours:** decide whether to defer or discard alerts, then define queue expiry, deduplication, travel time-zone changes and DST boundaries. Silent delivery is already available; scheduled quiet hours are not implemented.
+- **Holding alerts overnight:** quiet hours silence a message but still deliver it. Deferring instead needs decisions on queue expiry, deduplication and what to do with a fare that has since changed.
 - **Language packs:** separate prose from regional formatting and review translations before enabling them. Locale selection currently changes formatting only.
 - **New-monitor defaults:** let accounts preselect alert thresholds and delivery channels while preserving monitor quotas and minimum collection intervals. Existing monitors should change only through an explicit action.

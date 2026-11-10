@@ -85,8 +85,10 @@ style**: Detailed, Compact or Classic with emoji, each shown with an example bef
 you choose it. Your own wording is written in
 [Account settings](ACCOUNT_PREFERENCES.md#message-styles-and-templates) and then
 appears in this menu as **Custom**. **Mute alerts also mutes webhook delivery**; checks and history
-continue. **Send silently** changes Telegram notification sound only. More display
-and route-muting options live in [Account settings](ACCOUNT_PREFERENCES.md).
+continue. **Send silently** changes Telegram notification sound only. **Quiet hours**
+does the same between 22:00 and 07:00 in your time zone: alerts still arrive at once,
+without a sound. Choose a different window, and more display and route-muting
+options, in [Account settings](ACCOUNT_PREFERENCES.md#quiet-hours).
 
 Alerts show the price first, followed by itinerary details and the observation
 time in your saved time zone. Without a saved zone, Telegram uses UTC. Validated

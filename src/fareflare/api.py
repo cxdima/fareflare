@@ -15,7 +15,7 @@ from fareflare.api_reference import render_api_reference
 from fareflare.credentials import Credentials, RateLimited, RateLimiter
 from fareflare.domain import AlertPolicy
 from fareflare.preferences import Preferences as PreferencesInput
-from fareflare.preferences import merge_preferences
+from fareflare.preferences import merge_preferences, sends_silently
 from fareflare.service import MonitoringService, NotFound
 from fareflare.store import Conflict
 from fareflare.telegram_messages import preview_message
@@ -422,7 +422,8 @@ def create_app(
             "message": message,
             "text": f"{heading} — sample data\n\n" + preview.text,
             "buttons": buttons,
-            "silent": preferences.telegram_silent,
+            # Whether a message sent at this moment would arrive without sound.
+            "silent": sends_silently(preferences, service.clock()),
             "time_zone": preferences.time_zone or "UTC",
         }
 

@@ -102,6 +102,8 @@ export type Preferences = {
   telegram_show_fare: boolean;
   telegram_show_buttons: boolean;
   telegram_silent: boolean;
+  /** A daily window such as 22:00-07:00, in the account time zone; null when off. */
+  quiet_hours: string | null;
   diagnostics: boolean;
 };
 export type TelegramStyle = 'detailed' | 'compact' | 'classic' | 'custom';

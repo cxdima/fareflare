@@ -42,7 +42,12 @@ type TelegramModel = Pick<
   | 'telegram_show_fare'
   | 'telegram_show_buttons'
   | 'telegram_silent'
->;
+> & {
+  // The saved quiet_hours value, split into the controls that edit it.
+  quiet_enabled: boolean;
+  quiet_start: string;
+  quiet_end: string;
+};
 type TemplateModel = Record<TemplateKey, string>;
 type Preview = {
   text: string;
@@ -51,6 +56,8 @@ type Preview = {
   buttons?: { text: string; url: string }[];
 };
 
+const defaultQuietHours = ['22:00', '07:00'] as const;
+const clockTime = /^([01]\d|2[0-3]):[0-5]\d$/;
 const templateKeys: TemplateKey[] = [
   'tracking_started',
   'new_low',
@@ -138,6 +145,9 @@ export class PreferencesComponent implements OnInit {
     telegram_show_fare: true,
     telegram_show_buttons: true,
     telegram_silent: false,
+    quiet_enabled: false,
+    quiet_start: defaultQuietHours[0],
+    quiet_end: defaultQuietHours[1],
   });
   readonly custom = computed(() => this.telegramModel().telegram_style === 'custom');
   readonly telegram = form(this.telegramModel, (path) => {
@@ -148,6 +158,13 @@ export class PreferencesComponent implements OnInit {
     disabled(path.telegram_show_times, fixed);
     disabled(path.telegram_show_observed_time, fixed);
     disabled(path.telegram_show_fare, fixed);
+    validate(path.quiet_end, ({ value, valueOf }) => {
+      if (!valueOf(path.quiet_enabled)) return null;
+      const start = valueOf(path.quiet_start);
+      return clockTime.test(start) && clockTime.test(value()) && start !== value()
+        ? null
+        : { kind: 'quiet-hours', message: 'Choose two different times.' };
+    });
   });
   readonly templateModel = signal<TemplateModel>(emptyTemplates());
   readonly templates = form(this.templateModel, (path) => {
@@ -233,10 +250,13 @@ export class PreferencesComponent implements OnInit {
   async saveTelegram(event: Event): Promise<void> {
     event.preventDefault();
     this.telegramSaved.set(false);
-    await this.telegramAction.run(async () => {
-      this.applyTelegram(await this.store.save(this.telegramChanges()));
-      this.telegramSaved.set(true);
-    });
+    await submit(this.telegram, async () =>
+      this.telegramAction.run(async () => {
+        this.applyTelegram(await this.store.save(this.telegramChanges()));
+        this.telegramSaved.set(true);
+      }),
+    );
+    this.telegram().errorSummary()[0]?.fieldTree().focusBoundControl();
   }
 
   /** Choosing Custom starts from the wording of the style that was selected before it. */
@@ -342,7 +362,11 @@ export class PreferencesComponent implements OnInit {
 
   /** Message settings as the API expects them; templates travel only with the custom style. */
   private telegramChanges(): Partial<Preferences> {
-    const changes: Partial<Preferences> = { ...this.telegramModel() };
+    const { quiet_enabled, quiet_start, quiet_end, ...shown } = this.telegramModel();
+    const changes: Partial<Preferences> = {
+      ...shown,
+      quiet_hours: quiet_enabled ? `${quiet_start}-${quiet_end}` : null,
+    };
     if (!this.custom()) return changes;
     const optional = new Set(
       this.catalog()
@@ -370,6 +394,7 @@ export class PreferencesComponent implements OnInit {
   }
 
   private applyTelegram(value: Preferences): void {
+    const [start, end] = value.quiet_hours?.split('-') ?? [];
     this.telegramModel.set({
       telegram_style: value.telegram_style,
       telegram_show_flight_numbers: value.telegram_show_flight_numbers,
@@ -378,6 +403,10 @@ export class PreferencesComponent implements OnInit {
       telegram_show_fare: value.telegram_show_fare,
       telegram_show_buttons: value.telegram_show_buttons,
       telegram_silent: value.telegram_silent,
+      quiet_enabled: value.quiet_hours !== null,
+      // Keep the last window in the controls so switching it back on restores it.
+      quiet_start: start ?? this.telegramModel().quiet_start,
+      quiet_end: end ?? this.telegramModel().quiet_end,
     });
     if (value.telegram_style !== 'custom') this.lastPreset = value.telegram_style;
     // Keep an unsaved draft when the account has never stored its own templates.

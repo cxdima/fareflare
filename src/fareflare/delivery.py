@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+from collections.abc import Callable
 
 import httpx
 
-from fareflare.preferences import Preferences
+from fareflare.preferences import Preferences, sends_silently
 from fareflare.telegram_messages import alert_message
 
 
@@ -39,6 +41,7 @@ class TelegramSink:
         *,
         preferences: Preferences | None = None,
         public_url: str | None = None,
+        clock: Callable[[], float] = time.time,
     ):
         if not re.fullmatch(r"\d+:[A-Za-z0-9_-]{20,}", token):
             raise ValueError("Invalid Telegram bot credential")
@@ -47,7 +50,7 @@ class TelegramSink:
         install_telegram_log_redaction()
         self._token, self._recipients, self._transport = token, recipients, transport
         self._preferences = preferences or Preferences()
-        self._public_url = public_url
+        self._public_url, self._clock = public_url, clock
 
     def send(self, delivery: dict) -> bool:
         if delivery.get("webhook_id") is not None:
@@ -60,7 +63,7 @@ class TelegramSink:
             payload = {
                 **message.payload(),
                 "chat_id": chat,
-                "disable_notification": self._preferences.telegram_silent,
+                "disable_notification": sends_silently(self._preferences, self._clock()),
             }
             with httpx.Client(
                 timeout=10, follow_redirects=False, trust_env=False, transport=self._transport

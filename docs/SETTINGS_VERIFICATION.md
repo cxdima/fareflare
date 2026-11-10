@@ -94,6 +94,7 @@ Final image digests:
 - Worker: `sha256:510a052b50f4dd1ec85b9c1ec8a67e7004d8812b8e9d4ae4b178d86c84f589bd`
 
 The regional and message settings are formatting controls, not interface
-translations. Scheduled quiet hours and automatic currency conversion are not
-implemented. Further settings proposals are in
+translations. Automatic currency conversion is not implemented. Quiet hours were
+added after this verification and silence messages rather than delaying them; see
+[account preferences](ACCOUNT_PREFERENCES.md#quiet-hours). Further settings proposals are in
 [account preferences](ACCOUNT_PREFERENCES.md#possible-next-additions).

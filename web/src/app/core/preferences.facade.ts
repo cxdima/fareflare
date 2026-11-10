@@ -17,6 +17,7 @@ export const defaultPreferences: Preferences = {
   telegram_show_fare: true,
   telegram_show_buttons: true,
   telegram_silent: false,
+  quiet_hours: null,
   diagnostics: false,
 };
 

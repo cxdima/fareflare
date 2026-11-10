@@ -20,6 +20,7 @@ const defaults: Preferences = {
   telegram_show_fare: true,
   telegram_show_buttons: true,
   telegram_silent: false,
+  quiet_hours: null,
   diagnostics: false,
 };
 
@@ -579,6 +580,52 @@ test('a template mistake is explained in plain words and the draft is kept', asy
   await page.getByRole('button', { name: 'Save Telegram settings' }).click();
   await expect(page.getByRole('alert')).toHaveText('New low: Unknown placeholder {nope}');
   await expect(newLow).toHaveValue('{nope}');
+});
+
+test('quiet hours are a window that is checked before saving and kept when switched off', async ({
+  page,
+}) => {
+  const state = await preferencesMock(page);
+  await page.goto('/app#settings');
+  await showSection(page, 'Notifications');
+  const toggle = page.getByLabel('Quiet hours', { exact: true });
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByLabel('From', { exact: true })).toHaveCount(0);
+  await toggle.check();
+  const from = page.getByLabel('From', { exact: true });
+  const until = page.getByLabel('Until', { exact: true });
+  await expect(from).toHaveValue('22:00');
+  await expect(until).toHaveValue('07:00');
+
+  // A window that starts and ends at the same time says nothing, so it is not sent.
+  await until.fill('22:00');
+  await page.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(page.locator('#quiet-hours-error')).toHaveText('Choose two different times.');
+  expect(state.writes).toEqual([]);
+
+  await from.fill('23:30');
+  await until.fill('06:15');
+  await page.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
+  expect(state.writes[0]).toMatchObject({ quiet_hours: '23:30-06:15' });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  await toggle.uncheck();
+  await page.getByRole('button', { name: 'Save Telegram settings' }).click();
+  await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
+  expect(state.writes[1]).toMatchObject({ quiet_hours: null });
+  // Switching it back on offers the window that was used before.
+  await toggle.check();
+  await expect(page.getByLabel('From', { exact: true })).toHaveValue('23:30');
+});
+
+test('a saved quiet-hours window is shown when settings open', async ({ page }) => {
+  await preferencesMock(page, { quiet_hours: '21:00-08:00' });
+  await page.goto('/app#settings');
+  await showSection(page, 'Notifications');
+  await expect(page.getByLabel('Quiet hours', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('From', { exact: true })).toHaveValue('21:00');
+  await expect(page.getByLabel('Until', { exact: true })).toHaveValue('08:00');
 });
 
 test('technical details stay hidden until the account opts in', async ({ page }) => {

@@ -34,6 +34,7 @@ _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
 _SYMBOLS = {"USD": "$", "CAD": "CA$", "EUR": "€", "GBP": "£", "AUD": "A$", "JPY": "¥"}
 # These regions conventionally write the amount first: 246,50 $.
 _SYMBOL_AFTER: frozenset[str] = frozenset({"de-DE", "fr-FR", "es-ES", "uk-UA"})
+_QUIET_HOURS = re.compile(r"((?:[01]\d|2[0-3]):[0-5]\d)-((?:[01]\d|2[0-3]):[0-5]\d)")
 
 
 class Preferences(BaseModel):
@@ -61,6 +62,14 @@ class Preferences(BaseModel):
         default=True, description="Show link buttons beneath Telegram price alerts."
     )
     telegram_silent: bool = False
+    quiet_hours: str | None = Field(
+        default=None,
+        max_length=11,
+        description=(
+            "A daily window in the account time zone, such as 22:00-07:00, during which "
+            "Telegram messages arrive without sound. Nothing is held back or dropped."
+        ),
+    )
     diagnostics: bool = Field(
         default=False,
         description="Show technical details and receive notices about failing price checks.",
@@ -88,6 +97,16 @@ class Preferences(BaseModel):
             ZoneInfo(value)
         except (ZoneInfoNotFoundError, ValueError):
             raise ValueError("Choose a valid IANA time zone") from None
+        return value
+
+    @field_validator("quiet_hours")
+    @classmethod
+    def valid_quiet_hours(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        match = _QUIET_HOURS.fullmatch(value)
+        if not match or match[1] == match[2]:
+            raise ValueError("Use two different 24-hour times such as 22:00-07:00")
         return value
 
     @field_validator("telegram_templates")
@@ -161,6 +180,31 @@ def observed_time(seconds: int, preferences: Preferences, *, zone_label: bool = 
     offset = local.strftime("%z")
     label = "UTC" if zone.key == "UTC" else f"{zone.key} (UTC{offset[:3]}:{offset[3:]})"
     return f"{stamp} {label}"
+
+
+def in_quiet_hours(preferences: Preferences, seconds: float) -> bool:
+    """Whether a moment falls inside the account's quiet hours, in its own time zone.
+
+    The window starts at its first time and ends just before its second, and may
+    run past midnight: 22:00-07:00 covers 22:00 through 06:59.
+    """
+    if preferences.quiet_hours is None:
+        return False
+    start, end = preferences.quiet_hours.split("-")
+    zone = ZoneInfo(preferences.time_zone or "UTC")
+    now = datetime.fromtimestamp(seconds, UTC).astimezone(zone).strftime("%H:%M")
+    return start <= now < end if start < end else now >= start or now < end
+
+
+def quiet_hours_label(value: str, preferences: Preferences) -> str:
+    """A quiet-hours window in the reader's clock style: 10:00 PM – 7:00 AM."""
+    start, end = value.split("-")
+    return f"{clock_time(start, preferences)} – {clock_time(end, preferences)}"
+
+
+def sends_silently(preferences: Preferences, seconds: float) -> bool:
+    """Whether a Telegram message sent at this moment should make no sound."""
+    return preferences.telegram_silent or in_quiet_hours(preferences, seconds)
 
 
 def regional_price(amount_minor: int, currency: str, locale: Locale) -> str:

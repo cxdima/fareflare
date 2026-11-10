@@ -23,6 +23,7 @@ from fareflare.preferences import (
     Preferences,
     merge_preferences,
     observed_time,
+    quiet_hours_label,
     regional_date,
     regional_price,
 )
@@ -48,6 +49,8 @@ _MENU_SECONDS = 15 * 60
 _STATUS = STATUS_LABELS
 # Leaves room in a 4000-character view for its title and a notice.
 _LIST_BUDGET = 3500
+# Offered with one tap; any other window is set in Account settings.
+_DEFAULT_QUIET_HOURS = "22:00-07:00"
 _STYLE_NAMES = {
     "detailed": "Detailed",
     "compact": "Compact",
@@ -647,6 +650,12 @@ class TelegramBot:
         lines = [
             "Notifications: " + ("muted" if prefs.muted else "on"),
             "Telegram sound: " + ("silent" if prefs.telegram_silent else "standard"),
+            "Quiet hours: "
+            + (
+                quiet_hours_label(prefs.quiet_hours, prefs) + ", no sound"
+                if prefs.quiet_hours
+                else "off"
+            ),
             "Message style: " + _STYLE_NAMES[prefs.telegram_style],
             "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
             "Regional format: " + prefs.locale,
@@ -666,6 +675,16 @@ class TelegramBot:
                     "Enable notification sound" if prefs.telegram_silent else "Send silently",
                     "preferences",
                     {"telegram_silent": not prefs.telegram_silent},
+                )
+            ],
+            [
+                self._button(
+                    ctx,
+                    "Turn off quiet hours"
+                    if prefs.quiet_hours
+                    else "Quiet hours: " + quiet_hours_label(_DEFAULT_QUIET_HOURS, prefs),
+                    "preferences",
+                    {"quiet_hours": None if prefs.quiet_hours else _DEFAULT_QUIET_HOURS},
                 )
             ],
             [self._button(ctx, "Message style", "styles")],

@@ -28,6 +28,10 @@ Notable changes to Fareflare. The format follows
   turns them off for the built-in styles. `observation.schedule` carries the same
   facts in the API and in webhook events. Times never decide whether a price is
   accepted: anything ambiguous is left out rather than guessed.
+- **Quiet hours.** `quiet_hours`, for example `22:00-07:00`, names a daily window in
+  the account's time zone during which Telegram alerts and notices arrive without a
+  sound. They are still delivered at once: nothing is held back or dropped. Set it
+  in **Account settings → Notifications** or from the bot's `/settings`.
 - Alerts record what they are compared with. `previous.price_minor` and
   `previous.low_minor` appear in `GET /v1/alerts` and in webhook events.
 - `GET /v1/preferences/telegram-templates` lists templates, placeholders, presets

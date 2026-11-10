@@ -20,7 +20,7 @@ import httpx
 from fareflare.accounts import Accounts, AuthenticationFailed
 from fareflare.credentials import RateLimited, RateLimiter
 from fareflare.delivery import TelegramSink, install_telegram_log_redaction
-from fareflare.preferences import stored_preferences
+from fareflare.preferences import sends_silently, stored_preferences
 from fareflare.store import Conflict, Document, Store
 from fareflare.telegram_messages import TelegramMessage, collection_notice
 
@@ -640,6 +640,7 @@ class TelegramConnections:
             preferences=stored_preferences(
                 preferences.data.get("preferences") if preferences else None
             ),
+            clock=self.clock,
         ).send(delivery)
 
     def notify(self, notice: dict) -> bool | None:
@@ -662,7 +663,7 @@ class TelegramConnections:
             {
                 "chat_id": binding.data["chat_id"],
                 **message.payload(),
-                "disable_notification": preferences.telegram_silent,
+                "disable_notification": sends_silently(preferences, self.clock()),
             },
         )
         # A blocked bot cannot be reached; retrying would not change that.

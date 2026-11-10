@@ -26,7 +26,7 @@ from fareflare.message_templates import (
     parse_template,
     render,
 )
-from fareflare.preferences import Preferences, clock_time
+from fareflare.preferences import Preferences, clock_time, in_quiet_hours
 from fareflare.public_quotes import slice_times
 from fareflare.service import MonitoringService
 from fareflare.telegram_templates import TEMPLATE_KEYS, VOCABULARY, validate_templates
@@ -276,3 +276,20 @@ def test_whatever_a_page_says_a_parsed_schedule_is_one_the_service_accepts(secti
     if times is not None:
         reading = Reading("target", 100, "USD", 0, "generated", schedule=(times,))
         MonitoringService._verify_schedule({"segments": [{}]}, reading)
+
+
+# --- Quiet hours ----------------------------------------------------------------------
+
+
+@given(
+    clock,
+    clock,
+    st.integers(0, 2_000_000_000),
+    st.sampled_from([None, "America/Chicago", "Asia/Kolkata", "Europe/Kyiv", "Pacific/Chatham"]),
+)
+def test_a_window_and_its_reverse_split_every_day_between_them(start, end, moment, zone):
+    assume(start != end)
+    quiet = Preferences(quiet_hours=f"{start}-{end}", time_zone=zone)
+    reverse = Preferences(quiet_hours=f"{end}-{start}", time_zone=zone)
+    # Every moment is in exactly one of the two, in any time zone and across DST.
+    assert in_quiet_hours(quiet, moment) != in_quiet_hours(reverse, moment)
