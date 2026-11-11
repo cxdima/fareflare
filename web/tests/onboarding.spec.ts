@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { flightUrl, mock } from './fixtures';
+import { fakePasskeys, flightUrl, mock } from './fixtures';
 
-test('registration explains invalid fields, focuses the first error, and never submits invalid input', async ({
+const axe = async (page: import('@playwright/test').Page) =>
+  (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze())
+    .violations;
+
+test('sign-up explains invalid fields, focuses the first error, and never submits invalid input', async ({
   page,
 }) => {
   const submissions: string[] = [];
@@ -11,46 +15,44 @@ test('registration explains invalid fields, focuses the first error, and never s
       submissions.push(request.url());
     }
   });
-  await page.goto('/register?invite=local-invitation-example');
-  await page.getByLabel('Email or username', { exact: true }).fill('invalid name');
+  await page.goto('/register');
+  await page.getByLabel('Email', { exact: true }).fill('not an address');
   await page.getByLabel('Password', { exact: true }).fill('too short');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page.getByText('Use at least 15 characters.', { exact: true })).toBeVisible();
   await expect(
-    page.getByText(
-      'Use an email address, or a username of 3–40 letters, numbers, periods, underscores or hyphens.',
-    ),
+    page.getByText('Enter an email address, like name@example.com.', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('Email or username', { exact: true })).toBeFocused();
-  await expect(page.getByLabel('Email or username', { exact: true })).toHaveAttribute(
-    'aria-invalid',
-    'true',
-  );
-
-  // An address is as good a sign-in name as a username: it is what a password manager offers.
-  await page.getByLabel('Email or username', { exact: true }).fill('traveler@example.com');
-  await page.getByLabel('Password', { exact: true }).fill('long-local-test-password');
-  await expect(page.getByText(/Use an email address, or a username/)).toHaveCount(0);
-  await page.getByLabel('Email or username', { exact: true }).fill('valid.traveler');
-  await page.getByLabel('Invitation code', { exact: true }).fill('');
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(
-    page.getByText('Enter the invitation code from your link.', { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByLabel('Invitation code', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Email', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Email', { exact: true })).toHaveAttribute('aria-invalid', 'true');
   expect(submissions).toEqual([]);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  expect(await axe(page)).toEqual([]);
 });
 
-test('password visibility is accessible and changing auth mode clears the password and validation state', async ({
+test('signing up sends the address and opens the workspace, with no code to keep', async ({
   page,
 }) => {
+  const calls = await mock(page, false);
+  await page.goto('/register');
+  await expect(page.getByText('Free, with 3 flight monitors. No card needed.')).toBeVisible();
+  await page.getByLabel('Email', { exact: true }).fill('  traveler@example.com ');
+  await page.getByLabel('Password', { exact: true }).fill('long-local-test-password');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page).toHaveURL('/app');
+  expect(calls.find((call) => call.path === '/auth/register')!.body).toEqual({
+    email: 'traveler@example.com',
+    password: 'long-local-test-password',
+  });
+  await expect(
+    page.getByRole('heading', { name: 'Which flight are you watching?', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/recovery code/i)).toHaveCount(0);
+});
+
+test('password visibility is accessible and each sign-in page has its own address', async ({
+  page,
+}) => {
+  await mock(page, false);
   await page.goto('/login');
   const password = page.getByLabel('Password', { exact: true });
   await password.fill('local-test-password');
@@ -61,42 +63,37 @@ test('password visibility is accessible and changing auth mode clears the passwo
   await page.getByRole('button', { name: 'Hide password', exact: true }).click();
   await expect(password).toHaveAttribute('type', 'password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByText('Enter your email or username.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Forgot your password?', exact: true }).click();
+  await expect(page.getByText('Enter your email address.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Forgot password?', exact: true }).click();
+  await expect(page).toHaveURL('/forgot-password');
   await expect(
-    page.getByRole('heading', { name: 'Recover your account', exact: true }),
+    page.getByRole('heading', { name: 'Reset your password', exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('New password', { exact: true })).toHaveValue('');
-  await expect(page.getByLabel('New password', { exact: true })).toHaveAttribute(
-    'type',
-    'password',
-  );
-  await expect(page.getByText('Enter your email or username.', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Reset password', exact: true }).click();
-  await expect(
-    page.getByText('Enter the recovery code you saved when you signed up.', { exact: true }),
-  ).toBeVisible();
-  // Recovery is a page of its own, so Back returns to sign-in instead of leaving the site.
-  await expect(page).toHaveURL('/recover');
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Enter your email address.', { exact: true })).toHaveCount(0);
   await page.goBack();
   await expect(page).toHaveURL('/login');
   await expect(page.getByRole('heading', { name: 'Welcome back', exact: true })).toBeVisible();
+  // The old recovery address leads to the same page.
+  await page.goto('/recover');
+  await expect(page).toHaveURL('/forgot-password');
 });
 
 test('each sign-in page tells a password manager what its fields are', async ({ page }) => {
   await mock(page, false);
   await page.goto('/login');
   await expect(page).toHaveTitle('Sign in · Fareflare');
-  const name = page.getByLabel('Email or username', { exact: true });
+  const name = page.getByLabel('Email', { exact: true });
   const password = page.locator('#password');
-  await expect(name).toHaveAttribute('autocomplete', 'username');
-  await expect(name).toHaveAttribute('inputmode', 'email');
+  // "webauthn" lets 1Password and the browser offer a passkey in the same autofill list.
+  await expect(name).toHaveAttribute('autocomplete', 'username webauthn');
+  await expect(name).toHaveAttribute('type', 'email');
   await expect(password).toHaveAttribute('autocomplete', 'current-password');
   await expect(password).not.toHaveAttribute('passwordrules', /.*/);
 
   // What was typed follows the visitor to the page they meant to open.
   await name.fill('Traveler@Example.com');
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
+  await page.getByRole('button', { name: 'Create a free account', exact: true }).click();
   await expect(page).toHaveURL('/register');
   await expect(page).toHaveTitle('Create your account · Fareflare');
   await expect(page.getByRole('heading', { name: 'Create your account' })).toBeFocused();
@@ -105,82 +102,133 @@ test('each sign-in page tells a password manager what its fields are', async ({ 
   await expect(password).toHaveAttribute('autocomplete', 'new-password');
   await expect(password).toHaveAttribute('passwordrules', 'minlength: 15; maxlength: 128;');
   await expect(password).toHaveValue('');
-
-  await page.goto('/recover');
-  await expect(page).toHaveTitle('Recover your account · Fareflare');
-  await expect(password).toHaveAttribute('autocomplete', 'new-password');
-  await expect(page.getByLabel('Recovery code', { exact: true })).toHaveAttribute(
-    'autocomplete',
-    'off',
-  );
 });
 
-test('older invitation links open sign-up, and the invitation survives a change of mind', async ({
-  page,
-}) => {
-  await mock(page, false);
-  await page.goto('/login?invite=local-invitation-example');
-  await expect(page).toHaveURL('/register?invite=local-invitation-example');
-  await expect(page.getByLabel('Invitation code', { exact: true })).toHaveValue(
-    'local-invitation-example',
-  );
-  await page.getByRole('button', { name: 'Already have an account? Sign in' }).click();
-  await expect(page).toHaveURL('/login?invite=local-invitation-example');
-  await expect(page.getByRole('heading', { name: 'Welcome back', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
-  await expect(page.getByLabel('Invitation code', { exact: true })).toHaveValue(
-    'local-invitation-example',
-  );
-
-  await page.goto('/?invite=local-invitation-example');
-  await expect(page).toHaveURL('/register?invite=local-invitation-example');
-});
-
-test('signing up with an email address shows the recovery code once, before the workspace', async ({
+test('a forgotten password is reset from an emailed link, with the same answer for any address', async ({
   page,
 }) => {
   const calls = await mock(page, false);
-  await page.goto('/register?invite=local-invitation-example');
-  await page.getByLabel('Email or username', { exact: true }).fill('  traveler@example.com ');
-  await page.getByLabel('Password', { exact: true }).fill('long-local-test-password');
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-
-  const heading = page.getByRole('heading', { name: 'Save your recovery code', exact: true });
-  await expect(heading).toBeFocused();
-  await expect(page).toHaveTitle('Save your recovery code · Fareflare');
-  expect(calls.find((call) => call.path === '/auth/register')!.body).toEqual({
-    username: 'traveler@example.com',
-    password: 'long-local-test-password',
-    invite_token: 'local-invitation-example',
+  await page.goto('/forgot-password');
+  await expect(page).toHaveTitle('Reset your password · Fareflare');
+  await page.getByLabel('Email', { exact: true }).fill('traveler@example.com');
+  await page.getByRole('button', { name: 'Email me a reset link', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email', exact: true })).toBeFocused();
+  await expect(page.getByText('It works once, for 30 minutes.', { exact: false })).toBeVisible();
+  expect(calls.find((call) => call.path === '/auth/password-reset')!.body).toEqual({
+    email: 'traveler@example.com',
   });
-  await expect(
-    page.getByRole('textbox', { name: 'Fareflare recovery code', exact: true }),
-  ).toHaveValue('once-only-recovery');
-  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
-  // Closing the tab now would lose the only copy, so the browser is asked to confirm.
-  const leaving = () =>
-    page.evaluate(() => {
-      const event = new Event('beforeunload', { cancelable: true });
-      window.dispatchEvent(event);
-      return event.defaultPrevented;
-    });
-  expect(await leaving()).toBe(true);
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
+  expect(await axe(page)).toEqual([]);
 
-  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
-  await expect(page).toHaveURL('/app');
+  // The link carries its token in the fragment, which is removed from the address bar.
+  await page.goto('/reset-password#token=reset-token');
   await expect(
-    page.getByRole('heading', { name: 'Which flight are you watching?', exact: true }),
+    page.getByRole('heading', { name: 'Choose a new password', exact: true }),
   ).toBeVisible();
-  expect(await leaving()).toBe(false);
-  await expect(page.getByText('once-only-recovery')).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: /recovery code/i })).toHaveCount(0);
+  await expect(page).toHaveURL('/reset-password');
+  const saved = page.locator('input[autocomplete="username"]');
+  await expect(saved).toHaveValue('traveler@example.com');
+  const password = page.getByLabel('New password', { exact: true });
+  await expect(password).toHaveAttribute('autocomplete', 'new-password');
+  await password.fill('a brand new long password');
+  await page.getByRole('button', { name: 'Save and sign in', exact: true }).click();
+  await expect(page).toHaveURL('/app');
+  expect(calls.find((call) => call.path === '/auth/password-reset/confirm')!.body).toEqual({
+    token: 'reset-token',
+    new_password: 'a brand new long password',
+  });
+});
+
+test('a reset link for an account with two-step sign-in also asks for a code', async ({ page }) => {
+  const calls = await mock(page, false);
+  await page.goto('/reset-password#token=two-step-token');
+  const code = page.getByLabel('Authentication code', { exact: true });
+  await expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+  await page.getByLabel('New password', { exact: true }).fill('a brand new long password');
+  await page.getByRole('button', { name: 'Save and sign in', exact: true }).click();
+  await expect(page.getByText('Enter the code.', { exact: true })).toBeVisible();
+  await code.fill('123456');
+  await page.getByRole('button', { name: 'Save and sign in', exact: true }).click();
+  await expect(page).toHaveURL('/app');
+  expect(calls.find((call) => call.path === '/auth/password-reset/confirm')!.body.code).toBe(
+    '123456',
+  );
+});
+
+test('an expired reset link says so and offers a new one', async ({ page }) => {
+  await mock(page, false);
+  await page.goto('/reset-password#token=expired-token');
+  await expect(
+    page.getByRole('heading', { name: 'This link has expired', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Send a new link', exact: true }).click();
+  await expect(page).toHaveURL('/forgot-password');
+});
+
+test('an emailed confirmation link confirms the address', async ({ page }) => {
+  const calls = await mock(page, false);
+  await page.goto('/confirm-email#token=confirm-token');
+  await expect(page.getByRole('heading', { name: 'Email confirmed', exact: true })).toBeVisible();
+  await expect(page).toHaveURL('/confirm-email');
+  expect(calls.find((call) => call.path === '/auth/email/confirm')!.body).toEqual({
+    token: 'confirm-token',
+  });
+  expect(await axe(page)).toEqual([]);
+});
+
+test('two-step sign-in asks for a code a password manager can fill, or a backup code', async ({
+  page,
+}) => {
+  const calls = await mock(page, false);
+  await page.goto('/login');
+  await page.getByLabel('Email', { exact: true }).fill('traveler@example.com');
+  await page.getByLabel('Password', { exact: true }).fill('a two-step password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  const code = page.getByLabel('Authentication code', { exact: true });
+  await expect(code).toBeFocused();
+  await expect(page).toHaveTitle('Enter your code · Fareflare');
+  await expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+  await expect(code).toHaveAttribute('inputmode', 'numeric');
+  await expect(code).toHaveAttribute('id', 'one-time-code');
+  await code.fill('000000');
+  await page.getByRole('button', { name: 'Verify and sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('That code is not correct');
+  await page.getByRole('button', { name: 'Use a backup code instead', exact: true }).click();
+  await expect(page.getByLabel('Backup code', { exact: true })).toHaveAttribute(
+    'autocomplete',
+    'off',
+  );
+  await page.getByRole('button', { name: 'Use your authenticator app', exact: true }).click();
+  await page.getByLabel('Authentication code', { exact: true }).fill('123456');
+  await page.getByRole('button', { name: 'Verify and sign in', exact: true }).click();
+  await expect(page).toHaveURL('/app');
+  expect(calls.filter((call) => call.path === '/auth/login/two-factor').at(-1)!.body).toEqual({
+    token: 'two-step-token',
+    code: '123456',
+  });
+});
+
+test('a passkey signs in from the button or from the email field autofill', async ({ page }) => {
+  await fakePasskeys(page, { autofill: true });
+  const calls = await mock(page, false);
+  await page.goto('/login');
+  // With autofill available, the page asks quietly as soon as it opens; choosing it signs in.
+  await expect(page).toHaveURL('/app');
+  const sent = calls.find((call) => call.path === '/auth/passkey')!.body;
+  expect(sent.challenge_id).toBe('challenge-test');
+  expect(sent.credential.rawId).toBe('Y3JlZGVudGlhbA');
+  expect(sent.credential.response.userHandle).toBe('dXNlcg');
+  expect(
+    await page.evaluate(() => (window as unknown as { passkeyCalls: unknown[] }).passkeyCalls),
+  ).toEqual([{ kind: 'get', mediation: 'conditional' }]);
+});
+
+test('the passkey button opens the prompt itself', async ({ page }) => {
+  await fakePasskeys(page);
+  const calls = await mock(page, false);
+  await page.goto('/login');
+  await page.getByRole('button', { name: 'Sign in with a passkey', exact: true }).click();
+  await expect(page).toHaveURL('/app');
+  expect(calls.filter((call) => call.path === '/auth/passkey')).toHaveLength(1);
 });
 
 test('the website sends new visitors to sign-up and returning ones to sign-in', async ({
@@ -213,23 +261,21 @@ test('sign-in shows pending feedback and retains entered values after a server f
     await route.fulfill({
       status: 401,
       contentType: 'application/json',
-      body: JSON.stringify({ detail: 'Incorrect email, username or password' }),
+      body: JSON.stringify({ detail: 'Incorrect email or password' }),
     });
   });
   await page.goto('/login');
-  await page.getByLabel('Email or username', { exact: true }).fill('traveler');
+  await page.getByLabel('Email', { exact: true }).fill('traveler@example.com');
   await page.getByLabel('Password', { exact: true }).fill('local-test-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   const pending = page.getByRole('button', { name: 'Signing in…', exact: true });
   await expect(pending).toBeDisabled();
   await expect(pending).toHaveAttribute('aria-busy', 'true');
-  await expect(
-    page.getByRole('button', { name: 'Forgot your password?', exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Forgot password?', exact: true })).toBeDisabled();
   completeRequest!();
-  await expect(page.getByRole('alert')).toHaveText('Incorrect email, username or password');
+  await expect(page.getByRole('alert')).toHaveText('Incorrect email or password');
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled();
-  await expect(page.getByLabel('Email or username', { exact: true })).toHaveValue('traveler');
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('traveler@example.com');
   await expect(page.getByLabel('Password', { exact: true })).toHaveValue('local-test-password');
   expect(submissions).toBe(1);
 });

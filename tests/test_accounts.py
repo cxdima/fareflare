@@ -26,18 +26,17 @@ def accounts(store, clock):
     return Accounts(store, ProductConfig(), lambda: clock[0])
 
 
-def register(accounts, username="alice"):
-    invitation = accounts.create_invite()
-    return accounts.register(username, PASSWORD, invitation["token"])
+def register(accounts, name="alice"):
+    return accounts.register(name if "@" in name else name + "@example.com", PASSWORD)
 
 
-def test_default_product_is_free_invite_only_and_bounded():
+def test_default_product_is_free_open_and_bounded():
     config = ProductConfig.from_env({})
     assert config.public() == {
         "product_name": "Fareflare",
         "billing_enabled": False,
         "capabilities": {"route_searches": False},
-        "registration_mode": "invite",
+        "registration_mode": "open",
         "limits": {"monitors": 20, "min_interval_seconds": 900, "global_targets": 20},
     }
     assert ProductConfig.from_env({"FAREFLARE_SEARCH_ENABLED": "true"}).search_enabled is True
@@ -75,30 +74,45 @@ def test_passwords_use_scrypt_unique_salts_and_constant_cost_dummy(monkeypatch):
     assert len(calls) == 2
 
 
-def test_invite_is_required_single_use_and_expires(accounts, clock):
-    with pytest.raises(ValueError, match="invitation"):
+def test_sign_up_needs_an_email_and_can_be_closed(store, clock):
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    registered = accounts.register("Alice@Example.com", PASSWORD)
+    assert registered["account"]["username"] == "alice@example.com"
+    assert registered["account"]["email"] == "alice@example.com"
+    assert registered["account"]["email_verified"] is False
+    with pytest.raises(ValueError, match="already uses that email"):
+        accounts.register("ALICE@example.com", PASSWORD)
+    with pytest.raises(ValueError, match="email address"):
         accounts.register("alice", PASSWORD)
-    invitation = accounts.create_invite(lifetime_seconds=60)
-    clock[0] += 60
-    with pytest.raises(ValueError, match="invitation"):
-        accounts.register("alice", PASSWORD, invitation["token"])
-    invitation = accounts.create_invite()
-    registered = accounts.register("ALICE", PASSWORD, invitation["token"])
-    assert registered["account"]["username"] == "alice"
-    with pytest.raises(ValueError, match="invitation"):
-        accounts.register("bob", PASSWORD, invitation["token"])
+    with pytest.raises(ValueError):
+        accounts.register("bob@example.com", "short")
+    closed = Accounts(store, ProductConfig(registration_mode="closed"), lambda: clock[0])
+    with pytest.raises(ValueError, match="closed"):
+        closed.register("carol@example.com", PASSWORD)
+    with pytest.raises(ValueError, match="open or closed"):
+        ProductConfig(registration_mode="invite")
     assert len(accounts.store.query("accounts")) == 1
 
 
-def test_open_registration_is_explicit_and_unique_names_are_case_insensitive(store, clock):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    accounts.register("Alice", PASSWORD)
-    with pytest.raises(ValueError, match="username"):
-        accounts.register("ALICE", PASSWORD)
-    with pytest.raises(ValueError):
-        accounts.register("bad/name", PASSWORD)
-    with pytest.raises(ValueError):
-        accounts.register("bob", "short")
+def test_an_older_account_still_signs_in_with_its_username(accounts, clock):
+    registered = register(accounts)
+    tenant = registered["account"]["id"]
+    # Accounts created before email was required kept a username and no address.
+    account = accounts.store.get("account:" + tenant)
+    data = {**account.data, "username": "alice"}
+    data.pop("email")
+    accounts.store.commit(
+        [
+            account.update(data),
+            module.Document(
+                "username:" + hashlib.sha256(b"alice").hexdigest(),
+                "usernames",
+                {"account_id": tenant},
+            ),
+        ]
+    )
+    assert accounts.login("Alice", PASSWORD)["account"]["id"] == tenant
+    assert accounts.login("alice@example.com", PASSWORD)["account"]["id"] == tenant
 
 
 def test_sessions_are_hashed_expire_and_logout_idempotently(accounts, clock):
@@ -116,23 +130,22 @@ def test_sessions_are_hashed_expire_and_logout_idempotently(accounts, clock):
         PASSWORD,
         result["session_token"],
         result["csrf_token"],
-        result["recovery_code"],
     ):
         assert secret not in raw
     assert accounts.authenticate_session("x" * 43) is None
     accounts.logout(result["session_token"])
     accounts.logout(result["session_token"])
     assert accounts.authenticate_session(result["session_token"]) is None
-    login = accounts.login("ALICE", PASSWORD)
+    login = accounts.login("ALICE@example.com", PASSWORD)
     clock[0] = login["expires_at"]
     assert accounts.authenticate_session(login["session_token"]) is None
 
 
 def test_bad_login_is_generic_and_rate_limited(accounts):
     register(accounts)
-    for name in ("alice", "unknown"):
+    for name in ("alice@example.com", "unknown@example.com"):
         for _ in range(10):
-            with pytest.raises(AuthenticationFailed, match="Incorrect email, username or password"):
+            with pytest.raises(AuthenticationFailed, match="Incorrect email or password"):
                 accounts.login(name, REPLACEMENT)
         with pytest.raises(RateLimited):
             accounts.login(name, REPLACEMENT)
@@ -143,7 +156,7 @@ def test_session_count_is_bounded(accounts, clock):
     sessions = [first]
     for _ in range(10):
         clock[0] += 61
-        sessions.append(accounts.login("alice", PASSWORD))
+        sessions.append(accounts.login("alice@example.com", PASSWORD))
     assert accounts.authenticate_session(first["session_token"]) is None
     assert all(accounts.authenticate_session(session["session_token"]) for session in sessions[1:])
 
@@ -181,28 +194,25 @@ def test_key_expiration_and_quota(accounts, clock):
     assert len(accounts.list_api_keys(tenant, limit=3, cursor=page["next_cursor"])["items"]) == 3
 
 
-def test_recovery_rotates_code_and_invalidates_sessions_keys_and_grants(accounts):
+def test_signing_out_everywhere_revokes_sessions_keys_and_grants(accounts):
     original = register(accounts)
+    other = accounts.login("alice@example.com", PASSWORD)
     tenant = original["account"]["id"]
     key = accounts.issue_api_key(tenant, "client")
     old_epoch = accounts.auth_epoch(tenant)
-    with pytest.raises(AuthenticationFailed):
-        accounts.recover("alice", "x" * 43, REPLACEMENT)
-    recovered = accounts.recover("alice", original["recovery_code"], REPLACEMENT)
-    assert recovered["recovery_code"] != original["recovery_code"]
+    with pytest.raises(IncorrectPassword):
+        accounts.sign_out_everywhere(tenant, REPLACEMENT)
+    renewed = accounts.sign_out_everywhere(tenant, PASSWORD)
     assert accounts.authenticate_session(original["session_token"]) is None
-    assert accounts.authenticate_session(recovered["session_token"])
+    assert accounts.authenticate_session(other["session_token"]) is None
+    assert accounts.authenticate_session(renewed["session_token"])
     assert accounts.authenticate_api_key(key["api_key"]) is None
     assert accounts.validate_account_active(tenant) is True
     assert accounts.validate_account_active(tenant, old_epoch) is False
     assert accounts.validate_account_active(tenant, accounts.auth_epoch(tenant)) is True
     assert accounts.validate_account_active(tenant, True) is False
     assert accounts.list_api_keys(tenant)["items"][0]["revoked"] is True
-    with pytest.raises(AuthenticationFailed):
-        accounts.recover("alice", original["recovery_code"], PASSWORD)
-    with pytest.raises(AuthenticationFailed):
-        accounts.login("alice", PASSWORD)
-    assert accounts.login("alice", REPLACEMENT)["account"]["id"] == tenant
+    assert accounts.login("alice@example.com", PASSWORD)["account"]["id"] == tenant
 
 
 def test_delete_requires_password_revokes_all_access_and_stops_collection(
@@ -231,7 +241,7 @@ def test_delete_requires_password_revokes_all_access_and_stops_collection(
     accounts.cleanup_deleted_account(tenant)
     assert service.store.get("tenant:" + tenant).data["monitors"] == 0
     with pytest.raises(AuthenticationFailed):
-        accounts.login("alice", PASSWORD)
+        accounts.login("alice@example.com", PASSWORD)
 
 
 def test_deleted_account_does_not_stop_other_subscribers(accounts, flight_url, clock):
@@ -244,7 +254,7 @@ def test_deleted_account_does_not_stop_other_subscribers(accounts, flight_url, c
     assert service.store.get("capacity:collection").data["targets"] == [second["target_id"]]
 
 
-def test_login_cannot_issue_session_across_recovery_race(accounts, monkeypatch):
+def test_login_cannot_issue_session_across_an_epoch_change(accounts, monkeypatch):
     initial = register(accounts)
     tenant = initial["account"]["id"]
     commit = accounts.store.commit
@@ -259,7 +269,7 @@ def test_login_cannot_issue_session_across_recovery_race(accounts, monkeypatch):
 
     monkeypatch.setattr(accounts.store, "commit", competing_commit)
     with pytest.raises(AuthenticationFailed, match="changed"):
-        accounts.login("alice", PASSWORD)
+        accounts.login("alice@example.com", PASSWORD)
 
 
 def test_api_key_revocation_between_authentication_reads_is_observed(accounts, monkeypatch):
@@ -280,20 +290,18 @@ def test_api_key_revocation_between_authentication_reads_is_observed(accounts, m
     assert accounts.authenticate_api_key(key["api_key"]) is None
 
 
-def test_invite_consumption_is_transaction_fenced(accounts, monkeypatch):
-    invitation = accounts.create_invite()
-    key = "invite:" + hashlib.sha256(invitation["token"].encode()).hexdigest()
+def test_a_sign_up_race_for_one_email_creates_one_account(accounts, monkeypatch):
     commit = accounts.store.commit
     raced = [False]
 
     def competing_commit(documents):
         if not raced[0] and any(doc.key.startswith("account:") for doc in documents):
             raced[0] = True
-            invite = accounts.store.get(key)
-            commit([invite.update({**invite.data, "used": True})])
+            key = "email:" + hashlib.sha256(b"alice@example.com").hexdigest()
+            commit([module.Document(key, "emails", {"account_id": "acct_" + "0" * 32})])
         return commit(documents)
 
     monkeypatch.setattr(accounts.store, "commit", competing_commit)
-    with pytest.raises(ValueError, match="no longer available"):
-        accounts.register("alice", PASSWORD, invitation["token"])
+    with pytest.raises(ValueError, match="already uses that email"):
+        accounts.register("alice@example.com", PASSWORD)
     assert accounts.store.query("accounts") == []

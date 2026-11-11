@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readFile } from 'node:fs/promises';
 import { mock, monitor, observation } from './fixtures';
 import type { Preferences } from '../src/app/core/types';
 
@@ -56,13 +55,14 @@ async function showSection(page: Page, name: SettingsSection) {
 test('actual account preferences persist and preview does not save or send', async ({
   page,
 }, info) => {
-  const fixture = JSON.parse(await readFile('artifacts/portal-fixture.json', 'utf8'));
-  await page.goto(`/?invite=${encodeURIComponent(fixture.preferences_invites[info.retry])}`);
+  await page.goto('/register');
   const password = 'private-preferences-test-password';
-  await page.getByLabel('Email or username', { exact: true }).fill(`preferencesuser${info.retry}`);
+  await page
+    .getByLabel('Email', { exact: true })
+    .fill(`preferencesuser${info.retry}-${Date.now()}@example.com`);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await page.getByRole('button', { name: 'I’ve saved it, continue', exact: true }).click();
+  await expect(page).toHaveURL('/app');
   await page.getByRole('link', { name: 'Account settings', exact: true }).click();
   await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('America/Chicago');
   await page.getByLabel('Time zone', { exact: true }).fill('Asia/Tokyo');
@@ -590,7 +590,7 @@ test('quiet hours are a window that is checked before saving and kept when switc
   await showSection(page, 'Notifications');
   const toggle = page.getByLabel('Quiet hours', { exact: true });
   await expect(toggle).not.toBeChecked();
-  await expect(page.getByLabel('From', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('From', { exact: true })).toBeHidden();
   await toggle.check();
   const from = page.getByLabel('From', { exact: true });
   const until = page.getByLabel('Until', { exact: true });

@@ -28,18 +28,19 @@ The frontend uses Angular, Bootstrap, and external SCSS. Install the pinned Pyth
 python3.12 -m venv .venv
 make install
 make build
-make invite
 make serve
 ```
 
-Open the invitation URL in `.fareflare/invitation.json`. The file contains a single-use
-credential: keep it private. The dashboard, API, and MCP share
-`http://127.0.0.1:8001`; the flight dashboard is at `/app`, and local customer data
-is stored in `.fareflare/product.sqlite3`. Public guides and landing pages are also
+Open `http://localhost:8001/register` and create an account with an email address
+and a password. The dashboard, API, and MCP share that origin; the flight dashboard
+is at `/app`, and local customer data is stored in `.fareflare/product.sqlite3`.
+Use `localhost` rather than `127.0.0.1`: passkeys need a domain name, so the local
+server redirects `127.0.0.1` to `localhost`. Public guides and landing pages are also
 served by Python, with crawlable initial HTML and matching structured data.
-Sign up with an email address or a username; either is only a sign-in name. Keep
-the recovery code shown at signup. There is no email reset service; a lost code
-can be replaced from **Account settings → Security** while signed in.
+
+Without a mail provider, account email is written to private files in
+`.fareflare/outbox/` instead of being sent. Open the newest file to follow a
+confirmation or password-reset link. See [Sign-in and account security](#sign-in-and-account-security).
 
 The HTTP server never launches Chrome. With local Chromium and ChromeDriver installed,
 run a bounded worker against the same database:
@@ -99,13 +100,40 @@ page update can be retried within that budget; an unsupported or mismatched fare
 is not accepted. A timeout leaves the previous observation visible with its age
 and collection status.
 
+## Sign-in and account security
+
+- **Sign-up** takes an email address and a password of 15 to 128 characters.
+  Fareflare sends one email to confirm the address. Accounts created before email
+  was required keep signing in with their username and can add an address in
+  **Account settings → Security**.
+- **Passkeys** sign in with a fingerprint, face or device PIN, from the browser,
+  1Password, iCloud Keychain, Google Password Manager or a security key. Every
+  passkey is discoverable and requires user verification, so it replaces both the
+  password and the second step. Add, rename and remove them in Security. Password
+  managers find that page through `/.well-known/passkey-endpoints`.
+- **Two-step sign-in** adds a 6-digit code from an authenticator app (RFC 6238,
+  SHA-1, 30 seconds). Setup shows a QR code and the key to type, and the code
+  field is marked `autocomplete="one-time-code"` so 1Password fills it. Turning it
+  on gives ten single-use backup codes for a lost authenticator.
+- **Forgot password** sends a reset link to a confirmed address only. The link works
+  once, for 30 minutes, and stops working if the password changes first. With
+  two-step sign-in on, a reset also asks for a code. A reset signs out every other
+  browser; API keys, connected applications and Telegram stay.
+- **Sign out everywhere** revokes every session, API key, connected application and
+  Telegram link, then signs the current browser back in.
+
+Reset, confirmation and backup codes are stored only as hashes. An authenticator
+secret is kept so its codes can be checked; passkeys are stored as public keys.
+
 ## Product configuration
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
 | `FAREFLARE_PRODUCT_NAME` | `Fareflare` | Display name |
 | `FAREFLARE_PUBLIC_URL` | Required in Lambda | Exact HTTPS application origin |
-| `FAREFLARE_REGISTRATION_MODE` | `invite` | Single-use invites; `open` is opt-in |
+| `FAREFLARE_REGISTRATION_MODE` | `open` | `open` lets anyone sign up; `closed` stops new accounts |
+| `FAREFLARE_EMAIL` | `off` (Lambda), `file` (local) | `ses` sends account email through Amazon SES; `file` writes it to `FAREFLARE_EMAIL_DIRECTORY` |
+| `FAREFLARE_EMAIL_FROM` | Required with `ses` | Sender, for example `Fareflare <no-reply@example.com>` |
 | `FAREFLARE_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
 | `FAREFLARE_MONITOR_LIMIT` | `3` | Monitors per account |
@@ -165,22 +193,14 @@ API and worker images, collection flags, and rollback records consistent.
 Supply your own private S3 state backend with `terraform init -backend-config=...`;
 set `expected_account_id`, `name`, and `region` to your installation. Start with
 empty image URIs to provision repositories and obtain `application_url`, then apply
-the pinned images. Keep `billing_enabled=false` and `registration_mode=invite`.
+the pinned images. Keep `billing_enabled=false`. Set `email_enabled=true` (with
+`domain_name` and `hosted_zone_id`) to send password-reset and confirmation email
+through Amazon SES; see [Account email](OPERATIONS.md#account-email-amazon-ses).
 The [operations runbook](OPERATIONS.md#configure-your-installation) contains the
 configuration templates and release sequence.
 
-Issue a deployed invite explicitly:
-
-```bash
-PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
-  --public-url https://YOUR-HTTP-API.execute-api.REGION.amazonaws.com \
-  invite .fareflare/invitation.json --table fareflare-YOUR-NAME \
-  --aws-account YOUR_ACCOUNT_ID --region REGION
-```
-
-The account-ID guard must match the authenticated AWS identity. Configure Telegram
-separately using Secrets Manager; never put bot tokens, invitation URLs, browser
-cookies, state files, or API keys in Git. CloudWatch alarms expose failure counts;
+Configure Telegram separately using Secrets Manager; never put bot tokens, reset
+links, browser cookies, state files, or API keys in Git. CloudWatch alarms expose failure counts;
 attach an operator notification destination for unattended operation.
 
 ## Contribute

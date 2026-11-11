@@ -411,12 +411,17 @@ The state of a thing, in a word, on a coloured dot of paper.
 - **Bento tile:** 1.75rem radius, 19rem minimum height, content at the bottom, one paper object at the top right. Each tile is a different stock: lime, white, ink, lavender.
 - **Ink block:** the developer block and status history; white text, `night-text` for support, lime focus rings, dotted rules in white at 16 to 28% alpha.
 - **Dialog:** white sheet with the lifted shadow over a 56% ink scrim; a sticky heading with a perforation under it.
+- **Drawer:** an action inside a row (change email, set up two-step sign-in, quiet hours) opens below it in place: the row grows from nothing to its own height in 460ms, and closed content is inert and hidden once the close has finished. Prefer a drawer to a dialog unless the task needs protected focus.
+- **Security row:** a 2.75rem paper disc with a glyph (lime when the thing is on, pale red for deletion), the name and its state as a sticker, one sentence of consequence, and one action at the right.
+- **Chat preview:** the Telegram message preview is a chat on the lavender field: a white header with the mark and "Fareflare bot", a paper body, and the message as a white bubble with one flat corner; inline buttons are white tiles below it. Empty, it shows a bubble of three grey lines.
 - **Empty state:** a hollow slot (inset 1.5px `line-strong` outline) with a strip of hatch along its top edge, a paper object or a glyph on a lavender disc, a title and one sentence.
 
 ### Inputs / Fields
 - **Style:** white, 1.5px `line-strong` border, 0.875rem radius, 48px tall; hover border `ink-3`; read-only on paper.
 - **Focus:** ink border plus a 4px lavender halo. Invalid: danger border, pale red halo on focus, message at 0.83rem weight 550 below.
-- **Checkbox and switch:** 1.3rem, ink when checked.
+- **Checkbox:** 1.3rem, ink when checked, with a small pop as it is ticked.
+- **Switch:** for a setting that is on or off. A 3.1 by 1.8rem pill: off is paper with an `ink-3` outline and grey disc; on is ink with a lime disc. The disc is a background gradient that slides in 320ms, so it moves the same way in every browser. Switches sit at the right end of a row, label and help on the left, rows divided by perforations.
+- **Code field:** a 6-digit authenticator code is set large (1.45 to 1.6rem, weight 700) and widely spaced, centred, with `autocomplete="one-time-code"` and a numeric keypad.
 - **Select:** a project chevron; where the browser supports it the native picker is themed (ink outline, 1rem radius, lime for the chosen option, lavender wash on hover). Native keyboard behavior is kept.
 - **Link pill:** on the hero, one 1.5px ink pill holds the URL field and the flight action; under 768px it splits into a bordered field and a full-width button.
 
@@ -425,6 +430,8 @@ The state of a thing, in a word, on a coloured dot of paper.
 - **Workspace sidebar:** white sheet; items are 48px pills at weight 600; hover is paper with the glyph tilting -12 degrees; the current page is an ink pill with a lime glyph.
 - **Dock (under 992px):** a floating ink bar, 1.75rem radius, five items with short labels; the current one is lime with ink text.
 - **Segment switch:** a pill track holding pill options; the chosen one is ink with white text. Used for the two alert rules, history ranges, settings sections and connection methods.
+- **Settings menu:** when the page column is at least 60rem wide, the settings sections become a sticky vertical list of the same pills beside the content; narrower, they stay a row (two by two under 380px).
+- **Workspace column:** the top bar, page and footer share one centred column, `clamp(88rem, 60vw, 104rem)` wide, so edges align at every width and spare space is split evenly. The page is a size container named `page`; components lay out by the room they get there (for example flights two to a row from 96rem), which keeps every zoom level right.
 - **Footer:** an ink block with rounded top corners that ends in the wordmark set as wide as the container.
 
 ### Flight tag (signature)
@@ -441,6 +448,7 @@ A 1912/1080 stage holding a still poster and a canvas. When motion is allowed th
 
 ### Motion
 One ease for arrivals and hovers, `cubic-bezier(0.16, 1, 0.3, 1)`; one for the print wipe, `cubic-bezier(0.3, 0, 0.2, 1)`. Hovers run 220 to 420ms, presses 80ms, arrivals 520ms to 1.2s. Capitals rise line by line from a mask; fields and dialogs unfold from a clip; tags, tiles and sheets press down with a slight scale and turn; glyphs and discs rotate. Scroll-linked effects use CSS scroll and view timelines behind `@supports`. All of it sits inside `prefers-reduced-motion: no-preference`, and a global reduce rule collapses any remaining duration.
+Open and close are motion too: a disclosure grows to its height and shrinks back (440ms, where the browser can animate `::details-content`), a dismissed dialog slides down and away in 240ms, workspace pages and settings panels rise 0.75rem into place, a switch's disc slides and a checkbox pops. All of it is movement, never a fade on text, so contrast holds at every frame.
 
 ## Do's and Don'ts
 

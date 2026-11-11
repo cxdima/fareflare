@@ -1,4 +1,4 @@
-"""Run the customer application locally and issue private, single-use invitations."""
+"""Run the customer application and its worker locally."""
 
 from __future__ import annotations
 
@@ -7,18 +7,18 @@ import json
 import os
 from dataclasses import replace
 from pathlib import Path
-from urllib.parse import quote
 
 from fareflare.accounts import Accounts
+from fareflare.mailer import FileMailer, mailer_from_env
 from fareflare.product_config import ProductConfig
-from fareflare.store import DynamoStore, SQLiteStore
+from fareflare.store import SQLiteStore
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Fareflare account and server tools")
     parser.add_argument("--database", type=Path, default=Path(".fareflare/product.sqlite3"))
     parser.add_argument(
-        "--public-url", default=os.environ.get("FAREFLARE_PUBLIC_URL", "http://127.0.0.1:8001")
+        "--public-url", default=os.environ.get("FAREFLARE_PUBLIC_URL", "http://localhost:8001")
     )
     sub = parser.add_subparsers(dest="command", required=True)
     serve = sub.add_parser("serve", help="Serve the built dashboard, API and MCP on loopback")
@@ -30,40 +30,13 @@ def main(argv: list[str] | None = None) -> None:
     worker.add_argument("--limit", type=int, choices=range(1, 21), default=5)
     worker.add_argument("--chrome-binary")
     worker.add_argument("--chromedriver")
-    invite = sub.add_parser("invite", help="Write one invitation to a new private file")
-    invite.add_argument("output", type=Path)
-    invite.add_argument("--table", help="Explicit deployed product table; omit for local SQLite")
-    invite.add_argument("--aws-account", help="Required account-ID guard when writing to AWS")
-    invite.add_argument("--region", default="us-east-1")
     args = parser.parse_args(argv)
     config = replace(ProductConfig.from_env(), public_url=args.public_url.rstrip("/"))
-    if args.command == "invite" and args.table:
-        import boto3
-
-        if (
-            not args.aws_account
-            or boto3.client("sts", region_name=args.region).get_caller_identity()["Account"]
-            != args.aws_account
-        ):
-            raise ValueError(
-                "AWS account must match --aws-account before issuing a deployed invitation"
-            )
-        store = DynamoStore(args.table, region=args.region)
-    else:
-        args.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        store = SQLiteStore(args.database)
-    if args.command == "invite":
-        # Open exclusively before consuming a database write; never replace an existing secret.
-        args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        descriptor = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(descriptor, "w") as output:
-            invitation = Accounts(store, config).create_invite()
-            invitation["url"] = (
-                config.public_url + "/?invite=" + quote(invitation["token"], safe="")
-            )
-            json.dump(invitation, output)
-        print(f"Invitation written to {args.output}; expires in seven days.")
-        return
+    if config.public_url.startswith("http://localhost:"):
+        # Passkeys need a domain name, so localhost is canonical and 127.0.0.1 redirects to it.
+        config = replace(config, additional_hosts=(*config.additional_hosts, "127.0.0.1"))
+    args.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    store = SQLiteStore(args.database)
     if args.command == "serve" and not (args.static_dir / "index.html").is_file():
         raise ValueError(
             "Build the dashboard first: npm --prefix web ci && npm --prefix web run build"
@@ -100,8 +73,12 @@ def main(argv: list[str] | None = None) -> None:
             )
         )
         return
+    # Without a configured provider, account email (resets and confirmations) is
+    # written to private files in .fareflare/outbox so the links can be opened.
+    mailer = mailer_from_env() or FileMailer(args.database.parent / "outbox")
+    accounts = Accounts(store, config, mailer=mailer)
     uvicorn.run(
-        create_portal(service, config, static_dir=args.static_dir),
+        create_portal(service, config, accounts, static_dir=args.static_dir),
         host="127.0.0.1",
         port=args.port,
         access_log=False,

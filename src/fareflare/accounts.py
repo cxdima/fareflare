@@ -1,20 +1,26 @@
-"""Invite onboarding, password authentication, opaque sessions and customer keys.
+"""Sign-up, sign-in, sessions, two-step codes, passkeys, password resets and API keys.
 
-No mail or payment provider is required. Passwords use the OWASP scrypt baseline;
-session, invite, API and recovery credentials are stored only as hashes.
+Passwords use the OWASP scrypt baseline. Session, API, reset and confirmation
+credentials are stored only as hashes. Email is sent only to reset a password or
+confirm an address, and a reset link goes only to a confirmed address.
 """
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
+import logging
 import re
 import secrets
 import time
 import uuid
 from collections.abc import Callable
 
+from fareflare import mailer as mail
+from fareflare import totp
 from fareflare.credentials import Credentials, RateLimiter
+from fareflare.passkeys import Passkeys
 from fareflare.product_config import ProductConfig
 from fareflare.store import Conflict, Document, Store
 
@@ -26,13 +32,19 @@ _SCRYPT_R = 8
 _SCRYPT_P = 1
 _SCRYPT_MAXMEM = 256 * 1024 * 1024
 _DUMMY_SALT = bytes.fromhex("86924ed509cef2bf4148bfffc357c86d")
+log = logging.getLogger(__name__)
 _TOKEN = re.compile(r"[A-Za-z0-9_-]{43}\Z")
 _ACCOUNT = re.compile(r"acct_[a-f0-9]{32}\Z")
+_RESET_MINUTES = 30
+_CONFIRM_SECONDS = 86400
+_TWO_FACTOR_SECONDS = 300
+_TWO_FACTOR_ATTEMPTS = 5
+_SETUP_SECONDS = 900
+_EMAIL_COOLDOWN = 60
 MAX_USERNAME_LENGTH = 254
 _USERNAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}")
-# An email address is accepted so a password manager can fill what it already
-# knows. It is a name and nothing more: no message is ever sent to it, so it is
-# not verified, and recovery still depends on the recovery code.
+# New accounts sign in with their email address. Accounts created before email
+# was required may still sign in with a username.
 _EMAIL = re.compile(
     r"[a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}"
     r"@[a-zA-Z0-9][a-zA-Z0-9-]{0,62}(?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,62})*\.[a-zA-Z]{2,24}"
@@ -44,7 +56,7 @@ class AuthenticationFailed(ValueError):
 
 
 class IncorrectPassword(ValueError):
-    """A signed-in person confirmed an action with the wrong password.
+    """A signed-in person confirmed an action with the wrong password or code.
 
     Distinct from ``AuthenticationFailed``: the session is still valid, so the
     browser must not treat this as having been signed out.
@@ -56,17 +68,24 @@ def _digest(value: str) -> str:
 
 
 def _username(value: str) -> str:
-    """The sign-in name: a short username, or an email address used only as a name."""
+    """A sign-in name: an email address, or the username of an older account."""
     if (
         not isinstance(value, str)
         or len(value) > MAX_USERNAME_LENGTH
         or not (_USERNAME.fullmatch(value) or _EMAIL.fullmatch(value))
     ):
-        raise ValueError(
-            "Use an email address, or a username of 3–40 letters, numbers, periods, "
-            "underscores or hyphens"
-        )
+        raise ValueError("Enter your email address")
     return value.lower()
+
+
+def _email(value: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) > MAX_USERNAME_LENGTH
+        or not _EMAIL.fullmatch(value.strip())
+    ):
+        raise ValueError("Enter an email address, like name@example.com")
+    return value.strip().lower()
 
 
 def _password(value: str) -> bytes:
@@ -114,18 +133,34 @@ class Accounts:
         store: Store,
         config: ProductConfig | None = None,
         clock: Callable[[], float] = time.time,
+        mailer: mail.Mailer | None = None,
     ):
         self.store, self.config, self.clock = store, config or ProductConfig(), clock
+        self.mailer = mailer
         self._credentials = Credentials(store, clock)
         self._login_limit = RateLimiter(store, clock, per_minute=10)
-        self._recovery_limit = RateLimiter(store, clock, per_minute=5)
+        self._code_limit = RateLimiter(store, clock, per_minute=6)
+        self._email_limit = RateLimiter(store, clock, per_minute=5)
+        self.passkeys = Passkeys(
+            store,
+            self.config.public_url or "http://localhost",
+            self.config.product_name,
+            clock,
+        )
 
     def _now(self) -> int:
         return int(self.clock())
 
     @staticmethod
     def _public(account: Document) -> dict:
-        return {name: account.data[name] for name in ("id", "username", "created_at")}
+        data = account.data
+        return {
+            "id": data["id"],
+            "username": data["username"],
+            "created_at": data["created_at"],
+            "email": data.get("email"),
+            "email_verified": bool(data.get("email_verified")),
+        }
 
     def _account(self, tenant: str) -> Document:
         if not isinstance(tenant, str) or not _ACCOUNT.fullmatch(tenant):
@@ -134,6 +169,12 @@ class Accounts:
         if not account or account.data.get("status") != "active":
             raise AuthenticationFailed("Account unavailable")
         return account
+
+    def _active(self, tenant: str) -> Document | None:
+        try:
+            return self._account(tenant)
+        except AuthenticationFailed:
+            return None
 
     def get_account(self, tenant: str) -> dict:
         return self._public(self._account(tenant))
@@ -150,35 +191,9 @@ class Accounts:
             return False
         return epoch is None or account.data["auth_epoch"] == epoch
 
-    def create_invite(self, lifetime_seconds: int = 7 * 86400) -> dict:
-        if type(lifetime_seconds) is not int or not 60 <= lifetime_seconds <= 30 * 86400:
-            raise ValueError("Invitation lifetime must be 60 seconds to 30 days")
-        token, expires = secrets.token_urlsafe(32), self._now() + lifetime_seconds
-        self.store.commit(
-            [
-                Document(
-                    "invite:" + _digest(token),
-                    "invites",
-                    {
-                        "created_at": self._now(),
-                        "expires_at": expires,
-                        "used": False,
-                    },
-                    expires_at=expires,
-                )
-            ]
-        )
-        return {"token": token, "expires_at": expires}
-
-    def _invite(self, token: str | None) -> Document | None:
-        if self.config.registration_mode == "open" and token is None:
-            return None
-        if not isinstance(token, str) or not _TOKEN.fullmatch(token):
-            raise ValueError("A valid unused invitation is required")
-        invite = self.store.get("invite:" + _digest(token))
-        if not invite or invite.data["used"] or invite.data["expires_at"] <= self._now():
-            raise ValueError("A valid unused invitation is required")
-        return invite
+    @property
+    def email_enabled(self) -> bool:
+        return self.mailer is not None and bool(self.config.public_url)
 
     def _session(self, account: Document) -> tuple[dict, list[Document]]:
         token, expires = secrets.token_urlsafe(32), self._now() + _SESSION_LIFETIME
@@ -206,66 +221,133 @@ class Accounts:
             "expires_at": expires,
         }, [account.update(data), session]
 
-    def register(self, username: str, password: str, invite_token: str | None = None) -> dict:
-        username = _username(username)
+    def _signed_in(self, account: Document, extra: list[Document] | None = None) -> dict:
+        response, writes = self._session(account)
+        try:
+            self.store.commit([*writes, *(extra or [])])
+        except Conflict:
+            raise AuthenticationFailed("Account changed; sign in again") from None
+        return response
+
+    def _by_name(self, name: str) -> Document | None:
+        """The account a sign-in name belongs to: a username first, then an email."""
+        index = self.store.get("username:" + _digest(name))
+        if not index and _EMAIL.fullmatch(name):
+            index = self.store.get("email:" + _digest(name))
+            if index and index.data.get("released"):
+                index = None
+        account = self.store.get("account:" + index.data["account_id"]) if index else None
+        return account if account and account.data["status"] == "active" else None
+
+    # Sign-up and sign-in.
+
+    def register(self, email: str, password: str) -> dict:
+        if self.config.registration_mode == "closed":
+            raise ValueError("Sign-up is closed on this server")
+        email = _email(email)
         _password(password)
-        self._login_limit.consume("register-" + _digest(username))
-        invite = self._invite(invite_token)
-        username_key = "username:" + _digest(username)
-        if self.store.get(username_key):
-            raise ValueError(
-                "That email or username is unavailable. Choose another, or sign in if it is yours."
-            )
-        tenant, recovery = "acct_" + uuid.uuid4().hex, secrets.token_urlsafe(32)
+        self._login_limit.consume("register-" + _digest(email))
+        if self.store.get("username:" + _digest(email)) or self.store.get(
+            "email:" + _digest(email)
+        ):
+            raise ValueError("An account already uses that email. Sign in, or reset your password.")
+        tenant = "acct_" + uuid.uuid4().hex
         account = Document(
             "account:" + tenant,
             "accounts",
             {
                 "id": tenant,
-                "username": username,
+                "username": email,
+                "email": email,
+                "email_verified": False,
                 "created_at": self._now(),
                 "status": "active",
                 "password_hash": hash_password(password),
-                "recovery_hash": _digest(recovery),
                 "auth_epoch": 1,
                 "key_ids": [],
                 "session_ids": [],
+                "passkey_ids": [],
             },
         )
         response, writes = self._session(account)
         writes.extend(
             [
-                Document(username_key, "usernames", {"account_id": tenant}),
+                Document("username:" + _digest(email), "usernames", {"account_id": tenant}),
+                Document("email:" + _digest(email), "emails", {"account_id": tenant}),
                 Document("tenant:" + tenant, "tenants", {"monitors": 0, "webhooks": 0}),
             ]
         )
-        if invite:
-            writes.append(invite.update({**invite.data, "used": True}))
         try:
             self.store.commit(writes)
         except Conflict:
-            raise ValueError("The username or invitation is no longer available") from None
-        return {**response, "recovery_code": recovery}
+            raise ValueError(
+                "An account already uses that email. Sign in, or reset your password."
+            ) from None
+        self._send_confirmation(writes[0])
+        return response
 
     def login(self, username: str, password: str) -> dict:
-        username = _username(username)
+        """A session, or, for an account with two-step sign-in, a short-lived
+        ``two_factor_token`` to exchange with a code."""
+        name = _username(username)
         _password(password)
-        self._login_limit.consume("login-" + _digest(username))
-        index = self.store.get("username:" + _digest(username))
-        account = self.store.get("account:" + index.data["account_id"]) if index else None
-        stored = (
-            account.data.get("password_hash")
-            if account and account.data["status"] == "active"
-            else None
-        )
+        self._login_limit.consume("login-" + _digest(name))
+        account = self._by_name(name)
+        stored = account.data.get("password_hash") if account else None
         if not verify_password(password, stored) or account is None:
-            raise AuthenticationFailed("Incorrect email, username or password")
-        response, writes = self._session(account)
+            raise AuthenticationFailed("Incorrect email or password")
+        if (account.data.get("totp") or {}).get("enabled"):
+            token = secrets.token_urlsafe(32)
+            expires = self._now() + _TWO_FACTOR_SECONDS
+            self.store.commit(
+                [
+                    Document(
+                        "login-challenge:" + _digest(token),
+                        "login_challenges",
+                        {
+                            "tenant": account.data["id"],
+                            "auth_epoch": account.data["auth_epoch"],
+                            "expires_at": expires,
+                            "attempts": 0,
+                            "used": False,
+                        },
+                        expires_at=expires,
+                    )
+                ]
+            )
+            return {"two_factor_token": token, "expires_at": expires}
+        return self._signed_in(account)
+
+    def complete_login(self, token: str, code: str) -> dict:
+        """Finish a password sign-in with an authenticator code or a backup code."""
+        expired = AuthenticationFailed("This sign-in expired. Enter your password again.")
+        if not isinstance(token, str) or not _TOKEN.fullmatch(token):
+            raise expired
+        challenge = self.store.get("login-challenge:" + _digest(token))
+        if (
+            not challenge
+            or challenge.data["used"]
+            or challenge.data["expires_at"] <= self._now()
+            or challenge.data["attempts"] >= _TWO_FACTOR_ATTEMPTS
+        ):
+            raise expired
+        account = self._active(challenge.data["tenant"])
+        if account is None or account.data["auth_epoch"] != challenge.data["auth_epoch"]:
+            raise expired
+        self._code_limit.consume("login-code-" + account.data["id"])
         try:
-            self.store.commit(writes)
-        except Conflict:
-            raise AuthenticationFailed("Account changed; sign in again") from None
-        return response
+            account = self._second_factor(account, code)
+        except IncorrectPassword:
+            with contextlib.suppress(Conflict):
+                self.store.commit(
+                    [
+                        challenge.update(
+                            {**challenge.data, "attempts": challenge.data["attempts"] + 1}
+                        )
+                    ]
+                )
+            raise AuthenticationFailed("That code is not correct") from None
+        return self._signed_in(account, [challenge.update({**challenge.data, "used": True})])
 
     def authenticate_session(self, token: str) -> dict | None:
         if not isinstance(token, str) or not _TOKEN.fullmatch(token):
@@ -303,42 +385,241 @@ class Accounts:
                 continue
         raise Conflict("Concurrent session change; retry logout")
 
-    def recover(self, username: str, recovery_code: str, new_password: str) -> dict:
-        username = _username(username)
-        _password(new_password)
-        self._recovery_limit.consume("recovery-" + _digest(username))
-        index = self.store.get("username:" + _digest(username))
-        account = self.store.get("account:" + index.data["account_id"]) if index else None
-        supplied = (
-            _digest(recovery_code)
-            if isinstance(recovery_code, str) and _TOKEN.fullmatch(recovery_code)
-            else ""
+    # Passkeys.
+
+    def passkey_login_options(self) -> dict:
+        return self.passkeys.authentication_options()
+
+    def passkey_login(self, challenge_id: object, credential: object) -> dict:
+        account, used = self.passkeys.authenticate(challenge_id, credential, self._active)
+        return self._signed_in(account, [used])
+
+    def passkey_registration_options(self, tenant: str) -> dict:
+        for _ in range(5):
+            account = self._account(tenant)
+            options, new_handle = self.passkeys.registration_options(account)
+            if not new_handle:
+                return options
+            try:
+                self.store.commit(
+                    [account.update({**account.data, "webauthn_user_id": new_handle})]
+                )
+                return options
+            except Conflict:
+                continue
+        raise Conflict("Your account changed in another window; try again")
+
+    def add_passkey(self, tenant: str, challenge_id: object, credential: object, name: object):
+        account = self._account(tenant)
+        passkey, updated = self.passkeys.register(account, challenge_id, credential, name)
+        try:
+            self.store.commit([passkey, updated])
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+        return self.passkeys._public(passkey)
+
+    def list_passkeys(self, tenant: str) -> list[dict]:
+        return self.passkeys.list(self._account(tenant))
+
+    def rename_passkey(self, tenant: str, identifier: object, name: object) -> dict:
+        return self.passkeys.rename(self._account(tenant), identifier, name)
+
+    def remove_passkey(self, tenant: str, identifier: object) -> None:
+        passkey, updated = self.passkeys.remove(self._account(tenant), identifier)
+        try:
+            self.store.commit([passkey, updated])
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+
+    # Email: confirmation and password reset.
+
+    def _send(self, message: mail.Message) -> None:
+        """Send account email. A provider failure is logged, never shown: the
+        answer to a reset request must not depend on whether mail went out."""
+        if self.mailer is None:
+            return
+        try:
+            self.mailer.send(message)
+        except Exception:
+            log.exception("Account email could not be sent")
+
+    def _cooldown(self, key: str) -> bool:
+        """True when a message of this kind may be sent to this address now."""
+        existing = self.store.get(key)
+        if existing and (existing.expires_at or 0) > self._now():
+            return False
+        document = Document(key, "email_cooldowns", {}, expires_at=self._now() + _EMAIL_COOLDOWN)
+        try:
+            self.store.commit(
+                [existing.update({}, expires_at=document.expires_at) if existing else document]
+            )
+        except Conflict:
+            return False
+        return True
+
+    def _send_confirmation(self, account: Document) -> None:
+        email = account.data.get("email")
+        if not self.email_enabled or not email or account.data.get("email_verified"):
+            return
+        if not self._cooldown("confirm-cooldown:" + _digest(email)):
+            return
+        token, expires = secrets.token_urlsafe(32), self._now() + _CONFIRM_SECONDS
+        self.store.commit(
+            [
+                Document(
+                    "confirm:" + _digest(token),
+                    "email_confirmations",
+                    {
+                        "tenant": account.data["id"],
+                        "email": email,
+                        "used": False,
+                        "expires_at": expires,
+                    },
+                    expires_at=expires,
+                )
+            ]
         )
-        expected = account.data.get("recovery_hash", "") if account else ""
-        if (
-            not supplied
-            or not hmac.compare_digest(supplied, expected)
-            or account is None
-            or account.data["status"] != "active"
-        ):
-            raise AuthenticationFailed("Incorrect email, username or recovery code")
-        recovery = secrets.token_urlsafe(32)
-        updated = account.update(
-            {
-                **account.data,
-                "password_hash": hash_password(new_password),
-                "recovery_hash": _digest(recovery),
-                "auth_epoch": account.data["auth_epoch"] + 1,
-                "session_ids": [],
-                "key_ids": [],
-            }
+        link = self.config.public_url.rstrip("/") + "/confirm-email#token=" + token
+        self._send(mail.email_confirmation(self.config.product_name, email, link))
+
+    def resend_confirmation(self, tenant: str) -> None:
+        account = self._account(tenant)
+        if not self.email_enabled:
+            raise ValueError("Email is not set up on this server")
+        if not account.data.get("email"):
+            raise ValueError("Add an email address first")
+        self._email_limit.consume("confirm-" + tenant)
+        self._send_confirmation(account)
+
+    def confirm_email(self, token: str) -> dict:
+        invalid = ValueError("This confirmation link is no longer valid")
+        if not isinstance(token, str) or not _TOKEN.fullmatch(token):
+            raise invalid
+        document = self.store.get("confirm:" + _digest(token))
+        if not document or document.data["used"] or document.data["expires_at"] <= self._now():
+            raise invalid
+        account = self._active(document.data["tenant"])
+        if account is None or account.data.get("email") != document.data["email"]:
+            raise invalid
+        try:
+            self.store.commit(
+                [
+                    account.update({**account.data, "email_verified": True}),
+                    document.update({**document.data, "used": True}),
+                ]
+            )
+        except Conflict:
+            raise invalid from None
+        return {"confirmed": True, "email": document.data["email"]}
+
+    def change_email(self, tenant: str, password: str, email: str) -> dict:
+        email = _email(email)
+        account = self._account(tenant)
+        self._confirm_password(account, password, "email")
+        if account.data.get("email") == email:
+            self._send_confirmation(account)
+            return self._public(account)
+        owner = self.store.get("username:" + _digest(email))
+        if owner and owner.data["account_id"] != tenant:
+            raise ValueError("Another account already uses that email")
+        writes = [
+            account.update({**account.data, "email": email, "email_verified": False}),
+        ]
+        index = self.store.get("email:" + _digest(email))
+        if index and not index.data.get("released") and index.data["account_id"] != tenant:
+            raise ValueError("Another account already uses that email")
+        claim = {"account_id": tenant}
+        writes.append(
+            index.update(claim) if index else Document("email:" + _digest(email), "emails", claim)
         )
-        response, writes = self._session(updated)
+        previous = account.data.get("email")
+        if previous:
+            old = self.store.get("email:" + _digest(previous))
+            if old and old.data.get("account_id") == tenant:
+                writes.append(old.update({**old.data, "released": True}))
         try:
             self.store.commit(writes)
         except Conflict:
-            raise AuthenticationFailed("Account changed; retry recovery") from None
-        return {**response, "recovery_code": recovery}
+            raise Conflict("Your account changed in another window; try again") from None
+        self._send_confirmation(writes[0])
+        return self._public(writes[0])
+
+    def request_password_reset(self, email: str) -> None:
+        """Send a reset link to a confirmed address. The reply never says whether an
+        account exists, so the caller answers the same way either way."""
+        email = _email(email)
+        self._email_limit.consume("reset-" + _digest(email))
+        if not self.email_enabled:
+            raise ValueError("Password reset by email is not set up on this server")
+        index = self.store.get("email:" + _digest(email))
+        if not index or index.data.get("released"):
+            return
+        account = self._active(index.data["account_id"])
+        if (
+            account is None
+            or account.data.get("email") != email
+            or not account.data.get("email_verified")
+            or not self._cooldown("reset-cooldown:" + _digest(email))
+        ):
+            return
+        token = secrets.token_urlsafe(32)
+        expires = self._now() + _RESET_MINUTES * 60
+        self.store.commit(
+            [
+                Document(
+                    "reset:" + _digest(token),
+                    "password_resets",
+                    {
+                        "tenant": account.data["id"],
+                        # A link dies once the password it was sent for has changed.
+                        "password": _digest(account.data.get("password_hash", "")),
+                        "used": False,
+                        "expires_at": expires,
+                    },
+                    expires_at=expires,
+                )
+            ]
+        )
+        link = self.config.public_url.rstrip("/") + "/reset-password#token=" + token
+        self._send(mail.password_reset(self.config.product_name, email, link, _RESET_MINUTES))
+
+    def _reset(self, token: str) -> tuple[Document, Document]:
+        invalid = ValueError("This reset link is no longer valid. Ask for a new one.")
+        if not isinstance(token, str) or not _TOKEN.fullmatch(token):
+            raise invalid
+        document = self.store.get("reset:" + _digest(token))
+        if not document or document.data["used"] or document.data["expires_at"] <= self._now():
+            raise invalid
+        account = self._active(document.data["tenant"])
+        if account is None or document.data["password"] != _digest(
+            account.data.get("password_hash", "")
+        ):
+            raise invalid
+        return document, account
+
+    def check_reset(self, token: str) -> dict:
+        """What the reset page needs: the address (so a password manager saves the new
+        password to the right login) and whether a code is needed too."""
+        _, account = self._reset(token)
+        return {
+            "email": account.data.get("email"),
+            "two_factor": bool((account.data.get("totp") or {}).get("enabled")),
+        }
+
+    def reset_password(self, token: str, new_password: str, code: str | None = None) -> dict:
+        """Set a new password from an emailed link, then sign in. Every other browser
+        is signed out; API keys, connected applications and Telegram stay."""
+        _password(new_password)
+        document, account = self._reset(token)
+        self._code_limit.consume("reset-code-" + account.data["id"])
+        if (account.data.get("totp") or {}).get("enabled"):
+            if not code:
+                raise IncorrectPassword("Enter a code from your authenticator app")
+            account = self._second_factor(account, code)
+        updated = account.update(
+            {**account.data, "password_hash": hash_password(new_password), "session_ids": []}
+        )
+        return self._signed_in(updated, [document.update({**document.data, "used": True})])
 
     def issue_api_key(self, tenant: str, name: str, lifetime_seconds: int = 90 * 86400) -> dict:
         if (
@@ -458,8 +739,7 @@ class Accounts:
     ) -> None:
         """Replace the password and sign out every other browser.
 
-        The recovery code, API keys, connected applications and Telegram are
-        unchanged: they are revoked separately, or all at once by recovery.
+        API keys, connected applications and Telegram are unchanged.
         """
         _password(new_password)
         account = self._account(tenant)
@@ -481,18 +761,138 @@ class Accounts:
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
 
-    def new_recovery_code(self, tenant: str, password: str) -> dict:
-        """Replace the recovery code, for someone who is signed in but lost theirs."""
+    def sign_out_everywhere(self, tenant: str, password: str) -> dict:
+        """Revoke every session, API key, connected application and Telegram link,
+        then sign this browser back in. For a lost device or a leaked key."""
         account = self._account(tenant)
-        self._confirm_password(account, password, "recovery-code")
-        recovery = secrets.token_urlsafe(32)
+        self._confirm_password(account, password, "sign-out-everywhere")
+        updated = account.update(
+            {
+                **account.data,
+                "auth_epoch": account.data["auth_epoch"] + 1,
+                "session_ids": [],
+                "key_ids": [],
+            }
+        )
+        return self._signed_in(updated)
+
+    # Two-step sign-in with an authenticator app.
+
+    def _second_factor(self, account: Document, code: object) -> Document:
+        """Check an authenticator or backup code. Returns the account with the code
+        spent, to be committed by the caller; raises IncorrectPassword otherwise."""
+        settings = account.data.get("totp") or {}
+        if not settings.get("enabled") or not isinstance(code, str):
+            raise IncorrectPassword("That code is not correct")
+        step = totp.matching_step(
+            settings["secret"], code, self.clock(), settings.get("last_step", -1)
+        )
+        if step is not None:
+            return account.update({**account.data, "totp": {**settings, "last_step": step}})
+        digest = totp.backup_digest(code)
+        if digest and digest in settings.get("backup", []):
+            remaining = [item for item in settings["backup"] if item != digest]
+            return account.update({**account.data, "totp": {**settings, "backup": remaining}})
+        raise IncorrectPassword("That code is not correct")
+
+    def security(self, tenant: str) -> dict:
+        account = self._account(tenant)
+        settings = account.data.get("totp") or {}
+        return {
+            "email": account.data.get("email"),
+            "email_verified": bool(account.data.get("email_verified")),
+            "email_enabled": self.email_enabled,
+            "two_factor": {
+                "enabled": bool(settings.get("enabled")),
+                "backup_codes_left": len(settings.get("backup", []))
+                if settings.get("enabled")
+                else 0,
+                "enabled_at": settings.get("enabled_at") if settings.get("enabled") else None,
+            },
+            "passkeys": self.passkeys.list(account),
+        }
+
+    def start_two_factor(self, tenant: str, password: str) -> dict:
+        account = self._account(tenant)
+        self._confirm_password(account, password, "two-factor")
+        if (account.data.get("totp") or {}).get("enabled"):
+            raise ValueError("Two-step sign-in is already on")
+        secret = totp.new_secret()
+        label = account.data.get("email") or account.data["username"]
         try:
             self.store.commit(
-                [account.update({**account.data, "recovery_hash": _digest(recovery)})]
+                [
+                    account.update(
+                        {
+                            **account.data,
+                            "totp_pending": {
+                                "secret": secret,
+                                "expires_at": self._now() + _SETUP_SECONDS,
+                            },
+                        }
+                    )
+                ]
             )
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
-        return {"recovery_code": recovery}
+        return {
+            "secret": secret,
+            "uri": totp.otpauth_uri(secret, label, self.config.product_name),
+            "account": label,
+            "issuer": self.config.product_name,
+        }
+
+    def enable_two_factor(self, tenant: str, code: str) -> dict:
+        account = self._account(tenant)
+        self._code_limit.consume("two-factor-setup-" + tenant)
+        pending = account.data.get("totp_pending") or {}
+        if not pending or pending["expires_at"] <= self._now():
+            raise ValueError("Setup expired. Start again.")
+        step = totp.matching_step(pending["secret"], code, self.clock())
+        if step is None:
+            raise IncorrectPassword("That code is not correct. Check the time on your device.")
+        codes = totp.new_backup_codes()
+        data = {
+            **account.data,
+            "totp": {
+                "enabled": True,
+                "secret": pending["secret"],
+                "last_step": step,
+                "backup": [totp.backup_digest(item) for item in codes],
+                "enabled_at": self._now(),
+            },
+        }
+        data.pop("totp_pending", None)
+        try:
+            self.store.commit([account.update(data)])
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+        return {"backup_codes": codes}
+
+    def disable_two_factor(self, tenant: str, password: str, code: str) -> None:
+        account = self._account(tenant)
+        self._confirm_password(account, password, "two-factor")
+        self._code_limit.consume("two-factor-off-" + tenant)
+        account = self._second_factor(account, code)
+        data = {**account.data}
+        data.pop("totp", None)
+        try:
+            self.store.commit([account.update(data)])
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+
+    def new_backup_codes(self, tenant: str, password: str, code: str) -> dict:
+        account = self._account(tenant)
+        self._confirm_password(account, password, "backup-codes")
+        self._code_limit.consume("backup-codes-" + tenant)
+        account = self._second_factor(account, code)
+        codes = totp.new_backup_codes()
+        settings = {**account.data["totp"], "backup": [totp.backup_digest(c) for c in codes]}
+        try:
+            self.store.commit([account.update({**account.data, "totp": settings})])
+        except Conflict:
+            raise Conflict("Your account changed in another window; try again") from None
+        return {"backup_codes": codes}
 
     def delete_account(self, tenant: str, password: str) -> dict:
         account = self._account(tenant)
@@ -512,6 +912,7 @@ class Accounts:
                         "auth_epoch": account.data["auth_epoch"] + 1,
                         "session_ids": [],
                         "key_ids": [],
+                        "passkey_ids": [],
                     }
                 ),
                 customer.update(
@@ -605,6 +1006,11 @@ class Accounts:
                     break
                 except Conflict:
                     continue
+        for index in self.store.query("passkeys:" + tenant):
+            passkey = self.store.get(index.key)
+            if passkey and passkey.data["tenant"] == tenant and not passkey.data["removed"]:
+                with contextlib.suppress(Conflict):
+                    self.store.commit([passkey.update({**passkey.data, "removed": True})])
         for index in self.store.query("webhooks:" + tenant):
             for _ in range(5):
                 endpoint = self.store.get(index.key)

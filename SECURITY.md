@@ -9,7 +9,7 @@ in a public issue.
 
 Include the affected commit or deployment, reproduction steps using accounts and
 systems you control, expected impact, and a minimal proof of concept. Redact API
-keys, invitation tokens, recovery codes, cookies, bot tokens, and travel details.
+keys, reset links, backup codes, cookies, bot tokens, and travel details.
 The maintainer will coordinate investigation and disclosure through that report.
 There is no guaranteed response time or paid bug-bounty program.
 
@@ -25,7 +25,7 @@ and reviewing configuration changes.
 - Keep `.env`, `.fareflare/`, Terraform state, backend settings, and variable files out
   of Git. Use Secrets Manager for deployed Telegram credentials.
 - Keep account endpoints on HTTPS. Preserve secure cookies, CSRF checks, CSP,
-  request limits, tenant authorization, and invitation requirements.
+  request limits, tenant authorization, passkey and two-step sign-in, and password-reset links.
 - Verify webhook signatures over raw request bytes and deduplicate event IDs.
 - Use immutable image digests and keep a private rollback record. Restrict AWS
   permissions and explicitly select the intended AWS account and state backend.

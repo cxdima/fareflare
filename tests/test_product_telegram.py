@@ -11,9 +11,7 @@ from fareflare.product_telegram import InboxSink
 
 def test_customer_inbox_never_claims_explicit_webhook_or_unknown_account_delivery(store):
     accounts = Accounts(store)
-    account = accounts.register(
-        "alice", "a long secure test password", accounts.create_invite()["token"]
-    )["account"]
+    account = accounts.register("alice@example.com", "a long secure test password")["account"]
     sink = InboxSink(accounts)
     assert sink.send({"tenant": account["id"]})
     assert not sink.send({"tenant": account["id"], "webhook_id": "a" * 32})
@@ -24,9 +22,7 @@ def test_customer_inbox_never_claims_explicit_webhook_or_unknown_account_deliver
 
 def test_telegram_webhook_authentication_and_customer_csrf(service):
     accounts = Accounts(service.store, clock=service.clock)
-    login = accounts.register(
-        "alice", "a long secure test password", accounts.create_invite()["token"]
-    )
+    login = accounts.register("alice@example.com", "a long secure test password")
     bot = Mock()
     bot.status.return_value = {"enabled": True, "connected": False}
     bot.connect.return_value = {"url": "https://t.me/testbot?start=example", "expires_at": 123}

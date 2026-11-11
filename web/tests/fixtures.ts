@@ -50,6 +50,34 @@ export async function mock(page: BrowserPage, signedIn = true) {
       revoked: false,
     },
   ];
+  const backupCodes = ['ab2c-de3f', 'gh4j-km5n', 'pq6r-st7u', 'vw8x-yz9a', 'b2cd-3efg'];
+  const passkeyOptions = {
+    challenge: 'Y2hhbGxlbmdl',
+    rp: { id: '127.0.0.1', name: 'Fareflare' },
+    user: { id: 'dXNlcg', name: 'traveler@example.com', displayName: 'traveler@example.com' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+    timeout: 300000,
+    excludeCredentials: [],
+    authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+    attestation: 'none',
+    allowCredentials: [],
+    userVerification: 'required',
+  };
+  const security = {
+    email: 'traveler@example.com',
+    email_verified: true,
+    email_enabled: true,
+    two_factor: { enabled: false, backup_codes_left: 0, enabled_at: null as number | null },
+    passkeys: [] as {
+      id: string;
+      credential_id: string;
+      name: string;
+      provider: string;
+      synced: boolean;
+      created_at: number;
+      last_used_at: number | null;
+    }[],
+  };
   const calls: { path: string; method: string; body: any; csrf?: string; key?: string }[] = [];
   await page.route(/\/(?:v1|auth)\//, async (route) => {
     const request = route.request();
@@ -69,24 +97,83 @@ export async function mock(page: BrowserPage, signedIn = true) {
       return reply({
         product_name: 'Fareflare',
         billing_enabled: false,
-        registration_mode: 'invite',
+        registration_mode: 'open',
+        email_enabled: true,
         limits: { monitors: 3, min_interval_seconds: 900 },
       });
+    const account = () => ({
+      id: 'user',
+      username: security.email,
+      email: security.email,
+      email_verified: security.email_verified,
+    });
     if (path === '/v1/account' && method === 'GET')
       return signedIn
-        ? reply({ account: { id: 'user', username: 'traveler' }, csrf_token: 'csrf-test' })
+        ? reply({ account: account(), csrf_token: 'csrf-test' })
         : reply({ detail: 'Sign in' }, 401);
+    if (path === '/v1/account/security') return reply(security);
     if (path === '/auth/password') return reply({ changed: true });
-    if (path === '/auth/recovery-code') return reply({ recovery_code: 'replacement-recovery' });
+    if (path === '/auth/login' && body?.password === 'a two-step password')
+      return reply({ two_factor_required: true, token: 'two-step-token', expires_at: now + 300 });
+    if (path === '/auth/login/two-factor' && body?.code !== '123456')
+      return reply({ detail: 'That code is not correct' }, 401);
+    if (path === '/auth/password-reset') return reply({ sent: true }, 202);
+    if (path === '/auth/password-reset/check')
+      return body?.token === 'expired-token'
+        ? reply({ detail: 'This reset link is no longer valid. Ask for a new one.' }, 422)
+        : reply({ email: 'traveler@example.com', two_factor: body?.token === 'two-step-token' });
+    if (path === '/auth/email/confirm')
+      return reply({ confirmed: true, email: 'traveler@example.com' });
+    if (path === '/auth/email/resend') return reply({ sent: true }, 202);
+    if (path === '/auth/email') {
+      Object.assign(security, { email: body.email, email_verified: false });
+      return reply({ account: account() });
+    }
+    if (path === '/auth/two-factor/setup')
+      return reply({
+        secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+        uri: 'otpauth://totp/Fareflare:traveler%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Fareflare',
+        account: 'traveler@example.com',
+        issuer: 'Fareflare',
+      });
+    if (path === '/auth/two-factor/enable') {
+      if (body?.code !== '123456') return reply({ detail: 'That code is not correct' }, 403);
+      security.two_factor = { enabled: true, backup_codes_left: 10, enabled_at: now };
+      return reply({ backup_codes: backupCodes });
+    }
+    if (path === '/auth/two-factor/backup-codes') return reply({ backup_codes: backupCodes });
+    if (path === '/auth/two-factor/disable') {
+      security.two_factor = { enabled: false, backup_codes_left: 0, enabled_at: null };
+      return reply({ enabled: false });
+    }
+    if (path === '/auth/passkeys/options' || path === '/auth/passkey/options')
+      return reply({ challenge_id: 'challenge-test', options: passkeyOptions });
+    if (path === '/auth/passkeys' && method === 'POST') {
+      const added = {
+        id: String(security.passkeys.length + 1).repeat(64),
+        credential_id: 'Y3JlZGVudGlhbA',
+        name: '1Password',
+        provider: '1Password',
+        synced: true,
+        created_at: now,
+        last_used_at: null,
+      };
+      security.passkeys.push(added);
+      return reply(added, 201);
+    }
+    if (path.startsWith('/auth/passkeys/') && method === 'PATCH') {
+      const found = security.passkeys.find((item) => path.endsWith(item.id))!;
+      found.name = body.name;
+      return reply(found);
+    }
+    if (path.startsWith('/auth/passkeys/') && method === 'DELETE') {
+      security.passkeys = security.passkeys.filter((item) => !path.endsWith(item.id));
+      return reply({ removed: true });
+    }
     if (path.startsWith('/auth/')) {
       signedIn = path !== '/auth/logout';
-      return reply({
-        account: { id: 'user', username: body?.username ?? 'traveler' },
-        csrf_token: 'csrf-test',
-        ...(path !== '/auth/login' && path !== '/auth/logout'
-          ? { recovery_code: 'once-only-recovery' }
-          : {}),
-      });
+      if (path === '/auth/register') security.email = body.email;
+      return reply({ account: account(), csrf_token: 'csrf-test' });
     }
     if (path === '/v1/monitors' && method === 'GET') return reply({ items: monitors });
     if (path === '/v1/monitors' && method === 'POST') {
@@ -193,4 +280,49 @@ export async function mock(page: BrowserPage, signedIn = true) {
     return reply({ ok: true });
   });
   return calls;
+}
+
+/**
+ * Stands in for the browser's passkey prompt. Real WebAuthn needs a domain name,
+ * and these tests run on 127.0.0.1; the service's own tests verify real signatures.
+ */
+export async function fakePasskeys(page: BrowserPage, { autofill = false } = {}) {
+  await page.addInitScript((offerAutofill) => {
+    const bytes = (text: string) => new TextEncoder().encode(text).buffer;
+    const calls: { kind: string; mediation?: string }[] = [];
+    (window as unknown as { passkeyCalls: typeof calls }).passkeyCalls = calls;
+    Object.defineProperty(PublicKeyCredential, 'isConditionalMediationAvailable', {
+      value: async () => offerAutofill,
+    });
+    const common = {
+      id: 'Y3JlZGVudGlhbA',
+      rawId: bytes('credential'),
+      type: 'public-key',
+      authenticatorAttachment: 'platform',
+      getClientExtensionResults: () => ({}),
+    };
+    navigator.credentials.create = (async () => {
+      calls.push({ kind: 'create' });
+      return {
+        ...common,
+        response: {
+          clientDataJSON: bytes('{}'),
+          attestationObject: bytes('attestation'),
+          getTransports: () => ['internal', 'hybrid'],
+        },
+      };
+    }) as unknown as typeof navigator.credentials.create;
+    navigator.credentials.get = (async (options?: CredentialRequestOptions) => {
+      calls.push({ kind: 'get', mediation: options?.mediation });
+      return {
+        ...common,
+        response: {
+          clientDataJSON: bytes('{}'),
+          authenticatorData: bytes('data'),
+          signature: bytes('signature'),
+          userHandle: bytes('user'),
+        },
+      };
+    }) as unknown as typeof navigator.credentials.get;
+  }, autofill);
 }

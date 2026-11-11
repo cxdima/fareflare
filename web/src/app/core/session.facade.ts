@@ -9,7 +9,6 @@ export class SessionFacade {
   private readonly api = inject(ApiService);
   readonly config = signal<ProductConfig | null>(null);
   readonly account = signal<Account | null>(null);
-  readonly recovery = signal('');
   readonly ready = signal(false);
   readonly error = signal('');
   /** True after a deliberate sign-out or deletion: the next sign-in starts from the top. */
@@ -47,7 +46,6 @@ export class SessionFacade {
   accept(result: AccountResponse): void {
     this.api.setCsrfToken(result.csrf_token);
     this.account.set(result.account);
-    this.recovery.set(result.recovery_code ?? '');
     this.error.set('');
     this.left.set(false);
   }
@@ -61,6 +59,5 @@ export class SessionFacade {
   clear(): void {
     this.api.setCsrfToken('');
     this.account.set(null);
-    this.recovery.set('');
   }
 }

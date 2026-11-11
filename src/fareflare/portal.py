@@ -32,6 +32,7 @@ from fareflare.api_reference import render_api_reference
 from fareflare.credentials import RateLimiter
 from fareflare.hosted_mcp import make_hosted_mcp
 from fareflare.oauth import OAuthProvider
+from fareflare.passkeys import PasskeyRejected
 from fareflare.product_config import ProductConfig
 from fareflare.service import MonitoringService
 from fareflare.site_content import (
@@ -55,15 +56,59 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
-class RegisterInput(LoginInput):
-    invite_token: str | None = Field(default=None, max_length=128)
-
-
-class RecoveryInput(BaseModel):
+class RegisterInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    username: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
-    recovery_code: str = Field(min_length=1, max_length=128)
+    email: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class TwoFactorInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    token: str = Field(min_length=1, max_length=64)
+    code: str = Field(min_length=1, max_length=32)
+
+
+class PasskeyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    challenge_id: str = Field(min_length=1, max_length=64)
+    credential: dict
+
+
+class NewPasskeyInput(PasskeyInput):
+    name: str | None = Field(default=None, max_length=60)
+
+
+class NameInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str = Field(min_length=1, max_length=60)
+
+
+class EmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    email: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
+
+
+class TokenInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    token: str = Field(min_length=1, max_length=64)
+
+
+class ResetInput(TokenInput):
     new_password: str = Field(min_length=15, max_length=128)
+    code: str | None = Field(default=None, max_length=32)
+
+
+class EmailChangeInput(EmailInput):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class CodeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    code: str = Field(min_length=1, max_length=32)
+
+
+class PasswordAndCodeInput(CodeInput):
+    password: str = Field(min_length=1, max_length=128)
 
 
 class PasswordChangeInput(BaseModel):
@@ -99,6 +144,7 @@ def create_portal(
     static_dir: Path | None = None,
     telegram: "TelegramConnections | None" = None,
     telegram_webhook_secret: str | None = None,
+    auth_attempts_per_minute: int = 8,
 ):
     accounts = accounts or Accounts(service.store, config, clock=service.clock)
     public_url = config.public_url.rstrip("/")
@@ -106,7 +152,7 @@ def create_portal(
     secure = origin.scheme == "https"
     cookie_name = "__Host-fareflare_session" if secure else "fareflare_session"
     limiter = RateLimiter(service.store, service.clock)
-    auth_limiter = RateLimiter(service.store, service.clock, per_minute=8)
+    auth_limiter = RateLimiter(service.store, service.clock, per_minute=auth_attempts_per_minute)
     signup_limiter = RateLimiter(service.store, service.clock, per_minute=3)
     oauth = OAuthProvider(service.store, accounts, public_url, clock=service.clock)
     if telegram is not None and (not telegram_webhook_secret or len(telegram_webhook_secret) < 32):
@@ -178,6 +224,10 @@ def create_portal(
     async def authentication_failed(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=401)
 
+    @app.exception_handler(PasskeyRejected)
+    async def passkey_rejected(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
     @app.exception_handler(IncorrectPassword)
     async def incorrect_password(request, exc):
         # Not 401: the session is valid, only the confirming password was wrong.
@@ -244,34 +294,69 @@ def create_portal(
             samesite="lax",
             path="/",
         )
-        return {
-            key: result[key] for key in ("account", "csrf_token", "recovery_code") if key in result
-        }
+        return {key: result[key] for key in ("account", "csrf_token")}
 
     @app.get("/v1/config")
     def public_config():
-        return config.public()
+        return {**config.public(), "email_enabled": accounts.email_enabled}
 
     @app.post("/auth/register", status_code=201)
     def register(body: RegisterInput, request: Request, response: Response):
         auth_attempt(request)
         address = request.client.host if request.client else "unknown"
         signup_limiter.consume("signup_" + hashlib.sha256(address.encode()).hexdigest())
-        return signed_in(
-            accounts.register(body.username, body.password, body.invite_token), response
-        )
+        return signed_in(accounts.register(body.email, body.password), response)
 
     @app.post("/auth/login")
     def login(body: LoginInput, request: Request, response: Response):
         auth_attempt(request)
-        return signed_in(accounts.login(body.username, body.password), response)
+        result = accounts.login(body.username, body.password)
+        if "two_factor_token" in result:
+            return {
+                "two_factor_required": True,
+                "token": result["two_factor_token"],
+                "expires_at": result["expires_at"],
+            }
+        return signed_in(result, response)
 
-    @app.post("/auth/recover")
-    def recover(body: RecoveryInput, request: Request, response: Response):
+    @app.post("/auth/login/two-factor")
+    def login_code(body: TwoFactorInput, request: Request, response: Response):
+        auth_attempt(request)
+        return signed_in(accounts.complete_login(body.token, body.code), response)
+
+    @app.post("/auth/passkey/options")
+    def passkey_options(request: Request):
+        auth_attempt(request)
+        return accounts.passkey_login_options()
+
+    @app.post("/auth/passkey")
+    def passkey_login(body: PasskeyInput, request: Request, response: Response):
+        auth_attempt(request)
+        return signed_in(accounts.passkey_login(body.challenge_id, body.credential), response)
+
+    @app.post("/auth/password-reset", status_code=202)
+    def request_reset(body: EmailInput, request: Request):
+        auth_attempt(request)
+        accounts.request_password_reset(body.email)
+        # The same answer whether or not an account uses the address.
+        return {"sent": True}
+
+    @app.post("/auth/password-reset/check")
+    def check_reset(body: TokenInput, request: Request):
+        auth_attempt(request)
+        return accounts.check_reset(body.token)
+
+    @app.post("/auth/password-reset/confirm")
+    def reset_password(body: ResetInput, request: Request, response: Response):
         auth_attempt(request)
         return signed_in(
-            accounts.recover(body.username, body.recovery_code, body.new_password), response
+            accounts.reset_password(body.token, body.new_password, body.code), response
         )
+
+    @app.post("/auth/email/confirm")
+    def confirm_email(body: TokenInput, request: Request):
+        auth_attempt(request)
+        return accounts.confirm_email(body.token)
 
     @app.post("/auth/logout")
     def logout(request: Request, response: Response):
@@ -292,9 +377,72 @@ def create_portal(
         )
         return {"changed": True}
 
-    @app.post("/auth/recovery-code")
-    def new_recovery_code(body: PasswordConfirmation, identity: Annotated[dict, Depends(session)]):
-        return accounts.new_recovery_code(identity["account"]["id"], body.password)
+    @app.post("/auth/sign-out-everywhere")
+    def sign_out_everywhere(
+        body: PasswordConfirmation, response: Response, identity: Annotated[dict, Depends(session)]
+    ):
+        return signed_in(
+            accounts.sign_out_everywhere(identity["account"]["id"], body.password), response
+        )
+
+    @app.get("/v1/account/security")
+    def security(identity: Annotated[dict, Depends(session)]):
+        return accounts.security(identity["account"]["id"])
+
+    @app.post("/auth/email")
+    def change_email(body: EmailChangeInput, identity: Annotated[dict, Depends(session)]):
+        return {
+            "account": accounts.change_email(identity["account"]["id"], body.password, body.email)
+        }
+
+    @app.post("/auth/email/resend", status_code=202)
+    def resend_confirmation(identity: Annotated[dict, Depends(session)]):
+        accounts.resend_confirmation(identity["account"]["id"])
+        return {"sent": True}
+
+    @app.post("/auth/two-factor/setup")
+    def start_two_factor(body: PasswordConfirmation, identity: Annotated[dict, Depends(session)]):
+        return accounts.start_two_factor(identity["account"]["id"], body.password)
+
+    @app.post("/auth/two-factor/enable")
+    def enable_two_factor(body: CodeInput, identity: Annotated[dict, Depends(session)]):
+        return accounts.enable_two_factor(identity["account"]["id"], body.code)
+
+    @app.post("/auth/two-factor/disable")
+    def disable_two_factor(body: PasswordAndCodeInput, identity: Annotated[dict, Depends(session)]):
+        accounts.disable_two_factor(identity["account"]["id"], body.password, body.code)
+        return {"enabled": False}
+
+    @app.post("/auth/two-factor/backup-codes")
+    def new_backup_codes(body: PasswordAndCodeInput, identity: Annotated[dict, Depends(session)]):
+        return accounts.new_backup_codes(identity["account"]["id"], body.password, body.code)
+
+    @app.post("/auth/passkeys/options")
+    def new_passkey_options(identity: Annotated[dict, Depends(session)]):
+        return accounts.passkey_registration_options(identity["account"]["id"])
+
+    @app.post("/auth/passkeys", status_code=201)
+    def add_passkey(body: NewPasskeyInput, identity: Annotated[dict, Depends(session)]):
+        return accounts.add_passkey(
+            identity["account"]["id"], body.challenge_id, body.credential, body.name
+        )
+
+    @app.patch("/auth/passkeys/{identifier}")
+    def rename_passkey(
+        identifier: str, body: NameInput, identity: Annotated[dict, Depends(session)]
+    ):
+        return accounts.rename_passkey(identity["account"]["id"], identifier, body.name)
+
+    @app.delete("/auth/passkeys/{identifier}")
+    def remove_passkey(identifier: str, identity: Annotated[dict, Depends(session)]):
+        accounts.remove_passkey(identity["account"]["id"], identifier)
+        return {"removed": True}
+
+    @app.get("/.well-known/passkey-endpoints", include_in_schema=False)
+    def passkey_endpoints():
+        # Lets password managers such as 1Password offer to add or manage a passkey here.
+        settings = public_url + "/app#settings?section=security"
+        return {"enroll": settings, "manage": settings}
 
     @app.get("/.well-known/change-password", include_in_schema=False)
     def change_password_location():

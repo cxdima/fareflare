@@ -149,6 +149,91 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+/* The label and "Forgot password?" share a line, so the link sits where people look. */
+.label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.label-row .form-label {
+  margin-bottom: 0.5rem;
+}
+.label-link {
+  min-height: 0;
+  font-size: 0.84rem;
+}
+/* A rule with "or" in a paper gap, the way a tag's perforation separates its stub. */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 1.4rem 0;
+  color: var(--ff-ink-3);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1.5px dotted var(--ff-line-strong);
+}
+.passkey-button .bi {
+  font-size: 1.1rem;
+}
+/* Six digits read best wide and spaced, like the code on the authenticator screen. */
+.code-field {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.45em;
+  text-align: center;
+  padding-inline: 1rem 0.55rem;
+}
+.code-field-backup {
+  letter-spacing: 0.18em;
+}
+.code-field::placeholder {
+  color: var(--ff-line-strong);
+  letter-spacing: inherit;
+}
+/* A lime disc marks a page whose job is done: confirmed, or a link sent. */
+.auth-seal {
+  display: grid;
+  place-items: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  margin-bottom: 1.5rem;
+  border-radius: 50%;
+  background: var(--ff-lime);
+  box-shadow: 0 10px 22px -14px rgb(23 20 31 / 55%);
+  font-size: 1.6rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Each step arrives from just below, so moving between them reads as one flow. */
+  .auth-step {
+    animation: auth-step-in 520ms var(--ff-ease) both;
+  }
+  .auth-seal {
+    animation: auth-seal-in 680ms var(--ff-ease) 120ms both;
+  }
+  .alert {
+    animation: auth-step-in 360ms var(--ff-ease) both;
+  }
+}
+/* Movement only: text that fades passes through unreadable contrast on its way in. */
+@keyframes auth-step-in {
+  from {
+    transform: translateY(0.75rem);
+  }
+}
+@keyframes auth-seal-in {
+  from {
+    transform: scale(0.4) rotate(-25deg);
+  }
+}
 @media (max-width: 991px) {
   .auth-page {
     grid-template-columns: minmax(0, 1fr);

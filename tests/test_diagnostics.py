@@ -168,8 +168,8 @@ def test_worker_sends_notices_after_price_alerts(service, flight_url, clock):
 
 @pytest.fixture
 def connected(service, store, clock):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    tenant = accounts.register("diagnostic-reader", PASSWORD)["account"]["id"]
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    tenant = accounts.register("diagnostic-reader@example.com", PASSWORD)["account"]["id"]
     sent = []
 
     def transport(request):
@@ -212,8 +212,8 @@ def test_telegram_delivers_an_opted_in_notice_with_the_readers_settings(
 def test_a_blocked_bot_is_final_and_other_telegram_errors_are_retried(
     service, store, clock, flight_url
 ):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    tenant = accounts.register("blocked-reader", PASSWORD)["account"]["id"]
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    tenant = accounts.register("blocked-reader@example.com", PASSWORD)["account"]["id"]
     replies = [(200, {"ok": True})]
 
     def transport(request):

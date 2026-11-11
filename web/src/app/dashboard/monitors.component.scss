@@ -87,6 +87,13 @@
   display: grid;
   gap: 1rem;
 }
+/* A very wide page holds two tags side by side rather than one stretched tag. */
+@container page (min-width: 96rem) {
+  .monitor-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
 
 /*
  * A watched flight is a baggage tag laid flat: the route on the body, the price on

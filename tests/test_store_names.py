@@ -1,6 +1,5 @@
 """Resource-name compatibility for documented and existing deployments."""
 
-import json
 from unittest.mock import Mock
 
 import boto3
@@ -8,7 +7,6 @@ import pytest
 from moto import mock_aws
 
 from fareflare.accounts import Accounts
-from fareflare.product_cli import main
 from fareflare.store import DynamoStore
 
 
@@ -50,7 +48,7 @@ def test_invalid_table_names_fail_before_aws_client_creation(name, monkeypatch):
 
 @pytest.mark.parametrize("table", ["fareflare-production", "gfpt-next-production"])
 @mock_aws
-def test_deployed_invitation_can_be_redeemed_with_either_table_prefix(table, tmp_path, capsys):
+def test_an_account_can_be_created_with_either_table_prefix(table):
     client = boto3.client(
         "dynamodb",
         region_name="us-east-1",
@@ -63,28 +61,8 @@ def test_deployed_invitation_can_be_redeemed_with_either_table_prefix(table, tmp
         KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
         AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
     )
-    path = tmp_path / "friend.json"
-    main(
-        [
-            "--public-url",
-            "https://fareflare.example",
-            "invite",
-            str(path),
-            "--table",
-            table,
-            "--aws-account",
-            "123456789012",
-            "--region",
-            "us-east-1",
-        ]
-    )
-    invitation = json.loads(path.read_text())
-    assert invitation["url"] == "https://fareflare.example/?invite=" + invitation["token"]
-    assert invitation["token"] not in capsys.readouterr().out
-    assert path.stat().st_mode & 0o777 == 0o600
-
     accounts = Accounts(DynamoStore(table, client=client))
-    customer = accounts.register("traveler", "a long test-only password", invitation["token"])
-    assert customer["account"]["username"] == "traveler"
-    with pytest.raises(ValueError, match="unused invitation"):
-        accounts.register("another", "a long test-only password", invitation["token"])
+    customer = accounts.register("traveler@example.com", "a long test-only password")
+    assert customer["account"]["username"] == "traveler@example.com"
+    with pytest.raises(ValueError, match="already uses that email"):
+        accounts.register("Traveler@example.com", "a long test-only password")

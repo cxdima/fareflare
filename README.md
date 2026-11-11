@@ -52,7 +52,8 @@ after an initial account connection. This revision is deployed; see the
 
 [Sign up at fareflare.dev](https://fareflare.dev/register). The hosted service is
 **free with open registration** and allows 20 monitors per account while capacity
-is being measured.
+is being measured. Sign in with a password, a passkey (1Password, iCloud Keychain,
+Google Password Manager) or a password plus an authenticator code.
 Billing is disabled. Self-hosting uses your own infrastructure and can incur costs.
 Prices are sampled periodically: Fareflare cannot guarantee the cheapest fare on
 the market or detect a drop that begins and ends between checks.
@@ -68,15 +69,13 @@ cd fareflare
 python3.12 -m venv .venv
 make install
 make build
-make invite
 make serve
 ```
 
-Open the signup URL saved in `.fareflare/invitation.json`. The application runs at
-`http://127.0.0.1:8001`, and local data stays in `.fareflare/product.sqlite3`.
-Sign up with an email address or a username. Save the recovery code shown at
-signup; account recovery does not use email.
-Invitation files contain credentials and must stay private.
+Open `http://localhost:8001/register` and create an account with an email address
+and a password. Local data stays in `.fareflare/product.sqlite3`, and account email
+(confirmation and password-reset links) is written to `.fareflare/outbox/` instead of
+being sent. Use `localhost` rather than `127.0.0.1` so passkeys work.
 
 Live collection needs Chromium and a matching ChromeDriver. Run one bounded pass
 in another terminal:

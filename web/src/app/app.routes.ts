@@ -14,8 +14,17 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () => import('./auth/auth.component').then((m) => m.AuthComponent),
   },
+  { path: 'recover', redirectTo: 'forgot-password' },
   {
-    path: 'recover',
+    path: 'forgot-password',
+    loadComponent: () => import('./auth/auth.component').then((m) => m.AuthComponent),
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./auth/auth.component').then((m) => m.AuthComponent),
+  },
+  {
+    path: 'confirm-email',
     loadComponent: () => import('./auth/auth.component').then((m) => m.AuthComponent),
   },
   {

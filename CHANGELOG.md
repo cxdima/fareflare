@@ -8,6 +8,32 @@ Notable changes to Fareflare. The format follows
 
 ### Added
 
+- **Passkeys.** Sign in with a fingerprint, face or device PIN instead of a password,
+  from 1Password, iCloud Keychain, Google Password Manager, the browser or a
+  security key. The sign-in page offers a saved passkey in the email field's
+  autofill list and behind a **Sign in with a passkey** button. Passkeys are added,
+  named after their provider, renamed and removed in **Account settings →
+  Security**, and password managers find that page through
+  `/.well-known/passkey-endpoints`. Every passkey requires user verification, so it
+  replaces the password and any second step. Verification uses `webauthn` 3.0.1.
+- **Two-step sign-in.** After the password, ask for a 6-digit code from an
+  authenticator app. Setup shows a QR code (1Password can scan it from the screen),
+  the key to type and a link for an app on the same phone; the code field is
+  marked `one-time-code` so 1Password fills it. Ten single-use backup codes come
+  with it and can be replaced. A used code cannot sign in twice, and a sign-in stops
+  accepting codes after five wrong ones.
+- **Password reset by email.** **Forgot password?** sends a link to the account's
+  confirmed address through Amazon SES. It works once, for 30 minutes, stops
+  working if the password changes first, asks for a code when two-step sign-in is
+  on, and signs out every other browser. The reply is the same whether or not an
+  account uses the address. New accounts get one email to confirm their address;
+  the address can be changed (with the password) in Security.
+- **Sign out everywhere.** Revokes every session, API key, connected application and
+  Telegram link, then signs the current browser back in.
+- Terraform sends account email from the public domain: an SES identity with DKIM,
+  a `mail.` MAIL FROM subdomain, and the API's permission to send
+  (`email_enabled`, `email_from`). Locally, email is written to
+  `.fareflare/outbox/`.
 - **System status.** A public page at `/status` says whether price checks, alerts
   and the website are working, in plain words: *Everything is working*, *Some price
   checks are failing*, *Price checks are not running*. It shows each of the last 24
@@ -151,8 +177,21 @@ Notable changes to Fareflare. The format follows
 - Lists with nothing in them yet (alerts, webhook receivers, API keys, a search
   with no matches) share one look, and a field with a button beside it lines up:
   the MCP server address is a single line joined to its **Copy URL** button.
-- The front page's closing line reads "Accounts are free", since sign-up can be
-  by invitation.
+- The front page's closing line reads "Accounts are free".
+- **New accounts sign up with an email address.** It is the sign-in name and where a
+  reset link goes. Accounts made earlier keep their username and can add an address.
+- **The workspace uses the whole screen.** The top bar, page and footer share one
+  centred column, so wide screens and zoomed-out windows no longer leave an empty
+  band on the right; on very wide pages flights sit two to a row, and account
+  settings put their sections in a menu beside the page. Pages lay themselves out
+  by the space they get rather than the window size, which keeps them right at any
+  zoom from 67% to 400%.
+- **Telegram message settings** are switches in two groups, with the message preview
+  beside them as a chat with the Fareflare bot, and quiet hours opening in place.
+- **Motion.** Disclosures open to their height and close again, dialogs slide away
+  when dismissed, workspace pages and settings sections rise into place, and switches
+  and checkboxes move when changed. Text never fades, and everything is still under
+  reduced motion.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.
@@ -223,11 +262,25 @@ Notable changes to Fareflare. The format follows
 
 ### Removed
 
+- **Invitations.** Sign-up is open to anyone; `FAREFLARE_REGISTRATION_MODE` is now
+  `open` (the default) or `closed`. `make invite` and the `invite` command are gone.
+  Old invitation links still open sign-up.
+- **Recovery codes.** A forgotten password is reset by email instead, and
+  `/auth/recover` and `/auth/recovery-code` are gone. `/recover` opens the
+  forgot-password page.
 - The remaining references to the original single-account tracker, including the
   `make next-*` and `make product-*` aliases.
 
 ### Upgrade notes
 
+- Run `make install` (or rebuild the images): the API now depends on `webauthn`
+  3.0.1, with `cbor2`, `pyasn1`, `pyasn1-modules` and `pyOpenSSL`.
+- To send account email, set `email_enabled=true` and apply Terraform, then request
+  SES production access; until then SES sends only to verified addresses.
+- Accounts that signed up with a username have no address on file: until they add
+  and confirm one in **Account settings → Security**, they cannot reset a forgotten
+  password. Their stored recovery codes no longer do anything.
+- Passkeys work only on a domain name: open local servers at `localhost`.
 - No data migration is needed. New preference fields take their defaults.
   Existing usernames keep working unchanged.
 - An account whose sign-in name is an email address cannot sign in to an earlier

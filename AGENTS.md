@@ -63,7 +63,7 @@ any configuration or data-format change. Add an entry to [CHANGELOG.md](CHANGELO
 
 ## Security and privacy
 
-- Never commit credentials, invitations, cookies, Terraform state or variable
+- Never commit credentials, reset links, backup codes, cookies, Terraform state or variable
   files. Local operator state belongs in the ignored `.fareflare/` directory.
 - Never log or persist provider exception text; use the finite failure codes in
   `contracts.py`, and `failures.describe_failure` when an unexpected error needs a

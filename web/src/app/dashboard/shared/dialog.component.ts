@@ -6,6 +6,7 @@ import {
   OnDestroy,
   input,
   output,
+  signal,
   viewChild,
 } from '@angular/core';
 
@@ -27,9 +28,23 @@ export class DialogComponent implements AfterViewInit, OnDestroy {
     this.dialog().nativeElement.showModal();
   }
 
+  /** Set while the sheet slides away; the parent removes it once that has finished. */
+  readonly closing = signal(false);
+
   dismiss(event?: Event): void {
     event?.preventDefault();
-    this.closed.emit();
+    if (this.closing()) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return void this.closed.emit();
+    this.closing.set(true);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      this.closed.emit();
+    };
+    this.dialog().nativeElement.addEventListener('animationend', finish, { once: true });
+    // In case the animation never runs (a hidden tab, for example).
+    setTimeout(finish, 320);
   }
 
   ngOnDestroy(): void {

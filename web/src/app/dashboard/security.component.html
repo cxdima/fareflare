@@ -1,0 +1,662 @@
+@if (note()) {
+  <p class="security-note" role="status">
+    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ note() }}
+  </p>
+}
+@if (loading.error()) {
+  <div class="alert alert-danger" role="alert">{{ loading.error() }}</div>
+}
+@if (state(); as security) {
+  <section class="panel security-panel" aria-labelledby="sign-in-title">
+    <h2 id="sign-in-title">How you sign in</h2>
+    <div class="security-row">
+      <span class="security-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+      <div class="security-copy">
+        <h3>Email</h3>
+        @if (security.email) {
+          <p class="security-value">
+            <span class="security-address">{{ security.email }}</span>
+            @if (security.email_verified) {
+              <span class="status status-active">Confirmed</span>
+            } @else {
+              <span class="status status-pending">Not confirmed</span>
+            }
+          </p>
+          <p class="security-help">
+            {{
+              security.email_verified
+                ? 'You sign in with this address, and a reset link can go to it.'
+                : 'Confirm it to be able to reset your password by email.'
+            }}
+          </p>
+          @if (!security.email_verified && security.email_enabled) {
+            <p class="security-inline">
+              <button
+                type="button"
+                class="btn btn-link p-0"
+                [disabled]="resendAction.busy()"
+                (click)="resend()"
+              >
+                {{ resendAction.busy() ? 'Sending…' : 'Send a new confirmation link' }}
+              </button>
+              @if (resent()) {
+                <span role="status">Sent. It works for 24 hours.</span>
+              }
+              @if (resendAction.error()) {
+                <span class="text-danger" role="alert">{{ resendAction.error() }}</span>
+              }
+            </p>
+          }
+        } @else {
+          <p class="security-help">
+            Add an address so you can reset your password if you forget it. You will still sign in
+            as <strong>{{ session.account()?.username }}</strong
+            >.
+          </p>
+        }
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary security-action"
+        aria-controls="email-drawer"
+        [attr.aria-expanded]="open() === 'email'"
+        (click)="toggle('email')"
+      >
+        {{ open() === 'email' ? 'Cancel' : security.email ? 'Change' : 'Add email' }}
+      </button>
+    </div>
+    <div
+      id="email-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'email'"
+      [attr.inert]="open() === 'email' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form class="security-form form-stack" novalidate (submit)="changeEmail($event)">
+          @if (emailAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ emailAction.error() }}</div>
+          }
+          <div>
+            <label class="form-label" for="new-email">New email</label
+            ><input
+              id="new-email"
+              type="email"
+              class="form-control"
+              [formField]="emailForm.email"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              [class.is-invalid]="error(emailForm.email())"
+              [attr.aria-invalid]="error(emailForm.email()) ? 'true' : null"
+            />
+            @if (error(emailForm.email()); as message) {
+              <p class="field-error">{{ message }}</p>
+            }
+          </div>
+          <div>
+            <label class="form-label" for="email-password">Your password</label
+            ><input
+              id="email-password"
+              type="password"
+              class="form-control"
+              [formField]="emailForm.password"
+              autocomplete="current-password"
+              [class.is-invalid]="error(emailForm.password())"
+              [attr.aria-invalid]="error(emailForm.password()) ? 'true' : null"
+            />
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary" [disabled]="emailAction.busy()">
+              {{ emailAction.busy() ? 'Saving…' : 'Save email' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="security-row">
+      <span class="security-icon" aria-hidden="true"><i class="bi bi-asterisk"></i></span>
+      <div class="security-copy">
+        <h3>Password</h3>
+        <p class="security-help">
+          Changing it signs out your other browsers. API keys and Telegram stay connected.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary security-action"
+        aria-controls="password-drawer"
+        [attr.aria-expanded]="open() === 'password'"
+        (click)="toggle('password')"
+      >
+        {{ open() === 'password' ? 'Cancel' : 'Change' }}
+      </button>
+    </div>
+    <div
+      id="password-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'password'"
+      [attr.inert]="open() === 'password' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form class="security-form form-stack" novalidate (submit)="changePassword($event)">
+          <!-- Tells a password manager which saved login this change belongs to. -->
+          <input
+            class="visually-hidden"
+            type="text"
+            autocomplete="username"
+            readonly
+            tabindex="-1"
+            aria-hidden="true"
+            [value]="security.email ?? session.account()?.username ?? ''"
+          />
+          @if (passwordAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ passwordAction.error() }}</div>
+          }
+          <div>
+            <label class="form-label" for="current-password">Current password</label
+            ><input
+              id="current-password"
+              type="password"
+              class="form-control"
+              [formField]="passwordForm.current"
+              autocomplete="current-password"
+              [class.is-invalid]="error(passwordForm.current())"
+              [attr.aria-invalid]="error(passwordForm.current()) ? 'true' : null"
+            />
+            @if (error(passwordForm.current()); as message) {
+              <p class="field-error">{{ message }}</p>
+            }
+          </div>
+          <div>
+            <label class="form-label" for="new-password">New password</label
+            ><input
+              id="new-password"
+              type="password"
+              class="form-control"
+              [formField]="passwordForm.next"
+              autocomplete="new-password"
+              passwordrules="minlength: 15; maxlength: 128;"
+              [class.is-invalid]="error(passwordForm.next())"
+              [attr.aria-invalid]="error(passwordForm.next()) ? 'true' : null"
+              aria-describedby="new-password-help"
+            />
+            @if (error(passwordForm.next()); as message) {
+              <p class="field-error">{{ message }}</p>
+            } @else {
+              <p class="form-text" id="new-password-help">At least 15 characters.</p>
+            }
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary" [disabled]="passwordAction.busy()">
+              {{ passwordAction.busy() ? 'Changing password…' : 'Change password' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel security-panel" aria-labelledby="passkeys-title">
+    <div class="security-head">
+      <div>
+        <h2 id="passkeys-title">Passkeys</h2>
+        <p>
+          Sign in with your fingerprint, face or device PIN instead of a password. 1Password, iCloud
+          Keychain and Google Password Manager can each keep one.
+        </p>
+      </div>
+      @if (passkeysSupported) {
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="passkeyAction.busy()"
+          (click)="addPasskey()"
+        >
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          {{ passkeyAction.busy() ? 'Waiting for your passkey…' : 'Add a passkey' }}
+        </button>
+      }
+    </div>
+    @if (passkeyAction.error()) {
+      <div class="alert alert-danger" role="alert">{{ passkeyAction.error() }}</div>
+    }
+    @if (!passkeysSupported) {
+      <p class="security-help">This browser cannot create passkeys.</p>
+    }
+    <ul class="passkey-list" role="list">
+      @for (passkey of security.passkeys; track passkey.id) {
+        <li class="passkey">
+          <span class="security-icon" aria-hidden="true"
+            ><i class="bi bi-person-bounding-box"></i
+          ></span>
+          @if (renaming() === passkey.id) {
+            <form class="passkey-rename" novalidate (submit)="rename($event, passkey)">
+              <label class="visually-hidden" [for]="'rename-' + passkey.id">Passkey name</label
+              ><input
+                [id]="'rename-' + passkey.id"
+                class="form-control"
+                [formField]="renameForm.name"
+                autocomplete="off"
+              />
+              <button type="submit" class="btn btn-primary" [disabled]="passkeyAction.busy()">
+                Save
+              </button>
+              <button type="button" class="btn btn-outline-primary" (click)="renaming.set('')">
+                Cancel
+              </button>
+            </form>
+          } @else {
+            <div class="security-copy">
+              <h3>{{ passkey.name }}</h3>
+              <p class="passkey-meta">
+                @if (passkey.provider !== passkey.name) {
+                  <span>{{ passkey.provider }}</span>
+                }
+                @if (passkey.synced) {
+                  <span>Synced</span>
+                }
+                <span>Added {{ date(passkey.created_at) }}</span>
+                <span>{{
+                  passkey.last_used_at ? 'Last used ' + date(passkey.last_used_at) : 'Not used yet'
+                }}</span>
+              </p>
+            </div>
+            <div class="passkey-actions">
+              <button type="button" class="btn btn-quiet" (click)="startRename(passkey)">
+                Rename<span class="visually-hidden"> {{ passkey.name }}</span>
+              </button>
+              <button type="button" class="btn btn-quiet" (click)="removing.set(passkey)">
+                Remove<span class="visually-hidden"> {{ passkey.name }}</span>
+              </button>
+            </div>
+          }
+        </li>
+      } @empty {
+        <li class="passkey passkey-empty">
+          <img src="/assets/art/key.webp" width="280" height="280" alt="" />
+          <p>No passkeys yet. Add one and sign-in takes a single touch.</p>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <section class="panel security-panel" aria-labelledby="two-step-title">
+    <div class="security-row security-row-first">
+      <span
+        class="security-icon"
+        [class.security-icon-on]="security.two_factor.enabled"
+        aria-hidden="true"
+        ><i class="bi bi-shield-lock"></i
+      ></span>
+      <div class="security-copy">
+        <h2 id="two-step-title">Two-step sign-in</h2>
+        @if (security.two_factor.enabled) {
+          <p class="security-value">
+            <span class="status status-active">On</span>
+            <span class="security-help"
+              >Since {{ date(security.two_factor.enabled_at) }} ·
+              {{ security.two_factor.backup_codes_left }} backup codes left</span
+            >
+          </p>
+          <p class="security-help">
+            After your password, Fareflare asks for a 6-digit code from your authenticator app.
+            Passkeys skip this step: they already check it is you.
+          </p>
+        } @else {
+          <p class="security-help">
+            After your password, also ask for a 6-digit code from an authenticator app such as
+            1Password. Someone with only your password cannot get in.
+          </p>
+        }
+      </div>
+      @if (security.two_factor.enabled) {
+        <div class="security-buttons">
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            aria-controls="codes-drawer"
+            [attr.aria-expanded]="open() === 'backup-codes'"
+            (click)="toggle('backup-codes')"
+          >
+            New backup codes
+          </button>
+          <button
+            type="button"
+            class="btn btn-quiet"
+            aria-controls="codes-drawer"
+            [attr.aria-expanded]="open() === 'turn-off'"
+            (click)="toggle('turn-off')"
+          >
+            Turn off
+          </button>
+        </div>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-primary security-action"
+          aria-controls="setup-drawer"
+          [attr.aria-expanded]="open() === 'two-factor'"
+          (click)="toggle('two-factor')"
+        >
+          {{ open() === 'two-factor' ? 'Cancel' : 'Set up' }}
+        </button>
+      }
+    </div>
+
+    @if (backupCodes().length) {
+      <div class="backup-codes" role="region" aria-labelledby="backup-title">
+        <h3 id="backup-title" tabindex="-1">Save your backup codes</h3>
+        <p>
+          Each one works once, in place of a code from your app, if you ever lose it. Keep them in
+          1Password next to your Fareflare login. They are shown only now.
+        </p>
+        <ol class="backup-list">
+          @for (code of backupCodes(); track code) {
+            <li>{{ code }}</li>
+          }
+        </ol>
+        <div class="security-buttons">
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            (click)="copy(backupCodes().join('\n'), 'codes')"
+          >
+            <i
+              class="bi"
+              [class.bi-copy]="copied() !== 'codes'"
+              [class.bi-check2]="copied() === 'codes'"
+              aria-hidden="true"
+            ></i>
+            {{ copied() === 'codes' ? 'Copied' : 'Copy all' }}
+          </button>
+          <button type="button" class="btn btn-outline-primary" (click)="downloadCodes()">
+            <i class="bi bi-download" aria-hidden="true"></i> Download
+          </button>
+          <button type="button" class="btn btn-primary" (click)="backupCodes.set([])">
+            I’ve saved them
+          </button>
+        </div>
+      </div>
+    }
+
+    <div
+      id="setup-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'two-factor'"
+      [attr.inert]="open() === 'two-factor' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form class="form-stack" novalidate (submit)="continueSetup($event)">
+          @if (setupAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ setupAction.error() }}</div>
+          }
+          @if (setup(); as setup) {
+            <div class="setup-scan">
+              <figure class="setup-qr">
+                <ff-qr-code
+                  [value]="setup.uri"
+                  label="QR code to add Fareflare to an authenticator app"
+                />
+              </figure>
+              <ol class="setup-steps">
+                <li>
+                  <strong>Scan the code</strong> with an authenticator app. In 1Password, edit your
+                  Fareflare login, add a one-time password, and use its QR button to scan this
+                  screen.
+                  @if (appLink(); as link) {
+                    <a class="setup-app-link" [href]="link">On this phone? Open it in your app</a>
+                  }
+                </li>
+                <li>
+                  <strong>Can’t scan?</strong> Enter this key instead:
+                  <span class="setup-secret">
+                    <code>{{ groupedSecret() }}</code>
+                    <button
+                      type="button"
+                      class="btn btn-quiet"
+                      (click)="copy(setup.secret, 'secret')"
+                    >
+                      {{ copied() === 'secret' ? 'Copied' : 'Copy' }}
+                    </button>
+                  </span>
+                </li>
+                <li>
+                  <label class="form-label" for="setup-code"
+                    ><strong>Enter the 6-digit code</strong> the app now shows.</label
+                  ><input
+                    id="setup-code"
+                    class="form-control setup-code"
+                    [formField]="setupForm.code"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    placeholder="000000"
+                    [class.is-invalid]="error(setupForm.code())"
+                    [attr.aria-invalid]="error(setupForm.code()) ? 'true' : null"
+                  />
+                  @if (error(setupForm.code()); as message) {
+                    <p class="field-error">{{ message }}</p>
+                  }
+                </li>
+              </ol>
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary" [disabled]="setupAction.busy()">
+                {{ setupAction.busy() ? 'Checking…' : 'Turn on two-step sign-in' }}
+              </button>
+            </div>
+          } @else {
+            <div class="security-form">
+              <label class="form-label" for="setup-password">Confirm your password to begin</label
+              ><input
+                id="setup-password"
+                type="password"
+                class="form-control"
+                [formField]="setupForm.password"
+                autocomplete="current-password"
+                [class.is-invalid]="error(setupForm.password())"
+                [attr.aria-invalid]="error(setupForm.password()) ? 'true' : null"
+              />
+              @if (error(setupForm.password()); as message) {
+                <p class="field-error">{{ message }}</p>
+              }
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary" [disabled]="setupAction.busy()">
+                {{ setupAction.busy() ? 'Preparing…' : 'Continue' }}
+              </button>
+            </div>
+          }
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="codes-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'backup-codes' || open() === 'turn-off'"
+      [attr.inert]="open() === 'backup-codes' || open() === 'turn-off' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form
+          class="security-form form-stack"
+          novalidate
+          (submit)="changeTwoFactor($event, open() === 'turn-off' ? 'turn-off' : 'backup-codes')"
+        >
+          <p class="security-help">
+            {{
+              open() === 'turn-off'
+                ? 'Confirm with your password and a current code. Your account will need only a password again.'
+                : 'Your old backup codes stop working when the new ones are made.'
+            }}
+          </p>
+          @if (codeAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ codeAction.error() }}</div>
+          }
+          <div>
+            <label class="form-label" for="code-password">Your password</label
+            ><input
+              id="code-password"
+              type="password"
+              class="form-control"
+              [formField]="codeForm.password"
+              autocomplete="current-password"
+            />
+          </div>
+          <div>
+            <label class="form-label" for="code-code">Authentication code</label
+            ><input
+              id="code-code"
+              class="form-control"
+              [formField]="codeForm.code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              aria-describedby="code-code-help"
+            />
+            <p class="form-text" id="code-code-help">From your app, or a backup code.</p>
+          </div>
+          <div>
+            <button
+              type="submit"
+              class="btn"
+              [class.btn-danger]="open() === 'turn-off'"
+              [class.btn-primary]="open() !== 'turn-off'"
+              [disabled]="codeAction.busy()"
+            >
+              {{ open() === 'turn-off' ? 'Turn off two-step sign-in' : 'Make new backup codes' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel security-panel" aria-labelledby="everywhere-title">
+    <div class="security-row security-row-first">
+      <span class="security-icon" aria-hidden="true"><i class="bi bi-box-arrow-right"></i></span>
+      <div class="security-copy">
+        <h2 id="everywhere-title">Sign out everywhere</h2>
+        <p class="security-help">
+          Lost a device or shared a key by mistake? Sign out every browser and disconnect API keys,
+          connected applications and Telegram. This browser stays signed in.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-primary security-action"
+        aria-controls="everywhere-drawer"
+        [attr.aria-expanded]="open() === 'sign-out'"
+        (click)="toggle('sign-out')"
+      >
+        {{ open() === 'sign-out' ? 'Cancel' : 'Sign out everywhere' }}
+      </button>
+    </div>
+    <div
+      id="everywhere-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'sign-out'"
+      [attr.inert]="open() === 'sign-out' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form class="security-form form-stack" novalidate (submit)="signOutEverywhere($event)">
+          @if (signOutAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ signOutAction.error() }}</div>
+          }
+          <div>
+            <label class="form-label" for="everywhere-password">Your password</label
+            ><input
+              id="everywhere-password"
+              type="password"
+              class="form-control"
+              [formField]="signOutForm.password"
+              autocomplete="current-password"
+            />
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary" [disabled]="signOutAction.busy()">
+              {{ signOutAction.busy() ? 'Signing out…' : 'Sign out everywhere' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel danger-zone" aria-labelledby="delete-title">
+    <div class="security-row security-row-first">
+      <span class="security-icon security-icon-danger" aria-hidden="true"
+        ><i class="bi bi-trash3"></i
+      ></span>
+      <div class="security-copy">
+        <h2 id="delete-title">Delete account</h2>
+        <p class="security-help">
+          Stops your monitors and revokes account access, passkeys, API keys and connected
+          applications. This cannot be undone.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-outline-danger security-action"
+        (click)="deleting.set(true)"
+      >
+        Delete my account
+      </button>
+    </div>
+  </section>
+} @else if (!loading.error()) {
+  <!-- Blocks the size of the panels, so switching here keeps the place on the page. -->
+  <div class="security-loading" aria-busy="true">
+    <p class="visually-hidden" role="status">Loading your security settings…</p>
+    <span class="panel security-placeholder"></span>
+    <span class="panel security-placeholder"></span>
+    <span class="panel security-placeholder security-placeholder-short"></span>
+  </div>
+}
+
+@if (removing(); as passkey) {
+  <ff-dialog title="Remove this passkey?" (closed)="removing.set(null)"
+    ><p>
+      <strong>{{ passkey.name }}</strong> will no longer sign in to Fareflare. Remove it from your
+      password manager too.
+    </p>
+    <div class="d-flex justify-content-end flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-primary" (click)="removing.set(null)">
+        Keep passkey</button
+      ><button
+        type="button"
+        class="btn btn-danger"
+        [disabled]="passkeyAction.busy()"
+        (click)="remove(passkey)"
+      >
+        Remove passkey
+      </button>
+    </div></ff-dialog
+  >
+}
+@if (deleting()) {
+  <ff-dialog title="Delete your account?" (closed)="closeDeletion()"
+    ><p>Your account access and flight monitoring will end. Enter your password to confirm.</p>
+    @if (deleteAction.error()) {
+      <div class="alert alert-danger" role="alert">{{ deleteAction.error() }}</div>
+    }
+    <form class="form-stack" (submit)="deleteAccount($event)">
+      <div>
+        <label class="form-label" for="confirm-password">Confirm password</label
+        ><input
+          id="confirm-password"
+          type="password"
+          class="form-control"
+          [formField]="deletion.password"
+          autocomplete="current-password"
+        />
+      </div>
+      <div class="d-flex justify-content-end flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-primary" (click)="closeDeletion()">
+          Keep my account</button
+        ><button type="submit" class="btn btn-danger" [disabled]="deleteAction.busy()">
+          Permanently delete account
+        </button>
+      </div>
+    </form></ff-dialog
+  >
+}

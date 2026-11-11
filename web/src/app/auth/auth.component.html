@@ -15,237 +15,356 @@
     </header>
     <main class="auth-content" id="main-content">
       <section class="auth-form-area" aria-labelledby="auth-title">
-        @if (step() === 'recovery') {
-          <h1 id="auth-title" tabindex="-1" #heading>Save your recovery code</h1>
-          <p class="text-body-secondary">
-            This code is the only way back into your account if you lose your password. Fareflare
-            sends no email, so there is no other reset. It is shown once.
-          </p>
-          <ff-secret
-            title="Fareflare recovery code"
-            [value]="session.recovery()"
-            [plain]="true"
-            confirmLabel="I’ve saved it, continue"
-            (dismissed)="finish()"
-          />
-          <p class="auth-note">
-            Using a password manager? Add the code to the notes of the login you just saved.
-          </p>
-        } @else if (session.config(); as config) {
-          <h1 id="auth-title" tabindex="-1" #heading>
-            {{
-              mode() === 'register'
-                ? 'Create your account'
-                : mode() === 'recover'
-                  ? 'Recover your account'
-                  : 'Welcome back'
-            }}
-          </h1>
-          <p class="text-body-secondary">
-            {{
-              mode() === 'register'
-                ? config.registration_mode === 'open'
-                  ? 'Create a free account to start tracking flights.'
-                  : 'Use your invitation to get started.'
-                : mode() === 'recover'
-                  ? 'Use the recovery code you saved when you signed up.'
-                  : 'Sign in to check the flights you’re watching.'
-            }}
-          </p>
-          @if (action.error()) {
-            <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
-          }
-          <form class="form-stack" novalidate (submit)="onSubmit($event)">
-            <div>
-              <label class="form-label" for="username">Email or username</label
-              ><input
-                id="username"
-                type="text"
-                inputmode="email"
-                class="form-control"
-                [formField]="credentials.username"
-                autocomplete="username"
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck="false"
-                [class.is-invalid]="fieldError('username')"
-                [attr.aria-invalid]="fieldError('username') ? 'true' : null"
-                [attr.aria-describedby]="
-                  fieldError('username')
-                    ? 'username-error'
-                    : mode() === 'register'
-                      ? 'username-help'
-                      : null
-                "
-              />
-              @if (fieldError('username'); as error) {
-                <p class="field-error" id="username-error">{{ error }}</p>
-              }
-              @if (mode() === 'register') {
-                <p class="form-text" id="username-help">
-                  Used only to sign in. Fareflare never sends email.
-                </p>
+        @if (mode() === 'confirm') {
+          @if (confirmed()) {
+            <div class="auth-step">
+              <span class="auth-seal" aria-hidden="true"><i class="bi bi-envelope-check"></i></span>
+              <h1 id="auth-title" tabindex="-1" #heading>Email confirmed</h1>
+              <p class="text-body-secondary">
+                <strong>{{ confirmed() }}</strong> can now get a reset link if you ever forget your
+                password.
+              </p>
+              @if (session.account()) {
+                <button class="btn btn-primary btn-flight" type="button" (click)="enterWorkspace()">
+                  Go to your flights
+                </button>
+              } @else {
+                <a class="btn btn-primary" href="/login">Sign in</a>
               }
             </div>
-            @if (mode() === 'register' && config.registration_mode === 'invite') {
-              <div>
-                <label class="form-label" for="invite">Invitation code</label
-                ><input
-                  id="invite"
-                  class="form-control"
-                  [formField]="credentials.invite"
-                  autocomplete="off"
-                  spellcheck="false"
-                  [class.is-invalid]="fieldError('invite')"
-                  [attr.aria-invalid]="fieldError('invite') ? 'true' : null"
-                  [attr.aria-describedby]="fieldError('invite') ? 'invite-error' : null"
-                />
-                @if (fieldError('invite'); as error) {
-                  <p class="field-error" id="invite-error">{{ error }}</p>
-                }
-              </div>
-            }
-            @if (mode() === 'recover') {
-              <div>
-                <label class="form-label" for="recovery">Recovery code</label
-                ><input
-                  id="recovery"
-                  class="form-control"
-                  [formField]="credentials.recoveryCode"
-                  autocomplete="off"
-                  autocapitalize="none"
-                  spellcheck="false"
-                  [class.is-invalid]="fieldError('recoveryCode')"
-                  [attr.aria-invalid]="fieldError('recoveryCode') ? 'true' : null"
-                  [attr.aria-describedby]="fieldError('recoveryCode') ? 'recovery-error' : null"
-                />
-                @if (fieldError('recoveryCode'); as error) {
-                  <p class="field-error" id="recovery-error">{{ error }}</p>
-                }
-              </div>
-            }
-            <div>
-              <label class="form-label" for="password">{{
-                mode() === 'recover' ? 'New password' : 'Password'
-              }}</label>
-              <div class="password-control">
-                <input
-                  id="password"
-                  [type]="passwordVisible() ? 'text' : 'password'"
-                  class="form-control"
-                  [formField]="credentials.password"
-                  [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
-                  [attr.passwordrules]="
-                    mode() === 'login' ? null : 'minlength: 15; maxlength: 128;'
-                  "
-                  [class.is-invalid]="fieldError('password')"
-                  [attr.aria-invalid]="fieldError('password') ? 'true' : null"
-                  [attr.aria-describedby]="
-                    fieldError('password')
-                      ? 'password-error'
-                      : mode() === 'login'
-                        ? null
-                        : 'password-help'
-                  "
-                />
+          } @else if (linkProblem()) {
+            <div class="auth-step">
+              <h1 id="auth-title" tabindex="-1" #heading>This link has expired</h1>
+              <p class="text-body-secondary">{{ linkProblem() }}</p>
+              <p class="text-body-secondary">
+                Sign in and send a new confirmation link from Account settings, under Security.
+              </p>
+              <a class="btn btn-primary" href="/app#settings?section=security">Open settings</a>
+            </div>
+          } @else {
+            <h1 id="auth-title">Confirming your email…</h1>
+            <p role="status" class="text-body-secondary">This takes a moment.</p>
+          }
+        } @else if (session.config(); as config) {
+          @if (mode() === 'reset' && linkProblem()) {
+            <div class="auth-step">
+              <h1 id="auth-title" tabindex="-1" #heading>This link has expired</h1>
+              <p class="text-body-secondary">{{ linkProblem() }}</p>
+              <button class="btn btn-primary" type="button" (click)="changeMode('forgot')">
+                Send a new link
+              </button>
+            </div>
+          } @else if (mode() === 'reset' && !reset()) {
+            <h1 id="auth-title">Checking your link…</h1>
+            <p role="status" class="text-body-secondary">This takes a moment.</p>
+          } @else if (sent()) {
+            <div class="auth-step">
+              <span class="auth-seal" aria-hidden="true"><i class="bi bi-envelope-paper"></i></span>
+              <h1 id="auth-title" tabindex="-1" #heading>Check your email</h1>
+              <p class="text-body-secondary">
+                If <strong>{{ sent() }}</strong> belongs to a Fareflare account with a confirmed
+                address, a reset link is on its way. It works once, for 30 minutes.
+              </p>
+              <p class="auth-note">
+                Nothing arrived? Check spam, then try again in a minute. An address that was never
+                confirmed cannot receive a reset link.
+              </p>
+              <button class="btn btn-link p-0" type="button" (click)="changeMode('login')">
+                Back to sign in
+              </button>
+            </div>
+          } @else if (step() === 'code') {
+            <div class="auth-step">
+              <h1 id="auth-title" tabindex="-1" #heading>Enter your code</h1>
+              <p class="text-body-secondary">
+                {{
+                  useBackupCode()
+                    ? 'Enter one of the backup codes you saved when you turned on two-step sign-in.'
+                    : 'Open your authenticator app or password manager and enter the 6-digit code for Fareflare.'
+                }}
+              </p>
+              @if (action.error()) {
+                <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+              }
+              <form class="form-stack" novalidate (submit)="onSubmit($event)">
+                <div>
+                  <label class="form-label" for="one-time-code">{{
+                    useBackupCode() ? 'Backup code' : 'Authentication code'
+                  }}</label
+                  ><input
+                    #codeInput
+                    id="one-time-code"
+                    class="form-control code-field"
+                    [class.code-field-backup]="useBackupCode()"
+                    [formField]="credentials.code"
+                    [attr.inputmode]="useBackupCode() ? 'text' : 'numeric'"
+                    [attr.autocomplete]="useBackupCode() ? 'off' : 'one-time-code'"
+                    [attr.placeholder]="useBackupCode() ? 'xxxx-xxxx' : '000000'"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    [class.is-invalid]="fieldError('code')"
+                    [attr.aria-invalid]="fieldError('code') ? 'true' : null"
+                    [attr.aria-describedby]="fieldError('code') ? 'code-error' : null"
+                  />
+                  @if (fieldError('code'); as error) {
+                    <p class="field-error" id="code-error">{{ error }}</p>
+                  }
+                </div>
                 <button
-                  class="password-toggle"
-                  type="button"
-                  aria-controls="password"
-                  [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
-                  (click)="passwordVisible.set(!passwordVisible())"
+                  type="submit"
+                  class="btn btn-primary w-100"
+                  [disabled]="action.busy()"
+                  [attr.aria-busy]="action.busy()"
                 >
-                  <i
-                    class="bi"
-                    [class.bi-eye]="!passwordVisible()"
-                    [class.bi-eye-slash]="passwordVisible()"
-                    aria-hidden="true"
-                  ></i>
+                  @if (action.busy()) {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    Checking…
+                  } @else {
+                    Verify and sign in <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                  }
+                </button>
+              </form>
+              <div class="auth-links">
+                <button class="btn btn-link p-0" type="button" (click)="toggleBackupCode()">
+                  {{ useBackupCode() ? 'Use your authenticator app' : 'Use a backup code instead' }}
+                </button>
+                <button class="btn btn-link p-0" type="button" (click)="backToPassword()">
+                  Back to sign in
                 </button>
               </div>
-              @if (fieldError('password'); as error) {
-                <p class="field-error" id="password-error">{{ error }}</p>
-              } @else if (mode() !== 'login') {
-                <p class="form-text" id="password-help">
-                  At least 15 characters. A password manager can create and remember one for you.
+            </div>
+          } @else {
+            <div class="auth-step">
+              <h1 id="auth-title" tabindex="-1" #heading>
+                {{
+                  mode() === 'register'
+                    ? 'Create your account'
+                    : mode() === 'forgot'
+                      ? 'Reset your password'
+                      : mode() === 'reset'
+                        ? 'Choose a new password'
+                        : 'Welcome back'
+                }}
+              </h1>
+              <p class="text-body-secondary">
+                {{
+                  mode() === 'register'
+                    ? 'Free, with ' + config.limits.monitors + ' flight monitors. No card needed.'
+                    : mode() === 'forgot'
+                      ? 'Enter the email you sign in with. We’ll send a link to choose a new password.'
+                      : mode() === 'reset'
+                        ? 'Your other browsers will be signed out. API keys and Telegram stay connected.'
+                        : 'Sign in to check the flights you’re watching.'
+                }}
+              </p>
+              @if (action.error()) {
+                <div class="alert alert-danger" role="alert">{{ action.error() }}</div>
+              }
+              @if (mode() === 'forgot' && !config.email_enabled) {
+                <p class="auth-note" role="status">
+                  Password reset by email is not set up on this server. Ask the person who runs it.
                 </p>
               }
-            </div>
-            <button
-              type="submit"
-              class="btn btn-primary w-100"
-              [disabled]="action.busy()"
-              [attr.aria-busy]="action.busy()"
-            >
-              @if (action.busy()) {
-                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                {{
-                  mode() === 'register'
-                    ? 'Creating account…'
-                    : mode() === 'recover'
-                      ? 'Resetting password…'
-                      : 'Signing in…'
-                }}
-              } @else {
-                {{
-                  mode() === 'register'
-                    ? 'Create account'
-                    : mode() === 'recover'
-                      ? 'Reset password'
-                      : 'Sign in'
-                }}
-                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+              <form class="form-stack" novalidate (submit)="onSubmit($event)">
+                @if (mode() === 'reset') {
+                  <!-- Tells a password manager which login the new password belongs to. -->
+                  <input
+                    class="visually-hidden"
+                    type="email"
+                    autocomplete="username"
+                    readonly
+                    tabindex="-1"
+                    aria-hidden="true"
+                    [value]="reset()?.email ?? ''"
+                  />
+                } @else {
+                  <div>
+                    <label class="form-label" for="username">Email</label
+                    ><input
+                      id="username"
+                      type="email"
+                      class="form-control"
+                      [formField]="credentials.username"
+                      [attr.autocomplete]="mode() === 'login' ? 'username webauthn' : 'username'"
+                      autocapitalize="none"
+                      autocorrect="off"
+                      spellcheck="false"
+                      [class.is-invalid]="fieldError('username')"
+                      [attr.aria-invalid]="fieldError('username') ? 'true' : null"
+                      [attr.aria-describedby]="
+                        fieldError('username')
+                          ? 'username-error'
+                          : mode() === 'register'
+                            ? 'username-help'
+                            : null
+                      "
+                    />
+                    @if (fieldError('username'); as error) {
+                      <p class="field-error" id="username-error">{{ error }}</p>
+                    }
+                    @if (mode() === 'register') {
+                      <p class="form-text" id="username-help">
+                        We email only to confirm this address and, if you ask, to reset your
+                        password.
+                      </p>
+                    }
+                  </div>
+                }
+                @if (mode() !== 'forgot') {
+                  <div>
+                    <div class="label-row">
+                      <label class="form-label" for="password">{{
+                        mode() === 'reset' ? 'New password' : 'Password'
+                      }}</label>
+                      @if (mode() === 'login') {
+                        <button
+                          class="btn btn-link p-0 label-link"
+                          type="button"
+                          [disabled]="action.busy()"
+                          (click)="changeMode('forgot')"
+                        >
+                          Forgot password?
+                        </button>
+                      }
+                    </div>
+                    <div class="password-control">
+                      <input
+                        id="password"
+                        [type]="passwordVisible() ? 'text' : 'password'"
+                        class="form-control"
+                        [formField]="credentials.password"
+                        [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+                        [attr.passwordrules]="
+                          mode() === 'login' ? null : 'minlength: 15; maxlength: 128;'
+                        "
+                        [class.is-invalid]="fieldError('password')"
+                        [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+                        [attr.aria-describedby]="
+                          fieldError('password')
+                            ? 'password-error'
+                            : mode() === 'login'
+                              ? null
+                              : 'password-help'
+                        "
+                      />
+                      <button
+                        class="password-toggle"
+                        type="button"
+                        aria-controls="password"
+                        [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+                        (click)="passwordVisible.set(!passwordVisible())"
+                      >
+                        <i
+                          class="bi"
+                          [class.bi-eye]="!passwordVisible()"
+                          [class.bi-eye-slash]="passwordVisible()"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                    </div>
+                    @if (fieldError('password'); as error) {
+                      <p class="field-error" id="password-error">{{ error }}</p>
+                    } @else if (mode() !== 'login') {
+                      <p class="form-text" id="password-help">
+                        At least 15 characters. A password manager can create and remember one.
+                      </p>
+                    }
+                  </div>
+                }
+                @if (mode() === 'reset' && reset()?.two_factor) {
+                  <div>
+                    <label class="form-label" for="one-time-code">Authentication code</label
+                    ><input
+                      id="one-time-code"
+                      class="form-control code-field"
+                      [formField]="credentials.code"
+                      inputmode="numeric"
+                      autocomplete="one-time-code"
+                      [class.is-invalid]="fieldError('code')"
+                      [attr.aria-invalid]="fieldError('code') ? 'true' : null"
+                      [attr.aria-describedby]="fieldError('code') ? 'code-error' : 'code-help'"
+                    />
+                    @if (fieldError('code'); as error) {
+                      <p class="field-error" id="code-error">{{ error }}</p>
+                    } @else {
+                      <p class="form-text" id="code-help">
+                        From your authenticator app, or one of your backup codes.
+                      </p>
+                    }
+                  </div>
+                }
+                <button
+                  type="submit"
+                  class="btn btn-primary w-100"
+                  [disabled]="action.busy() || (mode() === 'forgot' && !config.email_enabled)"
+                  [attr.aria-busy]="action.busy()"
+                >
+                  @if (action.busy()) {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    {{
+                      mode() === 'register'
+                        ? 'Creating account…'
+                        : mode() === 'forgot'
+                          ? 'Sending link…'
+                          : mode() === 'reset'
+                            ? 'Saving password…'
+                            : 'Signing in…'
+                    }}
+                  } @else {
+                    {{
+                      mode() === 'register'
+                        ? 'Create account'
+                        : mode() === 'forgot'
+                          ? 'Email me a reset link'
+                          : mode() === 'reset'
+                            ? 'Save and sign in'
+                            : 'Sign in'
+                    }}
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                  }
+                </button>
+              </form>
+              @if (mode() === 'login' && passkeys) {
+                <p class="auth-divider"><span>or</span></p>
+                <button
+                  class="btn btn-outline-primary w-100 passkey-button"
+                  type="button"
+                  [disabled]="action.busy()"
+                  (click)="signInWithPasskey()"
+                >
+                  <i class="bi bi-person-bounding-box" aria-hidden="true"></i>
+                  Sign in with a passkey
+                </button>
               }
-            </button>
-          </form>
-          <div class="auth-links">
-            @if (mode() === 'login') {
-              <button
-                class="btn btn-link p-0"
-                type="button"
-                [disabled]="action.busy()"
-                (click)="changeMode('recover')"
-              >
-                Forgot your password?
-              </button>
-              @if (config.registration_mode !== 'closed') {
-                <p>
-                  {{
-                    config.registration_mode === 'open'
-                      ? 'New to Fareflare?'
-                      : 'Have an invitation?'
-                  }}
+              <div class="auth-links">
+                @if (mode() === 'login') {
+                  @if (config.registration_mode !== 'closed') {
+                    <p>
+                      New to Fareflare?
+                      <button
+                        type="button"
+                        class="btn btn-link p-0"
+                        [disabled]="action.busy()"
+                        (click)="changeMode('register')"
+                      >
+                        Create a free account
+                      </button>
+                    </p>
+                  }
+                } @else if (mode() !== 'reset') {
                   <button
                     type="button"
                     class="btn btn-link p-0"
                     [disabled]="action.busy()"
-                    (click)="changeMode('register')"
+                    (click)="changeMode('login')"
                   >
-                    Create an account
+                    {{
+                      mode() === 'register' ? 'Already have an account? Sign in' : 'Back to sign in'
+                    }}
                   </button>
-                </p>
-              }
-            } @else {
-              <button
-                type="button"
-                class="btn btn-link p-0"
-                [disabled]="action.busy()"
-                (click)="changeMode('login')"
-              >
-                Already have an account? Sign in
-              </button>
-            }
-          </div>
-          @if (mode() === 'register') {
-            <p class="auth-note">
-              Your account includes {{ config.limits.monitors }} flight monitors. After you sign up
-              you’ll get a recovery code to keep: there is no email password reset.
-            </p>
-          } @else if (mode() === 'recover') {
-            <p class="auth-note">
-              Recovery signs you out everywhere and disconnects your API keys, connected
-              applications and Telegram. You’ll get a new recovery code.
-            </p>
+                }
+              </div>
+            </div>
           }
         } @else if (session.error()) {
           <h1 id="auth-title">Sign-in is unavailable</h1>

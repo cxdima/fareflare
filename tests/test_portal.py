@@ -21,22 +21,20 @@ def portal(store, clock):
         yield client, accounts, service
 
 
-def signup(client, accounts, username="traveler"):
-    invite = accounts.create_invite()
-    response = client.post(
-        "/auth/register",
-        json={"username": username, "password": PASSWORD, "invite_token": invite["token"]},
-    )
+def signup(client, accounts, name="traveler"):
+    email = name if "@" in name else name + "@example.com"
+    response = client.post("/auth/register", json={"email": email, "password": PASSWORD})
     assert response.status_code == 201, response.text
     return response
 
 
-def test_invite_signup_cookie_csrf_key_and_logout(portal, flight_url):
+def test_signup_cookie_csrf_key_and_logout(portal, flight_url):
     client, accounts, _ = portal
     assert client.get("/v1/config").json()["billing_enabled"] is False
     assert client.get("/v1/account").status_code == 401
     denied = client.post("/auth/register", json={"username": "traveler", "password": PASSWORD})
     assert denied.status_code == 422
+    assert client.get("/v1/config").json()["registration_mode"] == "open"
     response = signup(client, accounts)
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=lax" in cookie
@@ -86,40 +84,19 @@ def test_account_deletion_revokes_keys_and_stops_work(portal, flight_url):
     assert service._active_subscribers(monitor["target_id"]) == []
 
 
-def test_recovery_rotates_session_and_code(portal):
-    client, accounts, _ = portal
-    original = signup(client, accounts).json()
-    result = client.post(
-        "/auth/recover",
-        json={
-            "username": "traveler",
-            "recovery_code": original["recovery_code"],
-            "new_password": "a different strong password",
-        },
-    )
-    assert result.status_code == 200, result.text
-    assert result.json()["csrf_token"] != original["csrf_token"]
-    assert result.json()["recovery_code"] != original["recovery_code"]
-    assert (
-        client.post("/auth/login", json={"username": "traveler", "password": PASSWORD}).status_code
-        == 401
-    )
-
-
 def test_security_headers_host_and_cross_origin_signup(portal):
-    client, accounts, _ = portal
+    client, _, _ = portal
     response = client.get("/v1/config")
     assert "'unsafe-inline'" not in response.headers["content-security-policy"]
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-store"
     assert "max-age=" in response.headers["strict-transport-security"]
     assert client.get("/v1/config", headers={"host": "attacker.example"}).status_code == 400
-    invite = accounts.create_invite()
     assert (
         client.post(
             "/auth/register",
             headers={"Origin": "https://attacker.example"},
-            json={"username": "traveler", "password": PASSWORD, "invite_token": invite["token"]},
+            json={"email": "traveler@example.com", "password": PASSWORD},
         ).status_code
         == 403
     )
@@ -174,7 +151,7 @@ def test_unsaved_telegram_preview_requires_session_csrf_and_never_persists(porta
 
 
 def test_open_signup_is_bounded_by_peer_not_spoofed_forwarded_headers(store, clock):
-    config = ProductConfig(public_url="https://fareflare.dev", registration_mode="open")
+    config = ProductConfig(public_url="https://fareflare.dev")
     service = MonitoringService(store, lambda: clock[0], monitor_limit=config.monitor_limit)
     accounts = Accounts(store, config, lambda: clock[0])
     app = create_portal(service, config, accounts)
@@ -183,19 +160,13 @@ def test_open_signup_is_bounded_by_peer_not_spoofed_forwarded_headers(store, clo
         for index in range(3):
             response = client.post(
                 "/auth/register",
-                json={
-                    "username": f"openuser{index}",
-                    "password": PASSWORD,
-                },
+                json={"email": f"openuser{index}@example.com", "password": PASSWORD},
                 headers={"X-Forwarded-For": f"203.0.113.{index}"},
             )
             assert response.status_code == 201
         blocked = client.post(
             "/auth/register",
-            json={
-                "username": "blockeduser",
-                "password": PASSWORD,
-            },
+            json={"email": "blockeduser@example.com", "password": PASSWORD},
             headers={"X-Forwarded-For": "198.51.100.12"},
         )
         assert blocked.status_code == 429
@@ -204,10 +175,7 @@ def test_open_signup_is_bounded_by_peer_not_spoofed_forwarded_headers(store, clo
         assert (
             client.post(
                 "/auth/register",
-                json={
-                    "username": "nextminute",
-                    "password": PASSWORD,
-                },
+                json={"email": "nextminute@example.com", "password": PASSWORD},
             ).status_code
             == 201
         )
@@ -219,9 +187,9 @@ def test_old_browser_origin_redirects_but_api_and_webhook_paths_remain_available
     )
     app = create_portal(MonitoringService(store, lambda: clock[0]), config)
     with TestClient(app, base_url="https://old.example.com", follow_redirects=False) as client:
-        response = client.get("/login?invite=example")
+        response = client.get("/login?authorize=example")
         assert response.status_code == 308
-        assert response.headers["location"] == "https://fareflare.dev/login?invite=example"
+        assert response.headers["location"] == "https://fareflare.dev/login?authorize=example"
         assert client.get("/v1/config").status_code == 200
         assert (
             client.post(

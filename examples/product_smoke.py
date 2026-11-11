@@ -1,6 +1,6 @@
 """Exercise a deployed release with a disposable account and optional live itinerary.
 
-Usage: PYTHONPATH=src .venv/bin/python examples/product_smoke.py .fareflare/smoke-invite.json
+Usage: PYTHONPATH=src .venv/bin/python examples/product_smoke.py https://fareflare.dev
 Add --flight-url to validate scheduled collection. Credentials are written only to
 a new private file, and the account is deleted after verification, including on failure.
 """
@@ -20,7 +20,7 @@ import httpx
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("invitation", type=Path)
+    parser.add_argument("origin", help="The deployed HTTPS application origin")
     parser.add_argument("--flight-url")
     parser.add_argument(
         "--wait-seconds", type=int, default=180, choices=range(30, 901), metavar="30-900"
@@ -28,13 +28,13 @@ def main():
     parser.add_argument("--credentials", type=Path, default=Path(".fareflare/smoke-account.json"))
     parser.add_argument("--report", type=Path, default=Path(".fareflare/product-smoke-report.json"))
     args = parser.parse_args()
-    invitation = json.loads(args.invitation.read_text())
-    url = urlsplit(invitation["url"])
+    url = urlsplit(args.origin)
     origin = f"{url.scheme}://{url.netloc}"
     if url.scheme != "https":
         raise ValueError("Use the deployed HTTPS application origin")
     credentials = {
-        "username": "release_" + secrets.token_hex(6),
+        # A reserved example domain: no confirmation email is delivered anywhere.
+        "email": "release-" + secrets.token_hex(6) + "@example.com",
         "password": secrets.token_urlsafe(32),
     }
     fd = os.open(args.credentials, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -56,12 +56,10 @@ def main():
         try:
             assert client.get("/").status_code == 200
             config = require(client.get("/v1/config"))
-            assert config["billing_enabled"] is False and config["registration_mode"] == "invite"
+            assert config["billing_enabled"] is False and config["registration_mode"] == "open"
             assert client.get("/v1/monitors").status_code == 401
             signed_in = require(
-                client.post(
-                    "/auth/register", json={**credentials, "invite_token": invitation["token"]}
-                ),
+                client.post("/auth/register", json=credentials),
                 201,
             )
             csrf = signed_in["csrf_token"]
@@ -78,7 +76,7 @@ def main():
             auth = {"Authorization": "Bearer " + key["api_key"]}
             assert key["api_key"] not in client.get("/v1/api-keys").text
             require(client.get("/v1/monitors", headers=auth))
-            report["checks"].append("invite-signup-session-csrf-api-key")
+            report["checks"].append("signup-session-csrf-api-key")
             mcp_headers = {
                 **auth,
                 "Accept": "application/json, text/event-stream",

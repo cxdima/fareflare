@@ -14,11 +14,12 @@ variable "product_name" {
 }
 
 variable "registration_mode" {
-  type    = string
-  default = "invite"
+  description = "open lets anyone create an account; closed stops new sign-ups."
+  type        = string
+  default     = "open"
   validation {
-    condition     = contains(["invite", "open"], var.registration_mode)
-    error_message = "Use invite or open registration."
+    condition     = contains(["open", "closed"], var.registration_mode)
+    error_message = "Use open or closed registration."
   }
 }
 
@@ -78,7 +79,9 @@ resource "aws_iam_role_policy" "api" {
       Resource = ["${aws_cloudwatch_log_group.api.arn}:*"] }
       ], var.customer_telegram_secret_arn == "" ? [] : [{
         Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [var.customer_telegram_secret_arn]
-    }])
+        }], local.email_enabled ? [{
+        Effect = "Allow", Action = ["ses:SendEmail"], Resource = [aws_sesv2_email_identity.domain[0].arn]
+    }] : [])
   })
 }
 
@@ -108,6 +111,8 @@ resource "aws_lambda_function" "api" {
       FAREFLARE_MIN_INTERVAL                 = "900"
       FAREFLARE_GLOBAL_TARGET_LIMIT          = "20"
       FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
+      FAREFLARE_EMAIL                        = local.email_enabled ? "ses" : "off"
+      FAREFLARE_EMAIL_FROM                   = local.email_enabled ? local.email_from : ""
     }
   }
   depends_on = [aws_iam_role_policy.api, aws_cloudwatch_log_group.api]

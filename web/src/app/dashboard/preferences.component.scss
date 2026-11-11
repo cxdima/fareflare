@@ -100,107 +100,275 @@
   font-size: 0.85rem;
   margin: 0;
 }
-.telegram-preferences-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-  gap: 1.5rem;
+/* Telegram: the settings on the left, the message as it will arrive on the right. */
+.preference-panel {
+  container-type: inline-size;
 }
-.message-options {
+.telegram-layout {
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  align-items: start;
+  gap: 1.75rem 2.5rem;
+}
+.telegram-settings {
+  display: grid;
+  gap: 1.75rem;
   min-width: 0;
 }
-.message-options legend {
+.style-field .form-select {
+  max-width: 24rem;
+}
+.style-field .form-text {
+  max-width: 52ch;
+}
+/* A list of switches: label and its help on the left, the switch at the right edge. */
+.toggle-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.toggle-group legend {
   float: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-}
-/* Help belongs to its option: it sits under the label, and options keep one rhythm. */
-.message-options .form-check {
-  margin: 0;
-}
-.message-options .form-text {
-  margin: 0.1rem 0 0;
-  max-width: 44ch;
-}
-.message-options .quiet-window {
-  margin-top: 0.75rem;
-}
-.telegram-preview {
-  align-self: start;
-  position: sticky;
-  top: 1.5rem;
-  padding: 1.25rem;
-  background: var(--ff-paper-deep);
-  border: 1.5px solid var(--ff-line);
-  border-radius: var(--bs-border-radius-lg);
-}
-.preview-heading {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  margin-bottom: 1rem;
-  font-size: 0.8rem;
-}
-.preview-heading > span {
-  margin-left: auto;
+  margin: 0 0 0.35rem;
   color: var(--ff-ink-2);
-  font-size: 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
-.telegram-preview pre {
-  background: var(--ff-card);
-  color: var(--ff-ink);
-  border: 1.5px solid var(--ff-line);
-  padding: 1rem;
-  border-radius: var(--bs-border-radius);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: var(--ff-font);
-  font-size: 0.8rem;
-  line-height: 1.6;
-}
-.telegram-preview .btn {
-  margin: 1rem 0 0.75rem;
-}
-.preview-actions {
+.toggle-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: -0.5rem 0 1rem;
-}
-.preview-action {
-  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.8rem;
-  border: 1.5px solid var(--ff-line);
-  border-radius: var(--bs-border-radius);
-  background: var(--ff-card);
-  font-size: 0.75rem;
-  font-weight: 600;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding-block: 0.85rem;
 }
-.preview-placeholder {
-  font-size: 0.85rem;
-  line-height: 1.6;
+.toggle-row + .toggle-row {
+  border-top: 1.5px dotted var(--ff-line-strong);
+}
+.toggle-copy {
+  min-width: 0;
+}
+.toggle-label {
+  font-size: 0.95rem;
+  font-weight: 620;
+  cursor: pointer;
+}
+.toggle-copy .form-text {
+  max-width: 46ch;
+  margin: 0.15rem 0 0;
+}
+.toggle-note {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.85rem;
+  background: var(--ff-paper);
   color: var(--ff-ink-2);
-  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
-.preview-choice {
-  margin-bottom: 1rem;
+.toggle-group .drawer > .drawer-body > * {
+  margin-top: 0.15rem;
+}
+.quiet-box {
+  padding: 1rem 1.1rem;
+  border-radius: var(--ff-radius-card);
+  background: var(--ff-paper);
 }
 .quiet-window {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 0.75rem;
 }
 .quiet-window .form-label {
-  font-size: 0.75rem;
   color: var(--ff-ink-2);
+  font-size: 0.78rem;
+}
+.quiet-window .form-control {
+  width: 9.5rem;
+  background-color: var(--ff-card);
+}
+.quiet-arrow {
+  padding-bottom: 0.8rem;
+  color: var(--ff-ink-3);
+}
+
+/* The preview is a chat with the Fareflare bot, on the same lavender as the website. */
+.telegram-preview {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-lav);
+}
+.preview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+.preview-heading h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 760;
+  letter-spacing: -0.015em;
+}
+.preview-heading span {
+  color: var(--ff-ink-2);
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 .preview-choice .form-label {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+}
+.preview-choice .form-select {
+  background-color: var(--ff-card);
+}
+.chat {
+  overflow: hidden;
+  border-radius: 1.3rem;
+  background: var(--ff-paper);
+  box-shadow: 0 22px 40px -30px rgb(23 20 31 / 60%);
+}
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.95rem;
+  background: var(--ff-card);
+}
+.chat-head img {
+  border-radius: 50%;
+}
+.chat-head p {
+  display: grid;
+  margin: 0;
+  line-height: 1.2;
+}
+.chat-head strong {
+  font-size: 0.9rem;
+}
+.chat-head span {
   color: var(--ff-ink-2);
+  font-size: 0.74rem;
+}
+.chat-body {
+  display: grid;
+  align-content: end;
+  gap: 0.45rem;
+  min-height: 13rem;
+  padding: 1rem 0.95rem 1.1rem;
+}
+.bubble {
+  justify-self: start;
+  max-width: 100%;
+  padding: 0.75rem 0.9rem 0.45rem;
+  border-radius: 1.1rem 1.1rem 1.1rem 0.35rem;
+  background: var(--ff-card);
+  box-shadow:
+    0 1px 0 rgb(23 20 31 / 8%),
+    0 12px 22px -18px rgb(23 20 31 / 45%);
+}
+.bubble pre {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ff-ink);
+  font-family: var(--ff-font);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubble-meta {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  color: var(--ff-ink-3);
+  font-size: 0.7rem;
+}
+.bubble-empty {
+  display: grid;
+  gap: 0.5rem;
+  width: 80%;
+  padding: 0.95rem;
+}
+.bubble-empty span {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--ff-paper-deep);
+}
+.bubble-empty span:nth-child(2) {
+  width: 72%;
+}
+.bubble-empty span:nth-child(3) {
+  width: 46%;
+}
+.preview-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.35rem;
+}
+.preview-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.85rem;
+  background: var(--ff-card);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.preview-placeholder {
+  margin: 0.25rem 0 0;
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.preview-foot {
+  display: grid;
+  justify-items: start;
+  gap: 0.6rem;
+}
+.telegram-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1.5px dotted var(--ff-line-strong);
+}
+.telegram-footer .settings-note {
+  max-width: 52ch;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bubble,
+  .preview-actions {
+    animation: bubble-in 460ms var(--ff-ease) both;
+    transform-origin: 0 100%;
+  }
+}
+@keyframes bubble-in {
+  from {
+    transform: translateY(0.6rem) scale(0.96);
+  }
+}
+/* Sized by the panel, not the window, so zoom and the settings menu are both accounted for. */
+@container (max-width: 44rem) {
+  .telegram-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .telegram-preview {
+    position: static;
+  }
 }
 .template-editor {
   display: grid;
@@ -268,16 +436,26 @@
 }
 @media (max-width: 767px) {
   .regional-grid,
-  .template-toolbar,
-  .telegram-preferences-grid {
+  .template-toolbar {
     grid-template-columns: minmax(0, 1fr);
   }
   .telegram-preview {
-    position: static;
     padding: 1rem;
   }
   .display-example {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Switching settings sections: the newly shown panels rise into place. */
+  .preference-panel {
+    animation: panel-rise 460ms var(--ff-ease) both;
+  }
+}
+@keyframes panel-rise {
+  from {
+    transform: translateY(0.75rem);
   }
 }

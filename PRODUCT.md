@@ -40,8 +40,11 @@ confidence because they saw the recorded price history, not a guess.
 - Entry: a Google Flights link for a selected itinerary or a supported route search.
 - Checks start at 15-minute intervals. A fare can change between checks.
 - Alerts arrive in the dashboard, in Telegram once connected, or at a verified webhook.
-- Sign-in uses an email address or username and a password. There is no email
-  reset: a recovery code shown once at sign-up is the only way back in.
+- Sign-up is open to anyone and takes an email address and a password. Sign-in uses
+  the password, a passkey, or the password plus an authenticator code; a forgotten
+  password is reset by a link sent to a confirmed address (Amazon SES). Accounts
+  made before email was required may still sign in with a username.
+- Sign-up is free. Paid extra features are planned for later; none exist yet.
 - Booking happens elsewhere. Fareflare links back to the flight.
 
 ## Capabilities and Constraints

@@ -1,6 +1,9 @@
 :host {
   display: block;
-  max-width: 58rem;
+}
+/* Panels rise into place as a section opens; the page must not scroll to follow them. */
+.settings-content {
+  overflow-anchor: none;
 }
 /* Sections are a row of pills; the open one is ink. */
 .settings-sections {
@@ -99,5 +102,46 @@
     padding: 0.4rem 0.15rem;
     border-radius: 1.15rem;
     font-size: 0.72rem;
+  }
+}
+
+/* Two rows of two on the narrowest screens, label beside its icon. */
+@media (max-width: 380px) {
+  .settings-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-sections button {
+    flex-direction: row;
+    gap: 0.4rem;
+    min-height: 44px;
+    font-size: 0.78rem;
+  }
+}
+/* With room to spare, the sections become a menu beside the page instead of above it. */
+@container page (min-width: 60rem) {
+  :host {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: start;
+    column-gap: 2rem;
+  }
+  .page-heading {
+    grid-column: 1 / -1;
+  }
+  .settings-sections {
+    position: sticky;
+    top: 1rem;
+    display: grid;
+    width: 100%;
+    margin: 0;
+    padding: 0.4rem;
+    border-radius: 1.5rem;
+  }
+  .settings-sections button {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .settings-content {
+    min-width: 0;
   }
 }

@@ -1,4 +1,4 @@
-.PHONY: help install lock build serve invite worker mcp test lint format check demo webhook-demo
+.PHONY: help install lock build serve worker mcp test lint format check demo webhook-demo
 
 PYTHON ?= .venv/bin/python
 PYTHON_SOURCES = src tests scripts examples web/tests/serve_portal.py
@@ -8,7 +8,6 @@ help:
 	@echo "make lock          Regenerate the hash-locked requirement files (needs uv)"
 	@echo "make build         Install frontend dependencies and build the website"
 	@echo "make serve         Serve the website, API, and MCP at http://127.0.0.1:8001"
-	@echo "make invite        Write a local invitation to .fareflare/invitation.json"
 	@echo "make worker        Collect due monitors once and deliver queued alerts"
 	@echo "make mcp           Run the stdio MCP adapter (needs FAREFLARE_API_KEY)"
 	@echo "make test          Run isolated Python tests without live services"
@@ -33,9 +32,6 @@ build:
 
 serve:
 	@PYTHONPATH=src $(PYTHON) -m fareflare.product_cli serve
-
-invite:
-	@PYTHONPATH=src $(PYTHON) -m fareflare.product_cli invite .fareflare/invitation.json
 
 worker:
 	@PYTHONPATH=src $(PYTHON) -m fareflare.product_cli worker --limit 5

@@ -29,7 +29,7 @@ def product(store, clock):
     clock[0] = int(time.time())  # The official OAuth token handler also checks wall time.
     service = MonitoringService(store, lambda: clock[0])
     accounts = Accounts(store, clock=lambda: clock[0])
-    result = accounts.register("traveler", PASSWORD, accounts.create_invite()["token"])
+    result = accounts.register("traveler@example.com", PASSWORD)
     app = create_portal(service, ProductConfig(public_url=ORIGIN), accounts)
     return app, accounts, result
 
@@ -192,7 +192,9 @@ def test_warm_api_gateway_invocations_preserve_cookies_and_stateless_mcp(product
 
     try:
         assert invoke("/v1/config")["statusCode"] == 200
-        login = invoke("/auth/login", "POST", {"username": "traveler", "password": PASSWORD})
+        login = invoke(
+            "/auth/login", "POST", {"username": "traveler@example.com", "password": PASSWORD}
+        )
         assert login["statusCode"] == 200
         cookie = login["cookies"][0].split(";", 1)[0]
         assert invoke("/v1/account", cookies=[cookie])["statusCode"] == 200

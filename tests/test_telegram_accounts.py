@@ -18,8 +18,8 @@ BOT_TOKEN = "123456:" + "x" * 30
 
 @pytest.fixture
 def telegram(store, clock):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    user = accounts.register("traveler", PASSWORD)
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    user = accounts.register("traveler@example.com", PASSWORD)
     sent = []
 
     def transport(request):
@@ -149,7 +149,7 @@ def test_rebinding_requires_disconnect_and_chat_cannot_take_another_account(tele
     bind(connections, tenant)
     with pytest.raises(ValueError, match="Disconnect"):
         connections.connect(tenant)
-    other = accounts.register("traveler-two", PASSWORD)["account"]["id"]
+    other = accounts.register("traveler-two@example.com", PASSWORD)["account"]["id"]
     payload = start(connections, other)
     assert connections.handle_update(update("/start " + payload, identifier=2))
     assert not connections.status(other)["connected"]
@@ -233,11 +233,11 @@ def test_unknown_updates_and_invalid_connection_tokens_do_not_reply(telegram):
     assert not sent
 
 
-def test_recovery_fences_links_bindings_and_reconnecting_fences_pending_delivery(telegram, store):
+def test_signing_out_everywhere_fences_links_bindings_and_pending_delivery(telegram, store):
     connections, accounts, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
-    accounts.recover("traveler", user["recovery_code"], "another long password phrase")
+    accounts.sign_out_everywhere(user["account"]["id"], PASSWORD)
     assert not connections.status(tenant)["connected"]
     before = len(sent)
     assert connections.send(delivery(tenant))
@@ -251,11 +251,11 @@ def test_recovery_fences_links_bindings_and_reconnecting_fences_pending_delivery
     assert len(sent) == before
 
 
-def test_recovery_cancels_unredeemed_connection_link(telegram):
+def test_signing_out_everywhere_cancels_an_unredeemed_connection_link(telegram):
     connections, accounts, user, _ = telegram
     tenant = user["account"]["id"]
     payload = start(connections, tenant)
-    accounts.recover("traveler", user["recovery_code"], "another long password phrase")
+    accounts.sign_out_everywhere(user["account"]["id"], PASSWORD)
     assert connections.handle_update(update("/start " + payload))
     assert not connections.status(tenant)["connected"]
 
@@ -277,7 +277,7 @@ def test_account_deletion_stops_telegram_without_pre_delete_side_effects(telegra
 def test_deletion_cleanup_preserves_chat_rebound_to_another_account(telegram, store, monkeypatch):
     connections, accounts, user, _ = telegram
     tenant = user["account"]["id"]
-    other = accounts.register("traveler-two", PASSWORD)["account"]["id"]
+    other = accounts.register("traveler-two@example.com", PASSWORD)["account"]["id"]
     bind(connections, tenant)
     payload = start(connections, other)
     commit = store.commit
@@ -366,7 +366,9 @@ def test_unfinished_update_can_be_reclaimed_after_lease_expiry(telegram, store, 
     assert len(sent) == 1
 
 
-def test_concurrent_recovery_cannot_install_binding_with_old_epoch(telegram, store, monkeypatch):
+def test_a_concurrent_epoch_change_cannot_install_a_binding_with_the_old_epoch(
+    telegram, store, monkeypatch
+):
     connections, _, user, _ = telegram
     tenant = user["account"]["id"]
     payload = start(connections, tenant)

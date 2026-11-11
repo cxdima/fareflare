@@ -16,7 +16,17 @@ from fareflare.product_config import ProductConfig
 GITHUB_URL = "https://github.com/cxdima/fareflare"
 PUBLISHED = "2026-11-05"
 SOCIAL_IMAGE = "/assets/social.jpg"
-PRIVATE_PATHS = frozenset({"/app", "/login", "/register", "/recover"})
+PRIVATE_PATHS = frozenset(
+    {
+        "/app",
+        "/login",
+        "/register",
+        "/recover",
+        "/forgot-password",
+        "/reset-password",
+        "/confirm-email",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -52,7 +62,7 @@ class Page:
 def public_pages(config: ProductConfig) -> tuple[Page, ...]:
     """Keep factual capability and capacity copy tied to runtime configuration."""
     minutes = config.min_interval_seconds // 60
-    access = "invite-only" if config.registration_mode == "invite" else "open"
+    access = "open" if config.registration_mode == "open" else "closed"
     route_status = (
         "Route searches are enabled on this installation."
         if config.search_enabled
@@ -231,7 +241,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "Keep the link and the expectations together",
                     (
                         "Paste the complete Google Flights link into Fareflare. The service checks the encoded selection and rejects unsupported inputs explicitly. Removing parts of the URL to make it shorter can remove the very constraints you meant to track.",
-                        "No customer Google account access is required. Fareflare collects anonymous public prices. You should not paste Google cookies, passwords, recovery codes, or any other account credentials into a monitor.",
+                        "No customer Google account access is required. Fareflare collects anonymous public prices. You should not paste Google cookies, passwords, authenticator codes, or any other account credentials into a monitor.",
                     ),
                     bullets=(
                         "Pick the supported locale, currency, passenger count, and cabin.",
@@ -377,7 +387,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "Data needed to run the service",
                     (
-                        "Fareflare stores your sign-in name, password hash, account status, and authentication records. The sign-in name is a username or, if you choose, an email address. An address is kept only as the name you sign in with: Fareflare does not verify it, does not send email to it, and does not share it. Session, invitation, recovery, API, and OAuth credentials are stored as hashes where they are used for authentication. A browser session uses an HttpOnly cookie.",
+                        "Fareflare stores your email address, password hash, account status, and authentication records. Accounts created before email was required may sign in with a username instead. Fareflare emails you only to confirm your address and, when you ask, to reset your password; it does not send newsletters or share the address. Passkeys are stored as public keys, and an authenticator app's secret is kept so its codes can be checked. Session, API, reset, backup-code and OAuth credentials are stored as hashes where they are used for authentication. A browser session uses an HttpOnly cookie.",
                         "Your monitors contain flight links, the selections derived from them, alert preferences, and notification history. Equivalent collection targets and price observations can be shared across subscribers; each account’s subscriptions and settings remain private.",
                     ),
                 ),
@@ -385,7 +395,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "Connections you choose",
                     (
                         "Connecting Telegram associates your private Telegram chat with your Fareflare account so you can manage flights and receive alerts. Button actions and pending confirmations expire after 15 minutes. Command replies may be retained for up to two days to retry failed delivery; storage cleanup can occur later. Registering a webhook stores its endpoint and delivery configuration, including a signing secret needed to sign events.",
-                        "Fareflare uses AWS for hosting and storage. Google Flights is contacted to collect public prices; Telegram is contacted if you connect the bot. A configured webhook receives the events you route to it. Fareflare does not require your Google account credentials.",
+                        "Fareflare uses AWS for hosting and storage, and Amazon SES to send account email. Google Flights is contacted to collect public prices; Telegram is contacted if you connect the bot. A configured webhook receives the events you route to it. Fareflare does not require your Google account credentials.",
                     ),
                 ),
                 Section(
@@ -398,7 +408,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "Keep private details out of public issues",
                     (
-                        "Use account settings to revoke keys, disconnect applications, or delete your account. The GitHub repository accepts product questions and bug reports, but it is public. Never post passwords, invitations, recovery codes, API keys, or private Telegram details there.",
+                        "Use account settings to revoke keys, disconnect applications, or delete your account. The GitHub repository accepts product questions and bug reports, but it is public. Never post passwords, reset links, backup codes, API keys, or private Telegram details there.",
                     ),
                     links=(
                         Link("Account settings", "/app#settings"),

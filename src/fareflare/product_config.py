@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 class ProductConfig:
     product_name: str = "Fareflare"
     public_url: str = ""
-    registration_mode: str = "invite"
+    registration_mode: str = "open"
     billing_enabled: bool = False
     monitor_limit: int = 20
     min_interval_seconds: int = 900
@@ -28,8 +28,8 @@ class ProductConfig:
             or any(ord(c) < 32 for c in self.product_name)
         ):
             raise ValueError("Product name must contain 1–64 printable characters")
-        if self.registration_mode not in ("invite", "open"):
-            raise ValueError("Registration mode must be invite or open")
+        if self.registration_mode not in ("open", "closed"):
+            raise ValueError("Registration mode must be open or closed")
         if type(self.billing_enabled) is not bool or self.billing_enabled:
             raise ValueError("Billing is unavailable; keep FAREFLARE_BILLING_ENABLED=false")
         if type(self.search_enabled) is not bool:
@@ -76,7 +76,7 @@ class ProductConfig:
             return cls(
                 product_name=values.get("FAREFLARE_PRODUCT_NAME", "Fareflare"),
                 public_url=values.get("FAREFLARE_PUBLIC_URL", "").rstrip("/"),
-                registration_mode=values.get("FAREFLARE_REGISTRATION_MODE", "invite"),
+                registration_mode=values.get("FAREFLARE_REGISTRATION_MODE", "open"),
                 billing_enabled=billing == "true",
                 monitor_limit=int(values.get("FAREFLARE_MONITOR_LIMIT", "20")),
                 min_interval_seconds=int(values.get("FAREFLARE_MIN_INTERVAL", "900")),

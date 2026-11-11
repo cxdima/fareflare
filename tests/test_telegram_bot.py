@@ -22,8 +22,8 @@ PASSWORD = "private native bot test password"
 
 @pytest.fixture
 def native_bot(service, store, clock):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    user = accounts.register("native-traveler", PASSWORD)["account"]
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    user = accounts.register("native-traveler@example.com", PASSWORD)["account"]
     tenant, chat = user["id"], "123456"
     _bind(store, tenant, chat)
     bot = TelegramBot(service, accounts, "https://fareflare.test", clock=lambda: clock[0])
@@ -294,7 +294,7 @@ def test_forged_foreign_and_expired_callbacks_never_mutate(
     bot, tenant, chat = native_bot
     preview = _call(native_bot, flight_url)
     token = _token(preview, "Start watching")
-    other = bot.accounts.register("different-traveler", PASSWORD)["account"]["id"]
+    other = bot.accounts.register("different-traveler@example.com", PASSWORD)["account"]["id"]
     _bind(store, other, "987654", "different-connection")
     assert "belongs to another" in bot.handle(other, "987654", 1, callback_data=token).text
     assert service.monitors_page(other)["active_count"] == 0

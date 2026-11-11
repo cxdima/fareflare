@@ -11,12 +11,12 @@ Use Node 24 and the repository's Python environment:
 ```sh
 npm --prefix web ci
 npm --prefix web run build
-make invite
 make serve
 ```
 
-Open `http://127.0.0.1:8001`; the dashboard is `/app`. The local signup URL is in
-`.fareflare/invitation.json`. Keep it private. `npm --prefix web run dev` starts Angular's
+Open `http://localhost:8001`; the dashboard is `/app` and sign-up is `/register`.
+Use `localhost`, not `127.0.0.1`, so passkeys work; account email is written to
+`.fareflare/outbox/`. `npm --prefix web run dev` starts Angular's
 development server and proxies API requests. Use the built Python portal for
 complete session, CSP, and SEO behavior; its configured public origin must match
 the browser origin for account mutations.
@@ -29,7 +29,9 @@ the browser origin for account mutations.
   `regional-formatting.ts`.
 - `src/app/dashboard/`: feature components, workspace facade, dialogs, and selected
   itinerary/route-search presentation strategies.
-- `src/app/auth/`: login, invitation signup, and recovery using Angular signal forms.
+- `src/app/auth/`: sign-in (password, passkey, two-step code), sign-up, password reset
+  and email confirmation, using Angular signal forms. `core/passkey.ts` converts
+  WebAuthn options and responses between JSON and the browser API.
 - `src/app/public/`: landing page and editorial content views.
 - `src/styles.scss`: design tokens, Bootstrap theme, local fonts, and shared classes.
 - `../src/fareflare/site_content.py`: public content, metadata, structured data,
@@ -66,8 +68,8 @@ Browser tests use installed Chrome by default; CI sets
 `PLAYWRIGHT_CHROME_CHANNEL=chromium` after `npx playwright install --with-deps chromium`
 inside `web/`. Reports and temporary credentials remain ignored.
 
-Session cookies stay HttpOnly. CSRF tokens, invitations, API keys, and recovery
-codes stay in memory. No browser storage holds credentials. A fresh response nonce
+Session cookies stay HttpOnly. CSRF tokens, API keys, backup codes and
+authenticator secrets stay in memory. No browser storage holds credentials. A fresh response nonce
 allows Angular component style elements while the CSP continues to reject inline
 style attributes and arbitrary scripts. Fonts, icons, images, and scripts are
 served locally. Native dialogs trap focus and restore it on close.

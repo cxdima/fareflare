@@ -1,13 +1,40 @@
 export type ProductConfig = {
   product_name: string;
   billing_enabled: boolean;
-  registration_mode: 'invite' | 'open' | 'closed';
+  registration_mode: 'open' | 'closed';
+  /** Password resets and address confirmation need a mail provider on the server. */
+  email_enabled?: boolean;
   limits: { monitors: number; min_interval_seconds: number };
   mcp_url?: string;
   capabilities?: { route_searches?: boolean };
 };
-export type Account = { id: string; username: string; created_at?: number };
-export type AccountResponse = { account: Account; csrf_token: string; recovery_code?: string };
+export type Account = {
+  id: string;
+  username: string;
+  created_at?: number;
+  email?: string | null;
+  email_verified?: boolean;
+};
+export type AccountResponse = { account: Account; csrf_token: string };
+/** A password sign-in that still needs a code from an authenticator app. */
+export type TwoFactorChallenge = { two_factor_required: true; token: string; expires_at: number };
+export type PasskeyOptions = { challenge_id: string; options: Record<string, unknown> };
+export type Passkey = {
+  id: string;
+  credential_id: string;
+  name: string;
+  provider: string;
+  synced: boolean;
+  created_at: number;
+  last_used_at: number | null;
+};
+export type Security = {
+  email: string | null;
+  email_verified: boolean;
+  email_enabled: boolean;
+  two_factor: { enabled: boolean; backup_codes_left: number; enabled_at: number | null };
+  passkeys: Passkey[];
+};
 /** Airport-local clock times for one direction, as 24-hour HH:MM. */
 export type SliceTimes = {
   departs: string;

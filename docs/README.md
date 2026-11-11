@@ -13,7 +13,7 @@
   API/MCP contract.
 - [Telegram guide](TELEGRAM.md): connect once, manage flights and alert rules,
   review prices, and control messages in chat.
-- [Operations](OPERATIONS.md): invitations, Terraform, image releases, Telegram,
+- [Operations](OPERATIONS.md): account email (SES), Terraform, image releases, Telegram,
   monitoring, and recovery.
 
 ## Contribute

@@ -72,45 +72,46 @@ terraform -chdir=infra apply ../.fareflare/fareflare.tfplan
 ```
 
 Validate health, account registration, tenant isolation, API key revocation, and
-OAuth/MCP before inviting users. `product_delivery_enabled=true` activates the
+OAuth/MCP before announcing the release. `product_delivery_enabled=true` activates the
 customer inbox, Telegram, and verified webhook delivery paths. Measure collection
 time and resource use before choosing `worker_max_targets`,
 `worker_schedule_minutes`, and `schedule_enabled=true`. The default batch is one
 target and the default dispatch interval is five minutes. Dispatch frequency is
 not a guarantee of price freshness.
 
-## Accounts, invitations, and capacity
+## Account email (Amazon SES)
+
+Password resets and address confirmation are sent through Amazon SES from the
+public domain. Set `email_enabled=true` with `domain_name` and `hosted_zone_id`;
+Terraform then creates the SES domain identity, its three DKIM records, a
+`mail.<domain>` MAIL FROM subdomain (MX and SPF records), the API's `ses:SendEmail`
+permission, and `FAREFLARE_EMAIL=ses` with `FAREFLARE_EMAIL_FROM`. `email_from`
+overrides the default `"<product_name> <no-reply@<domain>>"`.
+
+A new SES account starts in the sandbox, where it can send only to verified
+addresses. Request production access in the SES console (Account dashboard >
+Request production access) before relying on resets. Until then, and whenever SES
+rejects a message, the failure is logged and the person sees the same answer as
+for any address, so nothing about accounts is revealed. A DMARC record for the
+domain is not created; add one if the domain has none.
+
+## Accounts and capacity
 
 The hosted release uses `registration_mode="open"` and `billing_enabled=false`.
-Self-hosted deployments can select `invite` for private access.
+`closed` stops new sign-ups while existing accounts keep working.
 Enabling billing fails startup until a payment integration exists. Free access
 does not eliminate AWS charges. Default limits are 20 monitors per account,
 a 900-second minimum requested interval, and 20 distinct shared targets.
 Equivalent targets share collection; account preferences remain private.
 
-Issue a deployed invitation with an explicit account guard:
-
-```bash
-PYTHONPATH=src .venv/bin/python -m fareflare.product_cli \
-  --public-url https://YOUR-API.execute-api.REGION.amazonaws.com \
-  invite .fareflare/invitation-UNIQUE.json --table fareflare-production \
-  --aws-account YOUR_ACCOUNT_ID --region YOUR_REGION
-```
-
-Invitations expire after seven days and can be used once. The command creates the
-output with private permissions and refuses to overwrite a file. Share the signup
-URL only with its intended recipient. `make invite` uses local SQLite and
-cannot invite someone to a deployed instance.
-
-A sign-in name is a username or an email address. An address is stored as typed
-(lower-cased) and is never verified or written to; a taken name is reported at
-signup, so with open registration anyone can learn whether a given address has an
-account. Recovery codes replace email resets. Recovery changes the password and
-invalidates sessions, API keys, OAuth grants, and Telegram bindings. While signed
-in, an account can change its password (other browser sessions end; keys, grants
-and Telegram stay) or replace its recovery code; both confirm the current
-password and count against the sign-in rate limit. A wrong confirming password is
-answered with 403, so the browser does not mistake it for an expired session.
+Accounts sign up with an email address and a password, and can add passkeys and
+two-step sign-in. A taken address is reported at sign-up, so anyone can learn
+whether an address has an account. A password reset goes only to a confirmed
+address, works once for 30 minutes, needs an authenticator code when two-step
+sign-in is on, and signs out other browsers. **Sign out everywhere** invalidates
+sessions, API keys, OAuth grants and Telegram bindings. Confirming actions count
+against the sign-in rate limit; a wrong confirming password is answered with 403,
+so the browser does not mistake it for an expired session.
 `/.well-known/change-password` redirects password managers to that page. Account deletion requires
 the password and stops future work for that account. Shared observations may remain
 available to other subscribers.
@@ -194,7 +195,7 @@ partially applied configuration. Keep these snapshots private and use new names.
 Check initial connection, command menus, paginated views, link and rule
 confirmations, `/cancel`, expired controls, disconnect/reconnect, and an actual
 price notification. Confirm time-zone and sound settings with a disposable
-account before inviting users.
+account before announcing the change.
 
 Restore the saved route when rolling back:
 

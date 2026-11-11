@@ -55,8 +55,8 @@ class Controls:
 
 @pytest.fixture
 def case(store, clock, service):
-    accounts = Accounts(store, ProductConfig(registration_mode="open"), lambda: clock[0])
-    user = accounts.register("traveler", PASSWORD)
+    accounts = Accounts(store, ProductConfig(), lambda: clock[0])
+    user = accounts.register("traveler@example.com", PASSWORD)
     requests = []
     failures = {}
 
@@ -163,19 +163,19 @@ def test_flood_control_honors_retry_after_and_cached_reply(case, clock):
     assert len(controls.calls) == 1
 
 
-@pytest.mark.parametrize("change", ["disconnect", "recover", "rebind"])
+@pytest.mark.parametrize("change", ["disconnect", "sign-out-everywhere", "rebind"])
 def test_queued_reply_cannot_cross_connection_or_account_boundaries(case, clock, change):
     bot, controls, accounts, user, requests, failures = case
     failures["sendMessage"] = (503, {"ok": False})
     update = message()
     assert not bot.handle_update(update)
     tenant = user["account"]["id"]
-    if change == "recover":
-        accounts.recover("traveler", user["recovery_code"], "replacement private passphrase")
+    if change == "sign-out-everywhere":
+        accounts.sign_out_everywhere(user["account"]["id"], PASSWORD)
     else:
         bot.disconnect(tenant)
         if change == "rebind":
-            other = accounts.register("another", PASSWORD)["account"]["id"]
+            other = accounts.register("another@example.com", PASSWORD)["account"]["id"]
             failures.clear()
             token = parse_qs(urlsplit(bot.connect(other)["url"]).query)["start"][0]
             assert bot.handle_update(message("/start " + token, identifier=3))

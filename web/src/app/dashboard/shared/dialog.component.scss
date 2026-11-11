@@ -51,6 +51,24 @@
   .ff-dialog[open]::backdrop {
     animation: scrim-in 300ms ease both;
   }
+  /* Closing is quicker than opening: the person has already decided. */
+  .ff-dialog.ff-dialog-closing {
+    animation: sheet-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+  .ff-dialog.ff-dialog-closing::backdrop {
+    animation: scrim-out 240ms ease both;
+  }
+}
+@keyframes sheet-out {
+  to {
+    transform: translateY(1rem) scale(0.97);
+    clip-path: inset(0 0 45% 0 round 1.75rem);
+  }
+}
+@keyframes scrim-out {
+  to {
+    background: rgb(23 20 31 / 0%);
+  }
 }
 @keyframes sheet-in {
   from {

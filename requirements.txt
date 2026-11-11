@@ -6,5 +6,6 @@ mcp==2.3.0
 protobuf==7.36.2
 uvicorn==0.54.0
 selenium==4.52.0
+webauthn==3.0.1
 mangum==0.22.0
 awslambdaric==2.0.12

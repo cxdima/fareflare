@@ -189,6 +189,17 @@
   min-width: 0;
   padding-inline: clamp(1rem, 3.2vw, 3rem);
 }
+/*
+ * One column for the bar, the page and the footer, centred in the space beside the
+ * sidebar: wide screens and zoomed-out windows keep the edges aligned and the space even.
+ */
+.workspace-topbar,
+.workspace-main,
+.workspace-footer {
+  width: 100%;
+  max-width: clamp(88rem, 60vw, 104rem);
+  margin-inline: auto;
+}
 .workspace-topbar {
   display: flex;
   align-items: center;
@@ -244,9 +255,9 @@
 }
 .workspace-main {
   flex: 1 1 auto;
-  width: 100%;
-  max-width: 70rem;
   padding: clamp(1rem, 2.4vw, 2rem) 0 3rem;
+  /* Pages lay themselves out by the room they get here, not by the window. */
+  container: page / inline-size;
 }
 .workspace-main:focus {
   outline: 0;
@@ -257,7 +268,6 @@
   justify-content: space-between;
   gap: 0.5rem 1.5rem;
   flex-wrap: wrap;
-  max-width: 70rem;
   padding: 1rem 0 1.5rem;
   border-top: 1.5px dotted var(--ff-line-strong);
   font-size: 0.85rem;
@@ -443,5 +453,25 @@
   .refresh-button {
     min-width: 44px;
     padding-inline: 0;
+  }
+}
+
+/* The narrowest phones, and a desktop at 400% zoom: the same pieces, packed tighter. */
+@media (max-width: 400px) {
+  .signout {
+    min-width: 44px;
+    padding-inline: 0;
+  }
+  .signout-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .workspace-sidebar nav a {
+    font-size: 0.61rem;
+    letter-spacing: -0.01em;
   }
 }

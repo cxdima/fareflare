@@ -1,4 +1,10 @@
-<dialog #dialog class="ff-dialog" aria-labelledby="ff-dialog-title" (cancel)="dismiss($event)">
+<dialog
+  #dialog
+  class="ff-dialog"
+  [class.ff-dialog-closing]="closing()"
+  aria-labelledby="ff-dialog-title"
+  (cancel)="dismiss($event)"
+>
   <header class="dialog-heading">
     <h2 id="ff-dialog-title">{{ title() }}</h2>
     <button

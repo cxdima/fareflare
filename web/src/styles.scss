@@ -282,6 +282,22 @@ code {
   --bs-btn-disabled-border-color: #cfccc4;
   --bs-btn-disabled-opacity: 1;
 }
+/* A quiet action beside a louder one: paper, no outline. */
+.btn-quiet {
+  --bs-btn-color: var(--ff-ink);
+  --bs-btn-bg: var(--ff-paper);
+  --bs-btn-border-color: var(--ff-paper);
+  --bs-btn-hover-color: var(--ff-ink);
+  --bs-btn-hover-bg: var(--ff-paper-deep);
+  --bs-btn-hover-border-color: var(--ff-paper-deep);
+  --bs-btn-active-color: var(--ff-ink);
+  --bs-btn-active-bg: var(--ff-line);
+  --bs-btn-active-border-color: var(--ff-line);
+  --bs-btn-disabled-color: #5f5a76;
+  --bs-btn-disabled-bg: var(--ff-paper);
+  --bs-btn-disabled-border-color: var(--ff-paper);
+  --bs-btn-disabled-opacity: 1;
+}
 .btn-light {
   --bs-btn-color: var(--ff-ink);
   --bs-btn-bg: #ffffff;
@@ -1245,5 +1261,145 @@ main.public-article .table code {
   .section-head-split {
     grid-template-columns: minmax(0, 1fr);
     justify-items: start;
+  }
+}
+
+/*
+ * Open and close. A drawer grows from nothing to its own height, so whatever sits
+ * below moves with it instead of jumping. Closed content is inert, not just hidden.
+ */
+.drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 460ms var(--ff-ease);
+}
+.drawer-open {
+  grid-template-rows: 1fr;
+}
+.drawer > .drawer-body {
+  min-height: 0;
+  overflow: hidden;
+}
+.drawer > .drawer-body > * {
+  margin-top: 1.25rem;
+  transform: translateY(-0.6rem);
+  transition: transform 460ms var(--ff-ease);
+}
+.drawer-open > .drawer-body > * {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer > .drawer-body > * {
+    transition: none;
+  }
+}
+
+/*
+ * A switch for settings that are on or off: a pill track with a disc that slides.
+ * Off is paper with a grey disc; on is ink with a lime disc. The disc is a
+ * background gradient, so it moves the same way in every browser.
+ */
+.form-check-input.switch {
+  --knob: var(--ff-ink-3);
+  --bs-form-check-bg-image: none;
+  flex: 0 0 auto;
+  width: 3.1rem;
+  height: 1.8rem;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--ff-ink-3);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--knob) 0 0.48rem, transparent 0.52rem) left 0.12rem center / 1.4rem
+      1.4rem no-repeat,
+    var(--ff-paper);
+  appearance: none;
+  cursor: pointer;
+  transition: background-position 320ms var(--ff-ease);
+}
+.form-check-input.switch:checked {
+  --knob: var(--ff-lime);
+  border-color: var(--ff-ink);
+  background:
+    radial-gradient(circle, var(--knob) 0 0.48rem, transparent 0.52rem) right 0.12rem center /
+      1.4rem 1.4rem no-repeat,
+    var(--ff-ink);
+}
+.form-check-input.switch:focus-visible {
+  outline: 3px solid var(--ff-ink);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+.form-check-input.switch:disabled {
+  border-color: var(--ff-line-strong);
+  cursor: not-allowed;
+  opacity: 1;
+  --knob: var(--ff-line-strong);
+}
+.drawer > .drawer-body {
+  visibility: hidden;
+  transition: visibility 0s linear 460ms;
+}
+.drawer-open > .drawer-body {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@media (max-width: 380px) {
+  .site-nav a[href='/guides'] {
+    display: none;
+  }
+  .site-nav .nav-signin,
+  .site-nav a[href='/login'] {
+    white-space: nowrap;
+  }
+}
+
+/*
+ * Disclosures open to their own height and close the same way, where the browser
+ * can animate a details element's content. Elsewhere they simply open.
+ */
+@supports selector(::details-content) {
+  details {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    transition:
+      block-size 440ms var(--ff-ease),
+      content-visibility 440ms allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* A workspace page rises into place when you move to it. */
+  .workspace-main > * {
+    animation: page-rise 480ms var(--ff-ease) both;
+  }
+  /* Messages arrive from just below rather than appearing in place. */
+  .alert {
+    animation: page-rise 360ms var(--ff-ease) both;
+  }
+  .form-check-input:not(.switch):checked {
+    animation: check-pop 260ms var(--ff-ease);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  details::details-content {
+    transition: none;
+  }
+}
+@keyframes page-rise {
+  from {
+    transform: translateY(0.75rem);
+  }
+}
+@keyframes check-pop {
+  40% {
+    transform: scale(1.18);
   }
 }

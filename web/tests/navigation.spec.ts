@@ -25,6 +25,10 @@ test('changing a settings section keeps the place on the page', async ({ page })
   await page.setViewportSize({ width: 1280, height: 520 });
   await page.goto('/app#settings');
   await expect(page.getByRole('heading', { name: 'Time and region' })).toBeVisible();
+  // The page rises into place as it opens; click once it has settled, as a person would.
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== 'running'),
+  );
   await page.evaluate(() => window.scrollTo(0, 120));
   await page
     .getByRole('navigation', { name: 'Settings sections' })

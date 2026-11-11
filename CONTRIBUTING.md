@@ -10,7 +10,7 @@ backend behavior.
 Search existing [issues](https://github.com/cxdima/fareflare/issues) before opening
 one. A useful bug report includes the affected screen or endpoint, expected and
 actual behavior, and steps to reproduce. Remove account details, tokens, full
-invitation URLs, browser cookies, and private travel information from examples.
+reset links, backup codes, browser cookies, and private travel information from examples.
 
 For changes to collection coverage, authentication, persistence, or the API
 contract, explain the proposed behavior in an issue first. Small fixes and

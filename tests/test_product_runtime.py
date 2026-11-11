@@ -39,7 +39,5 @@ def test_customer_worker_defaults_to_durable_inbox_without_a_bot_secret(store, m
     assert isinstance(worker.sink, RoutedSink)
     assert isinstance(worker.sink.default, InboxSink)
     accounts = Accounts(store)
-    customer = accounts.register(
-        "alice", "a long integration test password", accounts.create_invite()["token"]
-    )
+    customer = accounts.register("alice@example.com", "a long integration test password")
     assert worker.sink.send({"tenant": customer["account"]["id"]})
