@@ -121,6 +121,9 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
+- **Passwords need 8 characters, not 15.** Sign-up, password changes and resets
+  accept 8 to 128 characters, and the `passwordrules` hint that password managers
+  read says the same. Existing passwords are unaffected.
 - Flight numbers are written with a space everywhere (`UA 414`), matching the
   dashboard.
 - The website's main action leads to sign-up; "Sign in" is for returning

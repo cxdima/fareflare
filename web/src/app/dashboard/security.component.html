@@ -176,7 +176,7 @@
               class="form-control"
               [formField]="passwordForm.next"
               autocomplete="new-password"
-              passwordrules="minlength: 15; maxlength: 128;"
+              passwordrules="minlength: 8; maxlength: 128;"
               [class.is-invalid]="error(passwordForm.next())"
               [attr.aria-invalid]="error(passwordForm.next()) ? 'true' : null"
               aria-describedby="new-password-help"
@@ -184,7 +184,7 @@
             @if (error(passwordForm.next()); as message) {
               <p class="field-error">{{ message }}</p>
             } @else {
-              <p class="form-text" id="new-password-help">At least 15 characters.</p>
+              <p class="form-text" id="new-password-help">At least 8 characters.</p>
             }
           </div>
           <div>

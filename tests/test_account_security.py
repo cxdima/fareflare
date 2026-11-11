@@ -118,9 +118,9 @@ def test_the_wrong_current_password_changes_nothing(accounts, wrong):  # noqa: F
 
 def test_a_new_password_must_meet_the_same_rule_as_at_signup(accounts):  # noqa: F811
     created = register(accounts)
-    with pytest.raises(ValueError, match="15–128 characters"):
+    with pytest.raises(ValueError, match="8–128 characters"):
         accounts.change_password(
-            created["account"]["id"], created["session_token"], PASSWORD, "too short"
+            created["account"]["id"], created["session_token"], PASSWORD, "short"
         )
     assert accounts.login("alice@example.com", PASSWORD)
 

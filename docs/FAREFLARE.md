@@ -102,7 +102,7 @@ and collection status.
 
 ## Sign-in and account security
 
-- **Sign-up** takes an email address and a password of 15 to 128 characters.
+- **Sign-up** takes an email address and a password of 8 to 128 characters.
   Fareflare sends one email to confirm the address. Accounts created before email
   was required keep signing in with their username and can add an address in
   **Account settings → Security**.

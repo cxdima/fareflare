@@ -69,7 +69,7 @@ export class SecurityComponent implements OnInit {
   readonly passwordForm = form(this.passwordModel, (path) => {
     required(path.current, { message: 'Enter your current password.' });
     required(path.next, { message: 'Enter a new password.' });
-    minLength(path.next, 15, { message: 'Use at least 15 characters.' });
+    minLength(path.next, 8, { message: 'Use at least 8 characters.' });
     maxLength(path.next, 128, { message: 'Use no more than 128 characters.' });
   });
 

@@ -17,9 +17,9 @@ test('sign-up explains invalid fields, focuses the first error, and never submit
   });
   await page.goto('/register');
   await page.getByLabel('Email', { exact: true }).fill('not an address');
-  await page.getByLabel('Password', { exact: true }).fill('too short');
+  await page.getByLabel('Password', { exact: true }).fill('short');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.getByText('Use at least 15 characters.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Use at least 8 characters.', { exact: true })).toBeVisible();
   await expect(
     page.getByText('Enter an email address, like name@example.com.', { exact: true }),
   ).toBeVisible();
@@ -100,7 +100,7 @@ test('each sign-in page tells a password manager what its fields are', async ({ 
   await expect(name).toHaveValue('Traveler@Example.com');
   await expect(name).toHaveAttribute('autocomplete', 'username');
   await expect(password).toHaveAttribute('autocomplete', 'new-password');
-  await expect(password).toHaveAttribute('passwordrules', 'minlength: 15; maxlength: 128;');
+  await expect(password).toHaveAttribute('passwordrules', 'minlength: 8; maxlength: 128;');
   await expect(password).toHaveValue('');
 });
 

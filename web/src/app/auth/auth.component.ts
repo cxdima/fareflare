@@ -121,7 +121,7 @@ export class AuthComponent implements OnInit, OnDestroy {
     applyWhen(
       path.password,
       () => this.mode() === 'register' || this.mode() === 'reset',
-      (p) => minLength(p, 15, { message: 'Use at least 15 characters.' }),
+      (p) => minLength(p, 8, { message: 'Use at least 8 characters.' }),
     );
     maxLength(path.code, 9, { message: 'A code has 6 digits, or 8 characters for a backup code.' });
     required(path.code, {

@@ -246,7 +246,7 @@ def test_resetting_signs_in_and_signs_every_other_browser_out(accounts, mailer, 
     accounts.request_password_reset("alice@example.com")
     token = link_token(mailer.sent[-1])
     assert accounts.check_reset(token) == {"email": "alice@example.com", "two_factor": False}
-    with pytest.raises(ValueError, match="15–128"):
+    with pytest.raises(ValueError, match="8–128"):
         accounts.reset_password(token, "short")
     reset = accounts.reset_password(token, NEW_PASSWORD)
     assert accounts.authenticate_session(reset["session_token"])

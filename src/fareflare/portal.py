@@ -22,7 +22,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
 
 from fareflare.accounts import (
+    MAX_PASSWORD_LENGTH,
     MAX_USERNAME_LENGTH,
+    MIN_PASSWORD_LENGTH,
     Accounts,
     AuthenticationFailed,
     IncorrectPassword,
@@ -103,7 +105,7 @@ class TokenInput(BaseModel):
 
 
 class ResetInput(TokenInput):
-    new_password: str = Field(min_length=15, max_length=128)
+    new_password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH)
     code: str | None = Field(default=None, max_length=32)
 
 
@@ -123,7 +125,7 @@ class PasswordAndCodeInput(CodeInput):
 class PasswordChangeInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=15, max_length=128)
+    new_password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH)
 
 
 class PasswordConfirmation(BaseModel):

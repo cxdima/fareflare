@@ -42,6 +42,8 @@ _TWO_FACTOR_ATTEMPTS = 5
 _SETUP_SECONDS = 900
 _EMAIL_COOLDOWN = 60
 MAX_USERNAME_LENGTH = 254
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 128
 _USERNAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}")
 # New accounts sign in with their email address. Accounts created before email
 # was required may still sign in with a username.
@@ -89,8 +91,14 @@ def _email(value: str) -> str:
 
 
 def _password(value: str) -> bytes:
-    if not isinstance(value, str) or not 15 <= len(value) <= 128 or len(value.encode()) > 1024:
-        raise ValueError("Use a password containing 15–128 characters")
+    if (
+        not isinstance(value, str)
+        or not MIN_PASSWORD_LENGTH <= len(value) <= MAX_PASSWORD_LENGTH
+        or len(value.encode()) > 1024
+    ):
+        raise ValueError(
+            f"Use a password containing {MIN_PASSWORD_LENGTH}–{MAX_PASSWORD_LENGTH} characters"
+        )
     return value.encode()
 
 

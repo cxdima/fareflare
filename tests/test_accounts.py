@@ -84,14 +84,15 @@ def test_sign_up_needs_an_email_and_can_be_closed(store, clock):
         accounts.register("ALICE@example.com", PASSWORD)
     with pytest.raises(ValueError, match="email address"):
         accounts.register("alice", PASSWORD)
-    with pytest.raises(ValueError):
-        accounts.register("bob@example.com", "short")
+    with pytest.raises(ValueError, match="8–128 characters"):
+        accounts.register("bob@example.com", "7-chars")
+    assert accounts.register("dave@example.com", "8 chars!")["account"]["email"]
     closed = Accounts(store, ProductConfig(registration_mode="closed"), lambda: clock[0])
     with pytest.raises(ValueError, match="closed"):
         closed.register("carol@example.com", PASSWORD)
     with pytest.raises(ValueError, match="open or closed"):
         ProductConfig(registration_mode="invite")
-    assert len(accounts.store.query("accounts")) == 1
+    assert len(accounts.store.query("accounts")) == 2
 
 
 def test_an_older_account_still_signs_in_with_its_username(accounts, clock):

@@ -59,7 +59,7 @@ test('changing a password validates first, confirms plainly, and is readable by 
 
   await expect(current).toHaveAttribute('autocomplete', 'current-password');
   await expect(next).toHaveAttribute('autocomplete', 'new-password');
-  await expect(next).toHaveAttribute('passwordrules', 'minlength: 15; maxlength: 128;');
+  await expect(next).toHaveAttribute('passwordrules', 'minlength: 8; maxlength: 128;');
   // The saved login this change belongs to, for a password manager; not a field to fill.
   const owner = page.locator('#password-drawer input[autocomplete="username"]');
   await expect(owner).toHaveValue('traveler@example.com');
@@ -72,9 +72,9 @@ test('changing a password validates first, confirms plainly, and is readable by 
   await expect(current).toBeFocused();
   await expect(current).toHaveAttribute('aria-invalid', 'true');
   await current.fill('a-long-private-password');
-  await next.fill('too short');
+  await next.fill('short');
   await change.click();
-  await expect(page.getByText('Use at least 15 characters.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Use at least 8 characters.', { exact: true })).toBeVisible();
   await expect(next).toBeFocused();
   expect(sent()).toEqual([]);
   expect(await axe(page)).toEqual([]);

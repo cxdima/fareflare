@@ -235,7 +235,7 @@
                         [formField]="credentials.password"
                         [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
                         [attr.passwordrules]="
-                          mode() === 'login' ? null : 'minlength: 15; maxlength: 128;'
+                          mode() === 'login' ? null : 'minlength: 8; maxlength: 128;'
                         "
                         [class.is-invalid]="fieldError('password')"
                         [attr.aria-invalid]="fieldError('password') ? 'true' : null"
@@ -266,7 +266,7 @@
                       <p class="field-error" id="password-error">{{ error }}</p>
                     } @else if (mode() !== 'login') {
                       <p class="form-text" id="password-help">
-                        At least 15 characters. A password manager can create and remember one.
+                        At least 8 characters. A password manager can create and remember one.
                       </p>
                     }
                   </div>
