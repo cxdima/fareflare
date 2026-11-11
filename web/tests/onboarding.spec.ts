@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { mock } from './fixtures';
+import { flightUrl, mock } from './fixtures';
 
 test('registration explains invalid fields, focuses the first error, and never submits invalid input', async ({
   page,
@@ -188,7 +188,7 @@ test('the website sends new visitors to sign-up and returning ones to sign-in', 
 }) => {
   await mock(page, false);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Start tracking a flight' }).first().click();
+  await page.getByRole('button', { name: 'Start tracking a flight' }).click();
   await expect(page).toHaveURL('/register');
   await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible();
   await page.goto('/');
@@ -263,4 +263,40 @@ test('public answers work with the keyboard and guide contents link to real sect
   ).toBeInViewport();
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('a flight link pasted on the website is waiting in the add-flight dialog', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.goto('/');
+  const field = page.getByLabel('Your Google Flights link');
+  const note = page.locator('#hero-link-note');
+  await expect(note).toContainText('No link yet? Add one after you sign up.');
+
+  // Something that is not a flight link is explained on the spot and goes nowhere.
+  await field.fill('https://example.com/travel/flights?tfs=abc');
+  await expect(note).toContainText('That is not a Google Flights link.');
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Start tracking a flight' }).click();
+  await expect(page).toHaveURL('/');
+  await expect(field).toBeFocused();
+
+  await field.fill(`  ${flightUrl}  `);
+  await expect(note).toContainText('Google Flights link recognized.');
+  await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Watch this flight' }).click();
+
+  // Signed in already, so sign-up hands over to the workspace, where the link is waiting.
+  await expect(page).toHaveURL(/\/app/);
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Google Flights link')).toHaveValue(flightUrl);
+  await expect(dialog.locator('.link-note')).toHaveText('Google Flights link recognized.');
+
+  // It is offered once: closing the dialog and coming back does not bring it up again.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('article').first()).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });

@@ -24,333 +24,94 @@
 </header>
 <main id="main-content">
   @if (path === '/') {
-    <section class="hero public-container" aria-labelledby="hero-title">
-      <div class="hero-heading">
-        <h1 id="hero-title">Know when your flight price drops</h1>
-        <div class="hero-intro">
-          <p>
-            Add a Google Flights link. Fareflare checks its price and alerts you when it finds a new
-            low or reaches your target.
-          </p>
-          <a class="btn btn-primary btn-flight" href="/register">Start tracking a flight</a>
-          <p class="access-note">
-            Free flight price alerts. <a href="/login">Already have an account?</a>
-          </p>
-        </div>
-      </div>
-      <div class="flight-preview">
-        <div class="preview-monitor" aria-label="Illustrative flight price alert">
-          <div class="preview-top">
-            <span>Price drop alert</span><span class="preview-example">Example</span>
-          </div>
-          <div class="preview-airline">
-            <img src="/assets/airlines/UA.png" alt="" width="28" height="28" /><span
-              >United Airlines</span
-            >
-          </div>
-          <div class="preview-route">
-            <div><strong>DEN</strong><span>Denver</span></div>
-            <i class="bi bi-arrow-right" aria-hidden="true"></i>
-            <div><strong>DFW</strong><span>Dallas–Fort Worth</span></div>
-          </div>
-          <div class="preview-price">
-            <div><strong>$191</strong><span>USD total</span></div>
-            <span class="price-change"
-              ><i class="bi bi-arrow-down-right" aria-hidden="true"></i> $54 lower</span
-            >
-          </div>
-          <p class="preview-rule">An alert when we observe a new low</p>
-        </div>
-        <figure class="window-photo">
-          <img
-            src="/assets/coastal-approach.webp"
-            width="1280"
-            height="853"
-            alt="Illustration of a sunlit coastline and blue sea viewed from the air"
-            fetchpriority="high"
-          />
-        </figure>
-      </div>
-      <div class="preview-caption">
-        <p>Illustrative price alert, not a live fare.</p>
-        <a [href]="github"><i class="bi bi-github" aria-hidden="true"></i> Open source under MIT</a>
-      </div>
-    </section>
-
-    <section class="how-section public-container" id="how-it-works" aria-labelledby="how-title">
-      <div class="section-heading">
-        <h2 id="how-title">From a flight link to a price alert</h2>
-        <p>No Google account connection required.</p>
-      </div>
-      <ol class="steps">
-        <li>
-          <span class="step-number">1</span>
-          <div>
-            <h3>Add your flight</h3>
-            <p>Paste a supported itinerary or route search from Google Flights.</p>
-            <a href="/guides/choosing-a-flight-link">See supported links</a>
-          </div>
-        </li>
-        <li>
-          <span class="step-number">2</span>
-          <div>
-            <h3>Choose when to be notified</h3>
-            <p>Watch for a new low or set a target price. Connect Telegram to receive alerts.</p>
-          </div>
-        </li>
-        <li>
-          <span class="step-number">3</span>
-          <div>
-            <h3>Review the price</h3>
-            <p>
-              Check the recorded history, then follow the flight link to see current availability.
-            </p>
-          </div>
-        </li>
-      </ol>
-    </section>
-
-    <section class="signal-section" aria-labelledby="signal-title">
-      <div class="public-container signal-grid">
-        <div class="section-heading">
-          <h2 id="signal-title">Set the price you want to hear about</h2>
-          <p>
-            Choose a new observed low or a specific target. Try the two rules to see how an alert
-            works.
-          </p>
-          <div class="signal-options" role="group" aria-label="Preview an alert rule">
-            <button
-              type="button"
-              [class.selected]="alertMode() === 'new_low'"
-              [attr.aria-pressed]="alertMode() === 'new_low'"
-              (click)="alertMode.set('new_low')"
-            >
-              A new low
-            </button>
-            <button
-              type="button"
-              [class.selected]="alertMode() === 'below_price'"
-              [attr.aria-pressed]="alertMode() === 'below_price'"
-              (click)="alertMode.set('below_price')"
-            >
-              Below my price
-            </button>
-          </div>
-          <p class="honest-note">
-            Checks start at 15-minute intervals. Prices can change between checks; your dashboard
-            shows when the latest price was recorded.
-          </p>
-        </div>
-        <div class="signal-demo">
-          <div class="demo-heading">
-            <h3>Example price history</h3>
-            <span>DEN to DFW</span>
-          </div>
-          <div class="demo-price"><strong>$191</strong><span>Lowest recorded price</span></div>
-          <svg
-            class="price-illustration"
-            viewBox="0 0 500 170"
-            role="img"
-            aria-labelledby="chart-title chart-description"
-          >
-            <title id="chart-title">Illustrative fare history</title>
-            <desc id="chart-description">
-              An example price fluctuates before falling to 191 dollars. This is not live flight
-              data.
-            </desc>
-            <path class="chart-grid" d="M0 30 H500 M0 90 H500 M0 150 H500" />
-            <path
-              class="chart-line"
-              d="M5 50 H50 V65 H100 V32 H155 V82 H215 V58 H270 V100 H325 V80 H375 V121 H425 V150 H490"
-            />
-            <circle class="chart-dot" cx="490" cy="150" r="5" />
-            @if (alertMode() === 'below_price') {
-              <path class="chart-threshold" d="M0 110 H500" />
-              <text class="chart-label" x="8" y="104">Your $220 threshold</text>
-            }
-          </svg>
-          <div class="chart-axis">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
-          </div>
-          <div class="demo-notification" aria-live="polite">
-            <i class="bi bi-bell" aria-hidden="true"></i>
-            <div>
-              <strong>{{
-                alertMode() === 'new_low' ? 'New low recorded at $191' : 'Your flight is below $220'
-              }}</strong>
-              <p>
-                {{
-                  alertMode() === 'new_low'
-                    ? 'Another lower observation can trigger a new alert.'
-                    : 'The recorded price meets your target.'
-                }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="developer-section public-container" aria-labelledby="developer-title">
-      <div class="section-heading">
-        <h2 id="developer-title">Connect your own tools</h2>
-        <p>
-          The dashboard, API, and MCP use the same flight monitors. Send signed webhooks to your
-          application or connect an MCP client.
-        </p>
-        <div class="developer-links">
-          <a class="btn btn-outline-primary" href="/developers"
-            ><i class="bi bi-code-slash" aria-hidden="true"></i> Developer guide</a
-          ><a class="quiet-link" [href]="github">Browse the source</a>
-        </div>
-      </div>
-      <div class="code-sample">
-        <div class="code-caption">Create a flight monitor</div>
-        <pre><code>{{ apiExample }}</code></pre>
-        <p>Use your Fareflare origin before <code>/v1/monitors</code>.</p>
-      </div>
-    </section>
-
-    <section class="journal-section public-container" aria-labelledby="journal-title">
-      <div class="journal-header">
-        <h2 id="journal-title">Get more from your alerts</h2>
-        <a class="quiet-link" href="/guides">All guides</a>
-      </div>
-      <div class="guide-list">
-        @for (guide of guides(); track guide.path) {
-          <article class="guide-preview">
-            <div>
-              <h3>
-                <a [href]="guide.path">{{ guide.headline }}</a>
-              </h3>
-              <p>{{ guide.description }}</p>
-            </div>
-            <span>{{ guide.read_minutes }} min read</span>
-          </article>
-        }
-      </div>
-    </section>
-    <section class="faq-section public-container" aria-labelledby="faq-title">
-      <div class="section-heading">
-        <h2 id="faq-title">Before you add a flight</h2>
-        <p>A few things to know about tracking with Fareflare.</p>
-      </div>
-      <div class="faq-list">
-        <details>
-          <summary>
-            Do I need to connect my Google account?<i class="bi bi-plus-lg" aria-hidden="true"></i>
-          </summary>
-          <p>
-            No. Paste a supported Google Flights link. Fareflare checks the public price without
-            accessing your Google account.
-          </p>
-        </details>
-        <details>
-          <summary>
-            Will I catch every price change?<i class="bi bi-plus-lg" aria-hidden="true"></i>
-          </summary>
-          <p>
-            Checks start at 15-minute intervals, so a fare can change between observations. Your
-            dashboard shows the last recorded price and when it was checked. Always confirm the
-            price before booking.
-          </p>
-        </details>
-        <details>
-          <summary>
-            How do I receive an alert?<i class="bi bi-plus-lg" aria-hidden="true"></i>
-          </summary>
-          <p>
-            Choose a new observed low or a target price. Alerts appear in your dashboard. Connect
-            Telegram in Account settings for messages, or configure a signed webhook for your own
-            application.
-          </p>
-        </details>
-        <details>
-          <summary>
-            Can I book tickets through Fareflare?<i class="bi bi-plus-lg" aria-hidden="true"></i>
-          </summary>
-          <p>
-            Fareflare tracks prices. When you find a fare you like, open the flight link to review
-            availability and book with your chosen provider.
-          </p>
-        </details>
-      </div>
-    </section>
-    <section class="start-section public-container">
-      <div>
-        <h2>Track the flight you have in mind</h2>
-        <p>Create a free account. Your first monitor starts with a link.</p>
-      </div>
-      <a class="btn btn-primary btn-flight" href="/register">Create your account</a>
-    </section>
+    <ff-landing />
   } @else if (path === '/status') {
     <ff-status />
   } @else if (page(); as current) {
     <div class="public-container">
-      <article class="public-article">
-        <a class="quiet-link breadcrumb-link" [href]="current.kind === 'guide' ? '/guides' : '/'"
-          >{{ current.kind === 'guide' ? 'Guides' : 'Fareflare' }}
-          <i class="bi bi-arrow-up-left" aria-hidden="true"></i
-        ></a>
-        <h1>{{ current.headline }}</h1>
-        <p class="article-intro">{{ current.intro }}</p>
-        @if (current.kind === 'guide') {
-          <div class="article-meta">
-            <span>Fareflare project</span
-            ><time [attr.datetime]="current.published">{{ current.published }}</time
-            ><span>{{ current.read_minutes }} minute read</span>
-          </div>
-        }
-        @if (current.kind === 'guide' && current.sections.length > 1) {
-          <nav class="article-contents" aria-label="On this page">
-            <p>On this page</p>
-            <ol>
-              @for (section of current.sections; track section.heading; let index = $index) {
-                <li>
-                  <a [href]="path + '#section-' + index">{{ section.heading }}</a>
-                </li>
-              }
-            </ol>
-          </nav>
-        }
-        @for (section of current.sections; track section.heading; let index = $index) {
-          <section [id]="'section-' + index">
-            <h2>{{ section.heading }}</h2>
-            @for (paragraph of section.paragraphs; track $index) {
-              <p>{{ paragraph }}</p>
+      <article class="public-article article-wide">
+        <nav aria-label="Breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Fareflare</a></li>
+            @if (current.kind === 'guide') {
+              <li class="breadcrumb-item"><a href="/guides">Guides</a></li>
             }
-            @if (section.bullets.length) {
-              <ul>
-                @for (bullet of section.bullets; track $index) {
-                  <li>{{ bullet }}</li>
+            <li class="breadcrumb-item active" aria-current="page">
+              {{ current.kind === 'guide' ? 'This guide' : current.headline }}
+            </li>
+          </ol>
+        </nav>
+        <header class="article-header">
+          <h1>{{ current.headline }}</h1>
+          <p class="article-intro">{{ current.intro }}</p>
+          @if (current.kind === 'guide') {
+            <div class="article-meta">
+              <span>Fareflare project</span
+              ><time [attr.datetime]="current.published">{{ current.published }}</time
+              ><span>{{ current.read_minutes }} minute read</span>
+            </div>
+          }
+        </header>
+        <div
+          class="article-body"
+          [class.has-contents]="current.kind === 'guide' && current.sections.length > 1"
+        >
+          @if (current.kind === 'guide' && current.sections.length > 1) {
+            <nav class="article-contents" aria-label="On this page">
+              <p>On this page</p>
+              <ol>
+                @for (section of current.sections; track section.heading; let index = $index) {
+                  <li>
+                    <a [href]="path + '#section-' + index">{{ section.heading }}</a>
+                  </li>
                 }
-              </ul>
+              </ol>
+            </nav>
+          }
+          <div class="article-sections">
+            @for (section of current.sections; track section.heading; let index = $index) {
+              <section [id]="'section-' + index">
+                <h2>{{ section.heading }}</h2>
+                @for (paragraph of section.paragraphs; track $index) {
+                  <p>{{ paragraph }}</p>
+                }
+                @if (section.bullets.length) {
+                  <ul>
+                    @for (bullet of section.bullets; track $index) {
+                      <li>{{ bullet }}</li>
+                    }
+                  </ul>
+                }
+                @if (section.code) {
+                  <pre><code>{{ section.code }}</code></pre>
+                }
+                @for (link of section.links; track link.href) {
+                  <p>
+                    <a [href]="link.href"
+                      >{{ link.label }} <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+                    ></a>
+                  </p>
+                }
+              </section>
             }
-            @if (section.code) {
-              <pre><code>{{ section.code }}</code></pre>
-            }
-            @for (link of section.links; track link.href) {
-              <p>
-                <a [href]="link.href"
-                  >{{ link.label }} <i class="bi bi-arrow-up-right" aria-hidden="true"></i
-                ></a>
-              </p>
-            }
-          </section>
-        }
-        @if (path === '/guides') {
-          <div class="guide-index">
-            @for (guide of guides(); track guide.path) {
-              <article>
-                <p class="reading-time">{{ guide.read_minutes }} minute read</p>
-                <h2>
-                  <a [href]="guide.path">{{ guide.headline }}</a>
-                </h2>
-                <p>{{ guide.description }}</p>
-              </article>
+            @if (path === '/guides') {
+              <div class="guide-rows">
+                @for (guide of guides(); track guide.path) {
+                  <article class="guide-row">
+                    <div>
+                      <h2>
+                        <a class="stretched-link" [href]="guide.path">{{ guide.headline }}</a>
+                      </h2>
+                      <p>{{ guide.description }}</p>
+                    </div>
+                    <span class="guide-row-meta">{{ guide.read_minutes }} min read</span>
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                  </article>
+                }
+              </div>
             }
           </div>
-        }
+        </div>
       </article>
     </div>
   } @else if (error()) {
@@ -371,7 +132,7 @@
 <footer class="public-footer">
   <div class="public-container">
     <div class="footer-main">
-      <div>
+      <div class="footer-brand">
         <a class="brand" href="/"
           ><img
             class="brand-mark"
@@ -385,11 +146,32 @@
           Flight price tracking with alerts, an API, and code you can inspect.
         </p>
       </div>
-      <nav class="footer-links" aria-label="Footer">
-        <a href="/about">About Fareflare</a><a href="/guides">Guides</a
-        ><a href="/developers">For developers</a><a [href]="github">GitHub</a
-        ><a href="/status">System status</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a
-        ><a href="/feed.xml">RSS feed</a>
+      <nav class="footer-nav" aria-label="Footer">
+        <div>
+          <h2>Product</h2>
+          <ul role="list">
+            <li><a href="/#how-it-works">How it works</a></li>
+            <li><a href="/guides">Guides</a></li>
+            <li><a href="/status">System status</a></li>
+            <li><a href="/about">About Fareflare</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Developers</h2>
+          <ul role="list">
+            <li><a href="/developers">For developers</a></li>
+            <li><a href="/docs">API reference</a></li>
+            <li><a [href]="github">GitHub</a></li>
+            <li><a href="/feed.xml">RSS feed</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Legal</h2>
+          <ul role="list">
+            <li><a href="/privacy">Privacy</a></li>
+            <li><a href="/terms">Terms</a></li>
+          </ul>
+        </div>
       </nav>
     </div>
     <div class="footer-bottom">

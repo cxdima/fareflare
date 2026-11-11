@@ -17,6 +17,10 @@ Notable changes to Fareflare. The format follows
   the report without signing in; it holds counts and states only, never anything
   about an account or a flight. The worker folds each run into hourly totals on
   its `health:worker` record, kept for 48 hours.
+- **Start from the link.** The website's front page has a field for a Google
+  Flights link. It says at once whether the link is recognized; after signing up or
+  signing in, the add-flight dialog opens with that link already filled in. The
+  link waits in the browser tab only and is offered once.
 - **Message styles.** Telegram alerts and the flight list can use a built-in
   style or your own wording. *Classic with emoji* shows what changed at a glance,
   for example `📉 New low!  $246  (was $254, −$8 · −3%)`, and marks a flight that
@@ -115,6 +119,12 @@ Notable changes to Fareflare. The format follows
   `Alert activity · Fareflare`.
 - When every monitor is in use, the flights page says why **Watch a flight** is
   unavailable.
+- **The website is redesigned.** The front page shows a link going in, a recorded
+  price falling and the alert that follows, in one picture; the steps are stops on
+  a route, the alert rules can be tried on an example, and the footer is organized
+  into Product, Developers and Legal. Guides show their contents beside the text on
+  wide screens and a breadcrumb above the title. Sign-in, sign-up and recovery put
+  the form first, with the title as the page heading.
 - The workspace header no longer repeats the page title, and it has the only
   **Refresh** button: on **Alert activity** it reloads the alerts as well, so the
   separate *Refresh alerts* button is gone.

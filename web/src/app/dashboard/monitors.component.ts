@@ -6,11 +6,13 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { ApiService } from '../core/api.service';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
 import { TelegramFacade } from '../core/telegram.facade';
+import { takePendingLink } from '../core/flight-link';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
 import { ActionState } from './shared/action-state';
@@ -67,6 +69,9 @@ export class MonitorsComponent {
       !this.workspace.activeCount(),
   );
   readonly creating = signal(false);
+  /** A link pasted on the website before signing in: the dialog opens with it filled in. */
+  readonly pendingLink = signal('');
+  private pendingRead = false;
   readonly editing = signal<Monitor | null>(null);
   readonly history = signal<Monitor | null>(null);
   readonly stopping = signal<Monitor | null>(null);
@@ -103,6 +108,16 @@ export class MonitorsComponent {
     const clock = setInterval(() => this.now.set(Date.now()), 30000);
     inject(DestroyRef).onDestroy(() => clearInterval(clock));
     void this.telegram.load();
+    effect(() => {
+      if (!this.workspace.monitorsLoaded() || this.pendingRead) return;
+      this.pendingRead = true;
+      untracked(() => {
+        const link = takePendingLink();
+        if (!link || this.atLimit()) return;
+        this.pendingLink.set(link);
+        this.creating.set(true);
+      });
+    });
     effect(() => {
       const status = this.telegram.status();
       // Offered once someone has a flight to be told about and nowhere to be told.

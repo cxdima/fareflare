@@ -13,6 +13,7 @@ import { ApiService } from '../core/api.service';
 import { requestKey } from '../core/format';
 import type { Monitor } from '../core/types';
 import { WorkspaceFacade } from './workspace.facade';
+import { flightLinkNote } from '../core/flight-link';
 import { ActionState } from './shared/action-state';
 import { DialogComponent } from './shared/dialog.component';
 import { routeName } from './shared/presentation';
@@ -27,6 +28,8 @@ import { routeName } from './shared/presentation';
 })
 export class MonitorEditorComponent implements OnInit {
   readonly monitor = input<Monitor | null>(null);
+  /** A link brought from the website, so it does not have to be pasted twice. */
+  readonly initialUrl = input('');
   readonly closed = output<void>();
   readonly workspace = inject(WorkspaceFacade);
   private readonly api = inject(ApiService);
@@ -50,25 +53,7 @@ export class MonitorEditorComponent implements OnInit {
     }
   });
   readonly unit = computed(() => (this.currency() === 'JPY' ? 1 : 100));
-  /** Says at once whether what was pasted can be a flight link; the service decides the rest. */
-  readonly linkNote = computed(() => {
-    const value = this.model().url.trim();
-    if (!value || this.monitor()) return null;
-    let link: URL;
-    try {
-      link = new URL(value);
-    } catch {
-      return { ok: false, text: 'Paste the whole link, starting with https://' };
-    }
-    return link.protocol === 'https:' &&
-      ['google.com', 'www.google.com'].includes(link.hostname) &&
-      link.pathname.startsWith('/travel/flights')
-      ? { ok: true, text: 'Google Flights link recognized.' }
-      : {
-          ok: false,
-          text: 'That is not a Google Flights link. Copy it from google.com/travel/flights.',
-        };
-  });
+  readonly linkNote = computed(() => (this.monitor() ? null : flightLinkNote(this.model().url)));
   /** Someone adding their first flight is shown where a link comes from. */
   readonly firstFlight = computed(() => !this.workspace.monitors().length);
   readonly intervals = computed(() => [
@@ -89,7 +74,7 @@ export class MonitorEditorComponent implements OnInit {
   ngOnInit(): void {
     const monitor = this.monitor();
     this.model.set({
-      url: monitor?.target.url ?? '',
+      url: monitor?.target.url ?? this.initialUrl(),
       webhook: monitor?.webhook_id ?? '',
       interval: String(
         monitor?.interval_seconds ?? this.workspace.session.config()!.limits.min_interval_seconds,

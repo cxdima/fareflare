@@ -365,7 +365,11 @@
 }
 <p class="page-note">Prices are checked periodically and may change before you book.</p>
 @if (creating() || editing()) {
-  <ff-monitor-editor [monitor]="editing()" (closed)="creating.set(false); editing.set(null)" />
+  <ff-monitor-editor
+    [monitor]="editing()"
+    [initialUrl]="editing() ? '' : pendingLink()"
+    (closed)="creating.set(false); editing.set(null); pendingLink.set('')"
+  />
 }
 @if (history(); as monitor) {
   <ff-price-history [monitor]="monitor" (closed)="history.set(null)" />

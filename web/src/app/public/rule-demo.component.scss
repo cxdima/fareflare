@@ -1,0 +1,184 @@
+:host {
+  display: block;
+  --lift:
+    0 1px 0 rgb(255 255 255 / 80%) inset, 0 28px 50px -34px rgb(36 59 59 / 45%),
+    0 8px 18px -14px rgb(36 59 59 / 22%);
+}
+/* The rule, tried on an example. */
+.signal-section {
+  padding-block: clamp(3.5rem, 7vw, 6rem);
+  border-block: 1px solid var(--ff-line);
+  background: var(--ff-paper);
+}
+.signal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 6rem);
+}
+.signal-options {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-top: 1.75rem;
+  padding: 0.3rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 0.9rem;
+  background: var(--ff-soft);
+}
+.signal-options button {
+  min-height: 44px;
+  padding: 0.5rem 1.1rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--ff-ink);
+  font-size: 0.95rem;
+  font-weight: 650;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.signal-options button:hover {
+  background: color-mix(in srgb, var(--ff-input) 55%, transparent);
+}
+.signal-options button.selected {
+  background: var(--ff-input);
+  box-shadow:
+    0 1px 2px rgb(36 59 59 / 18%),
+    0 6px 14px -10px rgb(36 59 59 / 40%);
+}
+.honest-note {
+  max-width: 44ch;
+  margin: 1.5rem 0 0;
+  color: var(--ff-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.signal-demo {
+  padding: 1.75rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 1.25rem;
+  background: var(--ff-input);
+  box-shadow: var(--lift);
+}
+.demo-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.demo-heading h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0;
+}
+.demo-heading span,
+.demo-price span {
+  color: var(--ff-muted);
+  font-size: 0.82rem;
+}
+.demo-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+}
+.demo-price strong {
+  font-size: 2.25rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.price-illustration {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.chart-grid,
+.chart-line,
+.chart-threshold {
+  fill: none;
+}
+.chart-grid {
+  stroke: var(--ff-line);
+  stroke-width: 1;
+}
+.chart-line {
+  vector-effect: non-scaling-stroke;
+  stroke: var(--ff-success);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart-dot {
+  fill: var(--ff-accent);
+  stroke: var(--ff-input);
+  stroke-width: 3;
+}
+.chart-threshold {
+  stroke: var(--ff-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+}
+.chart-label {
+  fill: #8f3a22;
+  font-size: 11px;
+  font-weight: 650;
+}
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--ff-line);
+  color: var(--ff-muted);
+  font-size: 0.78rem;
+}
+.demo-notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding-top: 1.1rem;
+}
+.demo-notification > .bi {
+  display: grid;
+  place-items: center;
+  flex: 0 0 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--ff-accent);
+  color: #fff;
+  font-size: 0.85rem;
+}
+.demo-notification strong {
+  font-size: 0.95rem;
+}
+.demo-notification p {
+  margin: 0.2rem 0 0;
+  color: var(--ff-muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .signal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 575px) {
+  .signal-demo {
+    padding: 1.25rem;
+  }
+  .signal-options {
+    display: flex;
+  }
+  .signal-options button {
+    flex: 1 1 0;
+    padding-inline: 0.5rem;
+  }
+}
+@media (forced-colors: active) {
+  .chart-line {
+    stroke: CanvasText;
+  }
+}

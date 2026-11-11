@@ -1,49 +1,96 @@
+/* A dark poster beside a plain form: the form is the page, the poster is the reason. */
 .auth-page {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   min-height: 100dvh;
+  background: var(--ff-surface);
+}
+.auth-main {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 clamp(1.5rem, 5vw, 4.5rem);
 }
 .auth-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 1.75rem;
-  padding-bottom: 1.75rem;
-  border-bottom: 1px solid var(--ff-line);
+  padding-block: 1.75rem;
 }
 .auth-content {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: clamp(2rem, 8vw, 8rem);
-  padding-top: clamp(3rem, 7vw, 7rem);
-  padding-bottom: 4rem;
-}
-.auth-context h1 {
-  font-weight: 750;
-  font-size: clamp(2.5rem, 4vw, 3.8rem);
-  line-height: 1.13;
-  letter-spacing: -0.035em;
-  margin-bottom: 1.75rem;
-}
-.auth-context > p {
-  max-width: 28rem;
-}
-.auth-photo {
-  width: 100%;
-  max-height: 270px;
-  object-fit: cover;
-  border-radius: 0.875rem;
-  margin-top: 1.5rem;
+  flex: 1;
+  align-content: center;
+  padding-block: 1.5rem 4rem;
 }
 .auth-form-area {
-  padding: 2.25rem;
-  align-self: start;
-  background: var(--ff-surface);
-  border: 1px solid var(--ff-line);
-  border-radius: 1rem;
+  width: 100%;
+  max-width: 27rem;
+  margin-inline: auto;
 }
-.auth-form-area h2 {
-  font-size: 1.9rem;
+.auth-form-area h1 {
+  font-size: clamp(1.9rem, 3vw, 2.4rem);
+  font-weight: 700;
   letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin: 0 0 0.6rem;
+  outline: none;
+}
+.auth-form-area h1 + p {
+  margin-bottom: 2rem;
+}
+.auth-poster {
+  grid-column: 1;
+  grid-row: 1;
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 2rem);
+  margin: 1rem 0 1rem 1rem;
+  padding: clamp(1.75rem, 3vw, 3rem);
+  border-radius: 1.5rem;
+  background: var(--ff-ink);
+  color: var(--ff-surface);
+}
+.poster-title {
+  max-width: 11ch;
+  margin: 0 0 1.25rem;
+  font-size: clamp(2.1rem, 3.6vw, 3.5rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+.poster-text {
+  max-width: 32ch;
+  margin: 0;
+  color: #c5d2cc;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+.auth-photo {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  margin-top: 2rem;
+  border-radius: 1rem;
+  object-fit: cover;
+}
+.poster-note {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.25rem 0 0;
+  color: #c5d2cc;
+  font-size: 0.875rem;
+}
+.poster-note .bi {
+  color: var(--ff-surface);
+  font-size: 1.05rem;
 }
 .auth-links {
   display: grid;
@@ -93,21 +140,25 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
-@media (max-width: 767px) {
-  .auth-content {
-    grid-template-columns: 1fr;
-    gap: 2.25rem;
-    padding-top: 2.5rem;
+@media (max-width: 991px) {
+  .auth-page {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .auth-context h1 {
-    font-size: 2.4rem;
+  .auth-main {
+    grid-column: 1;
   }
-  .auth-photo,
-  .auth-context .auth-note {
+  /* The form is what a small screen is for. */
+  .auth-poster {
     display: none;
   }
-  .auth-form-area {
-    padding: 1.5rem;
+  .auth-content {
+    align-content: start;
+    padding-top: 1.5rem;
+  }
+}
+@media (max-width: 767px) {
+  .auth-header {
+    padding-block: 1.25rem;
   }
   .auth-header .quiet-link {
     font-size: 0.8rem;

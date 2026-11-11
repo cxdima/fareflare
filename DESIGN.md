@@ -18,7 +18,17 @@ product history.
 | Icons | Bootstrap Icons, with labels for actions and hidden decorative icons |
 | Shape | 8–9px controls, 12–16px panels, contained, unframed airline marks |
 
-Public pages lead with what the tracker does and a clearly labeled example.
+Public pages lead with what the tracker does and a clearly labeled example. The
+front page performs the product's one move: a field for a Google Flights link on
+the left, the alert it leads to on the right, and one stepped price line under
+both that ends at an orange point joined to the alert. The line is drawn once on
+load and is static under reduced motion. Prices are always stepped lines, never
+smoothed curves, because a price is recorded, not interpolated. Sections alternate
+between the light surface, the sage background and one deep-green band for the
+developer tools; the photograph is saved for the closing invitation. A sequence is
+shown as stops on a dashed route line, not as cards. Sign-in pages put the form
+first and alone on the light side, with a deep-green poster beside it on wide
+screens only. Reading pages keep a 44rem column with the page's contents beside it.
 Flight rows align route details with their price, keep airline identity visible,
 and show collection state once. A pending first check is not a failure. API and
 MCP setup show the selected connection method, a complete endpoint, and a copy

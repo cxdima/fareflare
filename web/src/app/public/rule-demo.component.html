@@ -1,0 +1,78 @@
+<section class="signal-section" aria-labelledby="signal-title">
+  <div class="public-container signal-grid">
+    <div class="section-heading">
+      <h2 id="signal-title">Set the price you want to hear about</h2>
+      <p>
+        Choose a new observed low or a specific target. Try the two rules to see how an alert works.
+      </p>
+      <div class="signal-options" role="group" aria-label="Preview an alert rule">
+        <button
+          type="button"
+          [class.selected]="alertMode() === 'new_low'"
+          [attr.aria-pressed]="alertMode() === 'new_low'"
+          (click)="alertMode.set('new_low')"
+        >
+          A new low
+        </button>
+        <button
+          type="button"
+          [class.selected]="alertMode() === 'below_price'"
+          [attr.aria-pressed]="alertMode() === 'below_price'"
+          (click)="alertMode.set('below_price')"
+        >
+          Below my price
+        </button>
+      </div>
+      <p class="honest-note">
+        Checks start at 15-minute intervals. Prices can change between checks; your dashboard shows
+        when the latest price was recorded.
+      </p>
+    </div>
+    <div class="signal-demo">
+      <div class="demo-heading">
+        <h3>Example price history</h3>
+        <span>DEN to DFW</span>
+      </div>
+      <div class="demo-price"><strong>$191</strong><span>Lowest recorded price</span></div>
+      <svg
+        class="price-illustration"
+        viewBox="0 0 500 170"
+        role="img"
+        aria-labelledby="chart-title chart-description"
+      >
+        <title id="chart-title">Illustrative fare history</title>
+        <desc id="chart-description">
+          An example price fluctuates before falling to 191 dollars. This is not live flight data.
+        </desc>
+        <path class="chart-grid" d="M0 30 H500 M0 90 H500 M0 150 H500" />
+        <path
+          class="chart-line"
+          d="M5 50 H50 V65 H100 V32 H155 V82 H215 V58 H270 V100 H325 V80 H375 V121 H425 V150 H490"
+        />
+        <circle class="chart-dot" cx="490" cy="150" r="5" />
+        @if (alertMode() === 'below_price') {
+          <path class="chart-threshold" d="M0 110 H500" />
+          <text class="chart-label" x="8" y="104">Your $220 threshold</text>
+        }
+      </svg>
+      <div class="chart-axis">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+      </div>
+      <div class="demo-notification" aria-live="polite">
+        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+        <div>
+          <strong>{{
+            alertMode() === 'new_low' ? 'New low recorded at $191' : 'Your flight is below $220'
+          }}</strong>
+          <p>
+            {{
+              alertMode() === 'new_low'
+                ? 'Another lower observation can trigger a new alert.'
+                : 'The recorded price meets your target.'
+            }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

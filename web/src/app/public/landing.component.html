@@ -1,0 +1,239 @@
+<section class="hero" aria-labelledby="hero-title">
+  <div class="public-container hero-grid">
+    <div class="hero-copy">
+      <h1 id="hero-title">Know when your flight price drops</h1>
+      <p class="hero-lede">
+        Add a Google Flights link. Fareflare checks its price and alerts you when it finds a new low
+        or reaches your target.
+      </p>
+      <form class="link-form" novalidate (submit)="start($event, heroLink)">
+        <label class="form-label" for="hero-link">Your Google Flights link</label>
+        <div class="link-field">
+          <input
+            #heroLink
+            id="hero-link"
+            type="url"
+            inputmode="url"
+            class="form-control"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="https://www.google.com/travel/flights/…"
+            aria-describedby="hero-link-note"
+            [attr.aria-invalid]="linkNote() && !linkNote()!.ok ? 'true' : null"
+            [value]="link()"
+            (input)="link.set(heroLink.value)"
+          />
+          <button type="submit" class="btn btn-primary btn-flight">
+            {{ linkNote()?.ok ? 'Watch this flight' : 'Start tracking a flight' }}
+          </button>
+        </div>
+        <p class="link-note" id="hero-link-note" aria-live="polite">
+          @if (linkNote(); as note) {
+            <span [class]="note.ok ? 'link-ok' : 'link-problem'"
+              ><i
+                [class]="'bi ' + (note.ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle')"
+                aria-hidden="true"
+              ></i>
+              {{ note.text }}</span
+            >
+            @if (note.ok) {
+              Create an account and it is waiting for you there.
+            }
+          } @else {
+            Free flight price alerts. No link yet? Add one after you sign up.
+            <a href="/login">Already have an account?</a>
+          }
+        </p>
+      </form>
+    </div>
+    <div class="alert-card" role="group" aria-label="Illustrative flight price alert">
+      <div class="alert-card-top">
+        <span class="alert-card-kind"
+          ><i class="bi bi-bell-fill" aria-hidden="true"></i>Price drop alert</span
+        ><span class="alert-card-tag">Example</span>
+      </div>
+      <div class="alert-card-airline">
+        <img src="/assets/airlines/UA.png" alt="" width="28" height="28" /><span
+          >United Airlines</span
+        >
+      </div>
+      <div class="alert-card-route">
+        <div><strong>DEN</strong><span>Denver</span></div>
+        <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        <div><strong>DFW</strong><span>Dallas–Fort Worth</span></div>
+      </div>
+      <div class="alert-card-price">
+        <div><strong>$191</strong><span>USD total</span></div>
+        <span class="price-change"
+          ><i class="bi bi-arrow-down-right" aria-hidden="true"></i> $54 lower</span
+        >
+      </div>
+      <p class="alert-card-rule">An alert when we observe a new low</p>
+    </div>
+    <figure class="price-story">
+      <div class="story-plot" aria-hidden="true">
+        <svg viewBox="0 0 1200 200" preserveAspectRatio="none" focusable="false">
+          <path class="story-grid" d="M0 40 H1200 M0 100 H1200 M0 160 H1200" />
+          <path
+            class="story-area"
+            d="M0 62 H120 V80 H245 V44 H380 V92 H500 V70 H625 V116 H740 V96 H845 V134 H930 V168 H984 V200 H0 Z"
+          />
+          <path
+            class="story-path"
+            d="M0 62 H120 V80 H245 V44 H380 V92 H500 V70 H625 V116 H740 V96 H845 V134 H930 V168 H984"
+          />
+        </svg>
+        <span class="story-tag story-start">$245</span>
+        <span class="story-stem"></span>
+        <span class="story-flare"></span>
+        <span class="story-tag story-low">$191</span>
+      </div>
+      <div class="story-days" aria-hidden="true">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+      </div>
+      <figcaption>
+        <span>Illustrative price alert, not a live fare.</span>
+        <a [href]="github"><i class="bi bi-github" aria-hidden="true"></i> Open source under MIT</a>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="steps-section" id="how-it-works" aria-labelledby="how-title">
+  <div class="public-container">
+    <div class="section-heading">
+      <h2 id="how-title">From a flight link to a price alert</h2>
+      <p>No Google account connection required.</p>
+    </div>
+    <ol class="route-steps" role="list">
+      <li>
+        <span class="step-stop" aria-hidden="true">1</span>
+        <h3>Add your flight</h3>
+        <p>Paste a supported itinerary or route search from Google Flights.</p>
+        <a href="/guides/choosing-a-flight-link"
+          >See supported links <i class="bi bi-arrow-right" aria-hidden="true"></i
+        ></a>
+      </li>
+      <li>
+        <span class="step-stop" aria-hidden="true">2</span>
+        <h3>Choose when to be notified</h3>
+        <p>Watch for a new low or set a target price. Connect Telegram to receive alerts.</p>
+      </li>
+      <li>
+        <span class="step-stop" aria-hidden="true">3</span>
+        <h3>Review the price</h3>
+        <p>Check the recorded history, then follow the flight link to see current availability.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<ff-rule-demo />
+
+<section class="developer-section" aria-labelledby="developer-title">
+  <div class="public-container developer-grid">
+    <div class="section-heading">
+      <h2 id="developer-title">Connect your own tools</h2>
+      <p>
+        The dashboard, API, and MCP use the same flight monitors. Send signed webhooks to your
+        application or connect an MCP client.
+      </p>
+      <div class="developer-links">
+        <a class="btn btn-light" href="/developers"
+          ><i class="bi bi-code-slash" aria-hidden="true"></i> Developer guide</a
+        ><a class="source-link" [href]="github"
+          >Browse the source <i class="bi bi-arrow-up-right" aria-hidden="true"></i
+        ></a>
+      </div>
+    </div>
+    <div class="code-sample">
+      <div class="code-caption">Create a flight monitor</div>
+      <pre><code>{{ apiExample }}</code></pre>
+      <p>Use your Fareflare origin before <code>/v1/monitors</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="guides-section public-container" aria-labelledby="journal-title">
+  <div class="section-heading section-heading-split">
+    <h2 id="journal-title">Get more from your alerts</h2>
+    <a class="quiet-link" href="/guides"
+      >All guides <i class="bi bi-arrow-right" aria-hidden="true"></i
+    ></a>
+  </div>
+  <div class="guide-rows">
+    @for (guide of guides(); track guide.path) {
+      <article class="guide-row">
+        <div>
+          <h3>
+            <a class="stretched-link" [href]="guide.path">{{ guide.headline }}</a>
+          </h3>
+          <p>{{ guide.description }}</p>
+        </div>
+        <span class="guide-row-meta">{{ guide.read_minutes }} min read</span>
+        <i class="bi bi-arrow-right" aria-hidden="true"></i>
+      </article>
+    }
+  </div>
+</section>
+
+<section class="faq-section public-container" aria-labelledby="faq-title">
+  <div class="section-heading">
+    <h2 id="faq-title">Before you add a flight</h2>
+    <p>A few things to know about tracking with Fareflare.</p>
+  </div>
+  <div class="faq-list">
+    <details name="faq">
+      <summary>
+        Do I need to connect my Google account?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+      </summary>
+      <p>
+        No. Paste a supported Google Flights link. Fareflare checks the public price without
+        accessing your Google account.
+      </p>
+    </details>
+    <details name="faq">
+      <summary>
+        Will I catch every price change?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+      </summary>
+      <p>
+        Checks start at 15-minute intervals, so a fare can change between observations. Your
+        dashboard shows the last recorded price and when it was checked. Always confirm the price
+        before booking.
+      </p>
+    </details>
+    <details name="faq">
+      <summary>How do I receive an alert?<i class="bi bi-plus-lg" aria-hidden="true"></i></summary>
+      <p>
+        Choose a new observed low or a target price. Alerts appear in your dashboard. Connect
+        Telegram in Account settings for messages, or configure a signed webhook for your own
+        application.
+      </p>
+    </details>
+    <details name="faq">
+      <summary>
+        Can I book tickets through Fareflare?<i class="bi bi-plus-lg" aria-hidden="true"></i>
+      </summary>
+      <p>
+        Fareflare tracks prices. When you find a fare you like, open the flight link to review
+        availability and book with your chosen provider.
+      </p>
+    </details>
+  </div>
+</section>
+
+<section class="start-section public-container" aria-labelledby="start-title">
+  <img
+    class="start-photo"
+    src="/assets/coastal-approach.webp"
+    width="1280"
+    height="853"
+    alt="Illustration of a sunlit coastline and blue sea viewed from the air"
+  />
+  <div class="start-card">
+    <h2 id="start-title">Track the flight you have in mind</h2>
+    <p>Create a free account. Your first monitor starts with a link.</p>
+    <a class="btn btn-primary btn-flight" href="/register">Create your account</a>
+  </div>
+</section>
