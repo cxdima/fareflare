@@ -222,6 +222,10 @@ Notable changes to Fareflare. The format follows
 
 ### Fixed
 
+- **Artwork and fonts went out without their type.** The Lambda image's Python has
+  no entry for WebP, WOFF or WOFF2, so the illustrations, scroll sequences and fonts
+  were served as `application/octet-stream`. The portal now sends `image/webp`,
+  `image/avif`, `font/woff2` and `font/woff` itself.
 - **Pages opened part-way down.** Choosing a page in the navigation moved focus to
   it, and the browser scrolled each page to a different place: account settings
   opened with the header half off screen. Every page now opens at its top, and

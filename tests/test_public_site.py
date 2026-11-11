@@ -24,6 +24,7 @@ def public_site(store, clock, tmp_path):
         (tmp_path / name).write_text("/* fixture */")
     (tmp_path / "assets").mkdir()
     (tmp_path / "assets" / "fareflare-mark.png").write_bytes(b"image")
+    (tmp_path / "assets" / "plane.webp").write_bytes(b"RIFF\x00\x00\x00\x00WEBP")
     (tmp_path / "media").mkdir()
     (tmp_path / "media" / "font-ABC12345.woff2").write_bytes(b"font")
     (tmp_path / ".env").write_text("DO_NOT_SERVE=private")
@@ -177,6 +178,19 @@ def test_static_cache_matches_asset_names_and_does_not_capture_api(public_site):
     assert client.get("/v1/config").json()["product_name"] == "Fareflare"
     assert client.head("/about").status_code == 200 and not client.head("/about").content
     assert client.get("/docs").status_code == 200
+
+
+def test_artwork_and_fonts_carry_their_type_without_a_system_type_table(public_site, monkeypatch):
+    # The Lambda image's Python knows neither WebP nor WOFF; the portal must say so itself.
+    monkeypatch.setattr("starlette.responses.guess_type", lambda _path: (None, None))
+    client, _ = public_site
+    for path, kind in (
+        ("/assets/plane.webp", "image/webp"),
+        ("/media/font-ABC12345.woff2", "font/woff2"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == kind
 
 
 def test_content_tracks_config_and_never_executes_brand_text():

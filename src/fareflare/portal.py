@@ -49,6 +49,15 @@ from fareflare.site_content import (
 if TYPE_CHECKING:
     from fareflare.telegram_accounts import TelegramConnections
 
+# Python 3.12's built-in type table, which is all the Lambda image has, does not know
+# these, so they would go out as application/octet-stream.
+MEDIA_TYPES = {
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+}
+
 
 class LoginInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -599,7 +608,11 @@ def create_portal(
                     else "public, max-age=3600"
                 )
                 request.state.asset_cache = cache
-                return FileResponse(asset, headers={"Cache-Control": cache})
+                return FileResponse(
+                    asset,
+                    media_type=MEDIA_TYPES.get(asset.suffix.lower()),
+                    headers={"Cache-Control": cache},
+                )
             secret_query = any(
                 key in request.query_params for key in ("invite", "authorize", "code", "token")
             )
