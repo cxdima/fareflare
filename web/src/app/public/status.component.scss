@@ -1,121 +1,136 @@
 :host {
   display: block;
   /* State colours. Each is paired with a word or a shape, never colour alone. */
-  --status-operational: #16765f;
-  --status-degraded: #8a5a12;
-  --status-major: #a52d29;
-  --status-idle: #6f8077;
+  --tone: var(--ff-paper-deep);
+  --tone-mark: var(--ff-ink-3);
 }
 .status-page {
-  max-width: 880px;
-  padding-block: 3.5rem 5rem;
+  max-width: 62rem;
+  padding-block: clamp(2.5rem, 6vw, 5rem) 2rem;
 }
 .status-heading h1 {
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  margin: 0 0 0.6rem;
+  margin: 0 0 1.1rem;
+  font-size: clamp(2.6rem, 7vw, 5.5rem);
 }
 .status-heading p {
-  color: var(--ff-muted);
-  margin: 0 0 2rem;
-}
-.status-banner {
-  --tone: var(--status-idle);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem 1.25rem;
-  padding: 1.25rem 1.5rem;
-  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--ff-line));
-  border-radius: var(--bs-border-radius-lg);
-  background: color-mix(in srgb, var(--tone) 7%, var(--ff-surface));
+  max-width: 44ch;
+  margin: 0 0 2.25rem;
+  color: var(--ff-ink-2);
+  font-size: 1.125rem;
+  line-height: 1.5;
 }
 [data-status='operational'] {
-  --tone: var(--status-operational);
+  --tone: var(--ff-lime);
+  --tone-mark: var(--ff-lime);
 }
 [data-status='degraded'] {
-  --tone: var(--status-degraded);
+  --tone: var(--ff-lav);
+  --tone-mark: var(--ff-violet);
 }
 [data-status='major'] {
-  --tone: var(--status-major);
+  --tone: #ffd2ca;
+  --tone-mark: var(--ff-coral);
 }
 [data-status='unknown'],
 [data-status='none'] {
-  --tone: var(--status-idle);
+  --tone: var(--ff-paper-deep);
+  --tone-mark: var(--ff-night-text);
+}
+/* The answer first, as one large block in the colour of the state. */
+.status-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem 1.4rem;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vw, 2.25rem);
+  border-radius: var(--ff-radius-block);
+  background: var(--tone);
+  clip-path: polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 0 100%);
 }
 .status-mark {
   display: grid;
   place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
-  background: var(--tone);
-  color: #fff;
-  font-size: 1.35rem;
+  background: var(--ff-ink);
+  color: var(--tone-mark);
+  font-size: 1.7rem;
 }
 .status-banner h2 {
-  font-size: 1.3rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.3rem;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-stretch: 112%;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 .status-banner p {
-  color: var(--ff-muted);
-  font-size: 0.85rem;
   margin: 0;
+  color: var(--ff-ink);
+  font-size: 0.9rem;
 }
 .status-banner strong {
-  color: var(--ff-ink);
-  font-weight: 600;
+  font-weight: 700;
+}
+.status-banner .btn {
+  margin-right: 1.25rem;
+  border-color: var(--ff-ink);
 }
 .status-section-title {
-  font-size: 1.05rem;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  margin: 2.5rem 0 0.75rem;
+  margin: 0;
+  font-size: 1.35rem;
+  font-stretch: 110%;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+}
+.status-page > section + section {
+  margin-top: 0.75rem;
+}
+.status-page > section[aria-labelledby='status-services'] {
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vw, 2.25rem) 0.5rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
 }
 .status-list {
   list-style: none;
-  margin: 0;
+  margin: 0.6rem 0 0;
   padding: 0;
-  border: 1px solid var(--ff-line);
-  border-radius: var(--bs-border-radius-lg);
-  background: var(--ff-surface);
 }
 .status-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem 1.5rem;
-  padding: 1.1rem 1.5rem;
+  padding: 1.1rem 0;
 }
 .status-list li + li {
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
 }
 .status-list h3 {
-  font-size: 0.95rem;
-  font-weight: 650;
   margin: 0 0 0.2rem;
+  font-size: 1.02rem;
+  font-weight: 680;
 }
 .status-list p {
-  color: var(--ff-muted);
-  font-size: 0.85rem;
-  line-height: 1.55;
-  margin: 0;
   max-width: 60ch;
+  margin: 0;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   flex-shrink: 0;
-  padding: 0.3rem 0.7rem;
+  min-height: 2rem;
+  padding: 0 0.85rem 0 0.7rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tone) 12%, var(--ff-surface));
-  color: color-mix(in srgb, var(--tone) 80%, var(--ff-ink));
-  font-size: 0.78rem;
-  font-weight: 650;
+  background: var(--tone);
+  color: var(--ff-ink);
+  font-size: 0.8rem;
+  font-weight: 680;
   white-space: nowrap;
 }
 .status-pill::before {
@@ -123,35 +138,59 @@
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: var(--tone);
+  background: var(--ff-ink);
+}
+/* The day's record sits on the dark block, where lime reads as a lit signal. */
+.status-history {
+  --tone: var(--ff-lime);
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vw, 2.25rem);
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-night);
+  color: #fff;
+}
+.status-history :focus-visible {
+  outline-color: var(--ff-lime);
 }
 .status-history-heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0 1rem;
+  gap: 0.3rem 1rem;
+  margin-bottom: 1.5rem;
 }
 .status-history-heading p {
-  color: var(--ff-muted);
-  font-size: 0.85rem;
-  margin: 0 0 0.75rem;
-  font-variant-numeric: tabular-nums;
+  margin: 0;
+  color: var(--ff-night-text);
+  font-size: 0.9rem;
 }
 .status-hours {
   display: grid;
   grid-template-columns: repeat(24, minmax(0, 1fr));
   align-items: end;
-  gap: 4px;
-  height: 3.5rem;
+  gap: 5px;
+  height: clamp(4.5rem, 12vw, 7.5rem);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .status-hours li {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--tone);
+}
+.status-history [data-status='operational'] {
+  --tone: var(--ff-lime);
+}
+.status-history [data-status='degraded'] {
+  --tone: var(--ff-violet);
+}
+.status-history [data-status='major'] {
+  --tone: var(--ff-coral);
+}
+.status-history [data-status='none'],
+.status-history [data-status='unknown'] {
+  --tone: var(--ff-night-text);
 }
 /* Shape as well as colour: trouble is hatched and shorter, no record is hollow. */
 .status-hours li[data-status='degraded'] {
@@ -159,7 +198,7 @@
   background: repeating-linear-gradient(
     135deg,
     var(--tone) 0 4px,
-    color-mix(in srgb, var(--tone) 55%, var(--ff-surface)) 4px 8px
+    color-mix(in srgb, var(--tone) 45%, var(--ff-night)) 4px 8px
   );
 }
 .status-hours li[data-status='major'] {
@@ -167,24 +206,24 @@
 }
 .status-hours li[data-status='none'] {
   background: transparent;
-  border: 1px dashed color-mix(in srgb, var(--tone) 60%, var(--ff-line));
+  border: 1.5px dashed color-mix(in srgb, var(--tone) 55%, var(--ff-night));
 }
 .status-axis {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  color: var(--ff-muted);
-  font-size: 0.75rem;
+  margin-top: 0.6rem;
+  color: var(--ff-night-text);
+  font-size: 0.78rem;
 }
 .status-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 1.25rem;
   list-style: none;
-  margin: 1rem 0 0;
+  margin: 1.1rem 0 0;
   padding: 0;
-  color: var(--ff-muted);
-  font-size: 0.78rem;
+  color: var(--ff-night-text);
+  font-size: 0.8rem;
 }
 .status-legend li {
   display: inline-flex;
@@ -193,8 +232,8 @@
 }
 .status-legend li::before {
   content: '';
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 3px;
   background: var(--tone);
 }
@@ -202,16 +241,16 @@
   background: repeating-linear-gradient(
     135deg,
     var(--tone) 0 2px,
-    color-mix(in srgb, var(--tone) 55%, var(--ff-surface)) 2px 4px
+    color-mix(in srgb, var(--tone) 45%, var(--ff-night)) 2px 4px
   );
 }
 .status-legend li[data-status='none']::before {
   background: transparent;
-  border: 1px dashed var(--tone);
+  border: 1.5px dashed var(--tone);
 }
 .status-table {
   margin-top: 1.25rem;
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted rgb(255 255 255 / 0.28);
 }
 .status-table summary {
   display: flex;
@@ -219,9 +258,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   min-height: 48px;
-  color: var(--ff-link);
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 620;
   list-style: none;
 }
 .status-table summary::-webkit-details-marker {
@@ -239,26 +278,31 @@
   transform: rotate(180deg);
 }
 .status-table .table {
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
+  margin: 0;
+  font-size: 0.875rem;
   --bs-table-bg: transparent;
+  --bs-table-color: #fff;
+  --bs-table-border-color: rgb(255 255 255 / 0.16);
 }
 .status-table th {
-  color: var(--ff-muted);
-  font-size: 0.75rem;
+  color: var(--ff-night-text);
+  font-size: 0.78rem;
   font-weight: 600;
 }
 .status-table tbody th {
-  color: var(--ff-ink);
-  font-size: 0.85rem;
+  color: #fff;
+  font-size: 0.875rem;
+}
+.status-table td {
+  color: #fff;
 }
 .status-note,
 .status-loading {
-  color: var(--ff-muted);
-  font-size: 0.85rem;
-  line-height: 1.7;
   max-width: 68ch;
-  margin: 2rem 0 0;
+  margin: 1.75rem 0 0;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 @media (max-width: 575px) {
   .status-page {
@@ -266,19 +310,27 @@
   }
   .status-banner {
     grid-template-columns: auto minmax(0, 1fr);
-    padding: 1rem;
+  }
+  .status-mark {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.35rem;
   }
   .status-banner .btn {
     grid-column: 1 / -1;
     justify-self: start;
+    margin-right: 0;
   }
   .status-list li {
     align-items: flex-start;
     flex-direction: column;
-    padding: 1rem;
+    gap: 0.7rem;
   }
   .status-hours {
     gap: 2px;
+  }
+  .status-hours li {
+    border-radius: 3px;
   }
 }
 @media (forced-colors: active) {

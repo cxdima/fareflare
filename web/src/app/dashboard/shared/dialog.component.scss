@@ -1,34 +1,68 @@
 .ff-dialog {
-  width: min(46rem, calc(100vw - 2rem));
-  max-height: calc(100dvh - 2rem);
+  width: min(46rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 1.5rem);
   padding: 0;
-  color: var(--bs-body-color);
-  background: var(--ff-surface);
-  border: 1px solid var(--ff-line);
-  border-radius: 0.875rem;
-  box-shadow: 0 16px 70px rgb(36 59 59 / 16%);
+  border: 0;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
+  color: var(--ff-ink);
+  box-shadow: var(--ff-shadow-lift);
+  scrollbar-width: thin;
 }
 .ff-dialog::backdrop {
-  background: rgb(25 44 40 / 48%);
+  background: rgb(23 20 31 / 56%);
 }
 .dialog-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--ff-line);
+  padding: 1.25rem 1.25rem 1.25rem 1.75rem;
+  background: var(--ff-card);
+  border-bottom: 1.5px dotted var(--ff-line-strong);
 }
 .dialog-heading h2 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
+  font-weight: 740;
+  letter-spacing: -0.03em;
 }
 .dialog-body {
-  padding: 1.5rem;
+  padding: 1.5rem 1.75rem 1.75rem;
 }
 @media (max-width: 575px) {
-  .dialog-heading,
+  .dialog-heading {
+    padding: 0.9rem 0.75rem 0.9rem 1.1rem;
+  }
+  .dialog-heading h2 {
+    font-size: 1.3rem;
+  }
   .dialog-body {
-    padding: 1rem;
+    padding: 1.1rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ff-dialog[open] {
+    animation: sheet-in 420ms var(--ff-ease) both;
+  }
+  .ff-dialog[open]::backdrop {
+    animation: scrim-in 300ms ease both;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(1.5rem) scale(0.97);
+    clip-path: inset(0 0 40% 0 round 1.75rem);
+  }
+  to {
+    clip-path: inset(0 round 1.75rem);
+  }
+}
+@keyframes scrim-in {
+  from {
+    background: rgb(23 20 31 / 0%);
   }
 }

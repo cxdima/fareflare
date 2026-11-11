@@ -62,7 +62,7 @@ test('the site runs Angular and Bootstrap without loading a React renderer or ex
   const bootstrapFont = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue('--bs-body-font-family'),
   );
-  expect(bootstrapFont).toContain('Plus Jakarta Sans');
+  expect(bootstrapFont).toContain('Mona Sans');
   await page.goto('/docs');
   await expect(
     page.getByRole('heading', { name: 'Fareflare API reference', exact: true }),

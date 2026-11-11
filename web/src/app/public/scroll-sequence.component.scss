@@ -1,0 +1,24 @@
+:host {
+  position: relative;
+  display: block;
+  aspect-ratio: 1912 / 1080;
+}
+.seq-still,
+.seq-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: var(--seq-fit, contain);
+  object-position: var(--seq-position, center);
+}
+.seq-canvas {
+  display: none;
+}
+:host(.is-live) .seq-canvas {
+  display: block;
+}
+:host(.is-live) .seq-still {
+  visibility: hidden;
+}

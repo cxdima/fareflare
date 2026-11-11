@@ -2,37 +2,44 @@
   display: block;
   max-width: 58rem;
 }
+/* Sections are a row of pills; the open one is ink. */
 .settings-sections {
   display: flex;
-  gap: 0.4rem 1.5rem;
-  margin-bottom: 1.75rem;
-  border-bottom: 1px solid var(--ff-line);
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1.25rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: var(--ff-card);
 }
 .settings-sections button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 48px;
-  padding: 0.65rem 0.15rem;
-  margin-bottom: -1px;
+  min-height: 44px;
+  padding: 0 1.1rem;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   background: transparent;
-  color: var(--ff-muted);
-  font-size: 0.85rem;
-  font-weight: 550;
-}
-.settings-sections button:hover {
   color: var(--ff-ink);
+  font-size: 0.9rem;
+  font-weight: 620;
+}
+.settings-sections button:hover:not([aria-pressed='true']) {
+  background: var(--ff-paper);
 }
 .settings-sections button[aria-pressed='true'] {
-  color: var(--ff-ink);
-  border-bottom-color: var(--ff-accent);
-  font-weight: 700;
+  background: var(--ff-ink);
+  color: #fff;
+}
+.settings-sections button[aria-pressed='true'] .bi {
+  color: var(--ff-lime);
 }
 .settings-sections .bi {
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 .settings-content > .panel > p {
   max-width: 65ch;
@@ -54,7 +61,7 @@
   font-size: 0.9rem;
 }
 .connection-list li + li {
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
 }
 .connection-list strong {
   overflow-wrap: anywhere;
@@ -76,19 +83,21 @@
   line-height: 1.5;
 }
 .danger-zone {
-  border-color: color-mix(in srgb, var(--bs-danger) 30%, var(--ff-line));
+  box-shadow: inset 0 0 0 1.5px #f0b4ac;
 }
 @media (max-width: 575px) {
   .settings-sections {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.25rem;
-    margin-bottom: 1.25rem;
+    width: 100%;
+    border-radius: 1.5rem;
   }
   .settings-sections button {
     flex-direction: column;
-    gap: 0.35rem;
-    padding-block: 0.7rem;
-    font-size: 0.7rem;
+    gap: 0.25rem;
+    min-height: 56px;
+    padding: 0.4rem 0.15rem;
+    border-radius: 1.15rem;
+    font-size: 0.72rem;
   }
 }

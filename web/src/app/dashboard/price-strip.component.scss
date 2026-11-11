@@ -1,0 +1,69 @@
+:host {
+  display: block;
+  width: 100%;
+}
+.strip {
+  margin: 0;
+}
+.strip svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+/* Recorded prices are solid ink, the lowest one is lime, a missing record is hatched. */
+.strip-price {
+  fill: var(--ff-ink);
+}
+.strip-low {
+  fill: var(--ff-lime-deep);
+  stroke: var(--ff-ink);
+  stroke-width: 1;
+}
+.strip-gap {
+  stroke: var(--ff-line-strong);
+  stroke-width: 0.75;
+}
+.strip-hatch {
+  stroke: var(--ff-ink-3);
+  stroke-width: 1.4;
+}
+.strip-base {
+  stroke: var(--ff-line-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 4;
+  stroke-linecap: round;
+}
+.strip rect {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .strip rect {
+    animation: strip-rise 520ms var(--ff-ease) backwards;
+  }
+  .strip rect:nth-of-type(2n) {
+    animation-delay: 40ms;
+  }
+  .strip rect:nth-of-type(3n) {
+    animation-delay: 90ms;
+  }
+}
+@keyframes strip-rise {
+  from {
+    transform: scaleY(0.08);
+  }
+}
+.strip figcaption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+  color: var(--ff-ink-2);
+  font-size: 0.72rem;
+}
+@media (forced-colors: active) {
+  .strip-price,
+  .strip-low {
+    fill: CanvasText;
+  }
+}

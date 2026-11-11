@@ -18,10 +18,15 @@
 <div class="monitor-overview">
   <div class="monitor-summary" role="group" aria-label="Monitor summary">
     @if (workspace.monitorsLoaded() && !firstRun()) {
-      <span
+      <span class="capacity"
         ><strong>{{ workspace.activeCount() }}</strong> of
         {{ workspace.session.config()!.limits.monitors }} monitors in use</span
       >
+      <span class="capacity-slots" aria-hidden="true">
+        @for (used of slots(); track $index) {
+          <i [class.used]="used"></i>
+        }
+      </span>
       @if (atLimit()) {
         <span id="monitor-limit-note">Stop watching a flight to add another.</span>
       }
@@ -74,6 +79,13 @@
 }
 @if (inviting()) {
   <section class="telegram-invite" aria-labelledby="telegram-invite-title">
+    <img
+      class="telegram-invite-art"
+      src="/assets/art/bubble.webp"
+      width="280"
+      height="280"
+      alt=""
+    />
     <div class="telegram-invite-copy">
       <h2 id="telegram-invite-title">Get alerts on your phone</h2>
       <p>
@@ -159,6 +171,7 @@
           </div>
           <div class="ticket-price">
             @if (monitor.latest) {
+              <ff-price-strip class="ticket-strip" [monitor]="monitor" [now]="now()" />
               <span class="price-label">Latest price</span>
               <strong>{{ money(monitor.latest.amount_minor, monitor.latest.currency) }}</strong>
               <span class="price-context"
@@ -296,6 +309,18 @@
         </button>
       </section>
     }
+    @if (freeSlot()) {
+      <button type="button" class="free-slot" (click)="creating.set(true)">
+        <span class="free-slot-mark" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
+        <span class="free-slot-copy"
+          ><strong>Add another flight</strong
+          ><span
+            >{{ workspace.session.config()!.limits.monitors - workspace.activeCount() }} of
+            {{ workspace.session.config()!.limits.monitors }} monitors free</span
+          ></span
+        >
+      </button>
+    }
   </div>
 } @else if (!workspace.monitorsLoaded() && !workspace.error()) {
   <div class="monitor-list" role="status">
@@ -339,9 +364,9 @@
     </div>
     <img
       class="first-flight-photo"
-      src="/assets/above-the-clouds.jpg"
-      width="1024"
-      height="688"
+      src="/assets/art/tag-slots.webp"
+      width="1168"
+      height="880"
       alt=""
     />
   </section>

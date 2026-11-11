@@ -6,9 +6,9 @@
   overflow-wrap: anywhere;
 }
 .receiver-guide {
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.9rem;
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
   padding-top: 1rem;
 }
 .receiver-guide summary {
@@ -20,7 +20,7 @@
 
 .receiver-details {
   font-size: 0.8rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   margin-top: 0.75rem;
 }
 .receiver-details summary {

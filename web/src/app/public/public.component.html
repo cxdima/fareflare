@@ -4,7 +4,7 @@
     <a class="brand" href="/" aria-label="Fareflare home"
       ><img
         class="brand-mark"
-        src="/assets/fareflare-mark.png?v=2"
+        src="/assets/fareflare-mark.png?v=3"
         width="62"
         height="62"
         alt=""
@@ -116,14 +116,32 @@
     </div>
   } @else if (error()) {
     <section class="public-container content-error">
-      <h1>This page could not load.</h1>
-      <p>Please reload to try again, or <a [href]="github">visit the project on GitHub</a>.</p>
+      <div class="content-error-block">
+        <h1 class="display">This page <em>could not load</em></h1>
+        <p>Please reload to try again, or <a [href]="github">visit the project on GitHub</a>.</p>
+        <img
+          class="content-error-art"
+          src="/assets/art/paper-plane.webp"
+          width="720"
+          height="582"
+          alt=""
+        />
+      </div>
     </section>
   } @else if (site.content()) {
     <section class="public-container content-error">
-      <p>404</p>
-      <h1>That page isn’t here.</h1>
-      <p><a href="/">Return to Fareflare</a>.</p>
+      <div class="content-error-block">
+        <h1 class="display">That page <em>isn’t here</em></h1>
+        <p>Nothing lives at this address. The link may be mistyped, or the page has moved.</p>
+        <a class="btn btn-primary" href="/">Return to Fareflare</a>
+        <img
+          class="content-error-art"
+          src="/assets/art/paper-plane.webp"
+          width="720"
+          height="582"
+          alt=""
+        />
+      </div>
     </section>
   } @else {
     <p class="public-container content-error" role="status">Loading guides…</p>
@@ -136,7 +154,7 @@
         <a class="brand" href="/"
           ><img
             class="brand-mark"
-            src="/assets/fareflare-mark.png?v=2"
+            src="/assets/fareflare-mark.png?v=3"
             width="62"
             height="62"
             alt=""
@@ -174,6 +192,7 @@
         </div>
       </nav>
     </div>
+    <p class="footer-wordmark" aria-hidden="true">Fareflare</p>
     <div class="footer-bottom">
       <span>© 2026 Fareflare contributors. Code licensed under MIT.</span
       ><span>Independent project. Not affiliated with Google.</span>

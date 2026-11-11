@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Route } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
 import { mock, monitor, observation, now } from './fixtures';
@@ -6,12 +6,15 @@ import { mock, monitor, observation, now } from './fixtures';
 const recent = { ...observation, observed_at: now - 900 };
 const earlier = { ...observation, amount_minor: 30000, observed_at: now - 1800 };
 const old = { ...observation, amount_minor: 11000, observed_at: now - 8 * 86400 };
+/** The flight tag asks for its own short run with `limit`; the dialog never does. */
+const fromTag = (route: Route) => new URL(route.request().url()).searchParams.has('limit');
 
 test('history ranges, pagination and CSV all describe the same loaded prices', async ({ page }) => {
   await mock(page);
   const cursor = 'older/with+padding=';
   const requested: (string | null)[] = [];
   await page.route('**/history**', async (route) => {
+    if (fromTag(route)) return route.fallback();
     const value = new URL(route.request().url()).searchParams.get('cursor');
     requested.push(value);
     await route.fulfill({
@@ -59,11 +62,12 @@ test('history distinguishes failed requests, empty ranges and missing observatio
 }) => {
   await mock(page);
   let attempts = 0;
-  await page.route('**/history**', (route) =>
-    ++attempts === 1
+  await page.route('**/history**', (route) => {
+    if (fromTag(route)) return route.fallback();
+    return ++attempts === 1
       ? route.fulfill({ status: 503, json: { detail: 'History is temporarily unavailable.' } })
-      : route.fulfill({ json: { items: [old] } }),
-  );
+      : route.fulfill({ json: { items: [old] } });
+  });
   await page.goto('/app');
   await page.getByRole('button', { name: 'Price history' }).click();
   const dialog = page.getByRole('dialog');
@@ -184,4 +188,40 @@ test('price explorer is accessible at desktop and mobile sizes under the portal 
   expect(cspErrors).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Price history' })).toBeFocused();
+});
+
+test('a flight tag shows its recent recorded prices, and leaves missed checks as gaps', async ({
+  page,
+}) => {
+  await mock(page);
+  const asked: string[] = [];
+  await page.route('**/history**', (route) => {
+    asked.push(new URL(route.request().url()).search);
+    return route.fallback();
+  });
+  await page.goto('/app');
+  const strip = page.getByRole('article').first().locator('ff-price-strip');
+  const chart = strip.getByRole('img');
+  await expect(chart).toHaveAccessibleName(/lowest \$245\.00, highest \$300\.00/);
+  await expect(chart).toHaveAccessibleName(/Hatched bars are times with no recorded price/);
+  // Two totals an hour apart at a 15-minute interval: three checks in between left no record.
+  await expect(strip.locator('.strip-price')).toHaveCount(1);
+  await expect(strip.locator('.strip-low')).toHaveCount(1);
+  await expect(strip.locator('.strip-gap')).toHaveCount(3);
+  expect(asked).toEqual(['?limit=48']);
+  expect(await page.locator('[style]').count()).toBe(0);
+});
+
+test('a flight tag goes without its price strip when the record cannot load', async ({ page }) => {
+  await mock(page);
+  await page.route('**/history**', (route) =>
+    fromTag(route)
+      ? route.fulfill({ status: 503, json: { detail: 'Unavailable.' } })
+      : route.fallback(),
+  );
+  await page.goto('/app');
+  const tag = page.getByRole('article').first();
+  await expect(tag.getByText('$245.00')).toBeVisible();
+  await expect(tag.locator('ff-price-strip').getByRole('img')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });

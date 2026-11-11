@@ -4,7 +4,7 @@
       <a class="brand" href="/"
         ><img
           class="brand-mark"
-          src="/assets/fareflare-mark.png?v=2"
+          src="/assets/fareflare-mark.png?v=3"
           width="62"
           height="62"
           alt=""
@@ -261,27 +261,17 @@
     </main>
   </div>
   <aside class="auth-poster" aria-label="About Fareflare">
-    <p class="poster-title">Your next flight starts here</p>
+    <img
+      class="auth-photo"
+      src="/assets/art/suitcase.webp"
+      width="1200"
+      height="1607"
+      alt="A lavender suitcase with a blank baggage tag, and a paper plane resting beside it"
+    />
+    <p class="poster-title display">Your next flight <em>starts here</em></p>
     <p class="poster-text">
       Track a Google Flights link, follow its price, and get an alert when it meets your target.
     </p>
-    @if (mode() === 'login' && step() === 'credentials') {
-      <img
-        class="auth-photo"
-        src="/assets/coastal-runway.jpg"
-        width="1024"
-        height="688"
-        alt="A coastal runway seen from the air at first light"
-      />
-    } @else {
-      <img
-        class="auth-photo"
-        src="/assets/window-seat.jpg"
-        width="1280"
-        height="853"
-        alt="Sunrise above the mountains from an aircraft window"
-      />
-    }
     <p class="poster-note">
       <i class="bi bi-shield-check" aria-hidden="true"></i>Fareflare never needs access to your
       Google account.

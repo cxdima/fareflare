@@ -2,7 +2,7 @@
 .history-scope,
 .history-pagination p,
 .history-figure figcaption {
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.8rem;
   line-height: 1.6;
 }
@@ -16,27 +16,26 @@
 }
 .range-control {
   display: inline-flex;
-  padding: 0.2rem;
-  border: 1px solid var(--ff-line);
-  border-radius: 0.6rem;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border-radius: 999px;
   background: var(--ff-paper);
 }
 .range-button {
-  padding: 0.55rem 0.7rem;
-  font-size: 0.75rem;
-  color: var(--ff-muted);
-  border: 1px solid transparent;
   min-height: 44px;
+  padding: 0 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ff-ink);
+  font-size: 0.84rem;
 }
 .range-button[aria-pressed='true'] {
-  color: var(--ff-ink);
-  border-color: var(--ff-line);
-  background: var(--ff-surface);
-  box-shadow: 0 1px 3px rgb(21 43 67 / 6%);
+  background: var(--ff-ink);
+  color: #fff;
 }
-.range-button:hover {
+.range-button:hover:not([aria-pressed='true']) {
+  background: var(--ff-paper-deep);
   color: var(--ff-ink);
-  background: var(--ff-soft);
 }
 .export-button {
   font-size: 0.8rem;
@@ -52,13 +51,12 @@
 .history-summary dt {
   font-weight: 500;
   font-size: 0.75rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   margin-bottom: 0.35rem;
 }
 .history-summary dd {
   font-size: clamp(1rem, 2vw, 1.25rem);
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
   letter-spacing: -0.035em;
   margin: 0;
   overflow-wrap: anywhere;
@@ -91,9 +89,8 @@
   flex-direction: column;
   justify-content: space-between;
   padding: 2% 0;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
 }
 .chart-scale-flat {
   justify-content: center;
@@ -109,22 +106,22 @@
 }
 .chart-line {
   fill: none;
-  stroke: var(--ff-link);
+  stroke: var(--ff-ink);
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 .chart-dot {
-  fill: var(--ff-link);
-  stroke: var(--ff-surface);
-  stroke-width: 1.5;
+  fill: var(--ff-lime);
+  stroke: var(--ff-ink);
+  stroke-width: 2;
 }
 .chart-dates {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.7rem;
   margin: 0.5rem 0 0.75rem;
 }
@@ -133,8 +130,8 @@
 }
 .history-table-wrap {
   max-height: 20rem;
-  border-top: 1px solid var(--ff-line);
-  border-bottom: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
+  border-bottom: 1.5px dotted var(--ff-line-strong);
 }
 .history-table {
   margin: 0;
@@ -144,7 +141,7 @@
   position: sticky;
   top: 0;
   background: var(--ff-paper);
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-weight: 600;
 }
 .history-table td,
@@ -157,7 +154,6 @@
 }
 .history-amount {
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 .history-context {
   margin-top: 0.75rem;
@@ -168,7 +164,7 @@
   gap: 0.5rem;
   width: fit-content;
   min-height: 44px;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.75rem;
   cursor: pointer;
 }
@@ -178,18 +174,18 @@
 .history-pagination {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
 }
 .history-empty {
   padding: 2rem 0;
   text-align: center;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
 }
 .history-empty > .bi {
   display: block;
   font-size: 1.5rem;
   margin-bottom: 1rem;
-  color: var(--ff-link);
+  color: var(--ff-ink);
 }
 .history-empty h3 {
   color: var(--ff-ink);
@@ -208,6 +204,8 @@
   }
   .range-button {
     flex: 1;
+    min-width: 0;
+    padding-inline: 0.4rem;
   }
   .export-button {
     width: 100%;

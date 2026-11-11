@@ -1,5 +1,5 @@
 .editor-intro {
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.875rem;
   line-height: 1.65;
   margin-bottom: 1.25rem;
@@ -7,7 +7,7 @@
 .supported-inputs {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
 }
 summary {
   display: flex;
@@ -15,7 +15,7 @@ summary {
   gap: 0.6rem;
   width: fit-content;
   min-height: 44px;
-  color: var(--ff-link);
+  color: var(--ff-ink);
   cursor: pointer;
   font-weight: 550;
 }
@@ -24,7 +24,7 @@ details p {
   line-height: 1.6;
 }
 .collection-options {
-  border-top: 1px solid var(--ff-line);
+  border-top: 1.5px dotted var(--ff-line-strong);
   padding-top: 0.5rem;
 }
 .collection-options > summary {
@@ -52,7 +52,7 @@ details p {
   gap: 0.4rem;
   padding-left: 1.25rem;
   margin: 0.75rem 0 0.25rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.875rem;
   line-height: 1.6;
 }

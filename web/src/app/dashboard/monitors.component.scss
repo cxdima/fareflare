@@ -1,279 +1,67 @@
 .monitor-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  margin: -0.25rem 0 1rem;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 .monitor-summary {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  margin: 0;
-  color: var(--ff-muted);
-  font-size: 0.78rem;
+  gap: 0.5rem 1rem;
+  min-height: 1.5rem;
+  color: var(--ff-ink-2);
+  font-size: 0.92rem;
 }
 .monitor-summary strong {
   color: var(--ff-ink);
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+/* Capacity as slots: ink where a flight is watched, hatched where one could be. */
+.capacity-slots {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  height: 1.5rem;
+}
+.capacity-slots i {
+  width: 0.5rem;
+  height: 100%;
+  border-radius: 0.2rem;
+  background: var(--ff-hatch);
+}
+.capacity-slots .used {
+  background: var(--ff-ink);
 }
 .summary-refresh {
-  margin-left: auto;
+  font-weight: 600;
 }
-.monitor-list {
-  display: grid;
-  gap: 1rem;
-}
-.flight-ticket {
-  background: var(--ff-surface);
-  border: 1px solid var(--ff-line);
-  border-radius: 0.875rem;
-  overflow: hidden;
-}
-.ticket-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem 0;
-}
-.ticket-airlines {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.875rem;
-  min-width: 0;
-}
-.search-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--ff-muted);
-  font-size: 0.78rem;
-  font-weight: 550;
-}
-.ticket-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
-  gap: 1.5rem;
-  padding: 1rem 1.5rem 1.25rem;
-}
-.ticket-route h2 {
-  font-size: clamp(1.6rem, 2.3vw, 2rem);
-  font-weight: 650;
-  letter-spacing: -0.035em;
-  margin: 0 0 0.55rem;
-  font-variant-numeric: tabular-nums;
-}
-.ticket-date {
-  font-size: 0.9rem;
-  font-weight: 550;
-  margin-bottom: 0.35rem;
-}
-.ticket-times {
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 0.25rem;
-}
-.trip-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.875rem;
-  color: var(--ff-muted);
-  font-size: 0.78rem;
-}
-.match-detail {
-  font-size: 0.78rem;
-  color: var(--ff-muted);
-  margin: 0.35rem 0 0;
-}
-.ticket-rule {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  color: var(--ff-muted);
-  font-size: 0.75rem;
-  margin: 0.9rem 0 0;
-}
-.ticket-rule .bi {
-  flex-shrink: 0;
-  color: var(--ff-link);
-}
-.ticket-price {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  gap: 0.25rem;
-}
-.price-label,
-.price-context {
-  font-size: 0.75rem;
-  color: var(--ff-muted);
-}
-.ticket-price strong {
-  font-size: clamp(2rem, 3vw, 2.5rem);
-  line-height: 1.15;
-  font-weight: 650;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-}
-.ticket-price .price-pending {
-  max-width: 13rem;
-  font-size: 1rem;
-  letter-spacing: -0.015em;
-  line-height: 1.4;
-}
-.pending-mark {
-  color: var(--ff-muted);
-  font-size: 1.1rem;
-  margin-bottom: 0.3rem;
-}
-.price-pending + .price-context {
-  max-width: 17rem;
-  line-height: 1.55;
-}
-.ticket-observation {
-  max-width: 18rem;
-  margin-top: 0.7rem;
-  color: var(--ff-muted);
-  font-size: 0.7rem;
-  line-height: 1.6;
-}
-.freshness-note {
-  font-size: 0.7rem;
-  color: var(--bs-warning-text-emphasis);
-}
-.ticket-actions {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.25rem 1rem;
-  padding: 0.65rem 1.25rem;
-  border-top: 1px solid var(--ff-line);
-}
-.ticket-primary-actions,
-.ticket-manage-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-.ticket-management {
-  min-width: 0;
-}
-.ticket-management[open] {
-  grid-column: 1 / -1;
-}
-.ticket-management > summary {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  width: fit-content;
-  min-height: 44px;
-  margin-left: auto;
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--bs-border-radius);
-  color: var(--ff-muted);
-  font-size: 0.78rem;
-  font-weight: 550;
-  cursor: pointer;
-}
-.ticket-management > summary:hover {
-  color: var(--ff-ink);
-  background: var(--ff-soft);
-}
-.ticket-management-body {
-  padding: 0.9rem 0.25rem 0.25rem;
-  border-top: 1px solid var(--ff-line);
-}
-.ticket-details {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 0 0 1rem;
-  font-size: 0.78rem;
-}
-.ticket-details dt {
-  color: var(--ff-muted);
-  font-size: 0.7rem;
-  font-weight: 500;
-  margin-bottom: 0.35rem;
-}
-.ticket-details dd {
-  margin: 0;
-}
-.ticket-details .detail-note {
-  margin-top: 0.2rem;
-  color: var(--ff-muted);
-}
-.ticket-manage-actions .btn-quiet-danger {
-  margin-left: auto;
-}
-.ticket-paused .ticket-route h2,
-.ticket-paused .ticket-price strong {
-  color: var(--ff-muted);
-}
-.collection-note {
-  padding: 0.8rem 1.5rem;
-  margin: 0;
-  background: var(--bs-warning-bg-subtle);
-  color: var(--bs-warning-text-emphasis);
-  font-size: 0.78rem;
-}
-.collection-note .bi {
-  margin-right: 0.4rem;
-}
-.collection-code {
-  display: block;
-  margin-top: 0.3rem;
-  font-size: 0.72rem;
-}
-.collection-code code {
-  color: inherit;
-}
+
 .monitor-filters {
-  min-width: 0;
-}
-.monitor-filters[open] {
-  grid-column: 1 / -1;
+  border-radius: 1.4rem;
+  background: var(--ff-card);
 }
 .monitor-filters > summary {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: fit-content;
-  min-height: 44px;
-  color: var(--ff-link);
-  font-size: 0.78rem;
-  font-weight: 550;
-  cursor: pointer;
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border-radius: 1.4rem;
+  font-size: 0.92rem;
+  font-weight: 620;
 }
 .monitor-filters > summary::after {
-  margin-left: 0.25rem;
+  margin-left: auto;
 }
 .monitor-toolbar {
-  display: flex;
-  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
   gap: 1rem;
-  margin: 0.5rem 0 0;
-}
-.monitor-search {
-  flex: 1;
-}
-.monitor-filter {
-  width: 13rem;
+  padding: 0.25rem 1.1rem 1.1rem;
 }
 .monitor-toolbar label {
   display: block;
   margin-bottom: 0.4rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ff-muted);
+  font-size: 0.85rem;
+  font-weight: 620;
 }
 .search-field {
   position: relative;
@@ -281,291 +69,662 @@
 .search-field > .bi {
   position: absolute;
   top: 50%;
-  left: 0.9rem;
+  left: 1rem;
+  color: var(--ff-ink-2);
   transform: translateY(-50%);
-  color: var(--ff-muted);
   pointer-events: none;
 }
 .search-field .form-control {
-  padding-left: 2.5rem;
-}
-.monitor-toolbar .form-control,
-.monitor-toolbar .form-select {
-  font-size: 0.85rem;
+  padding-left: 2.75rem;
 }
 .filter-count {
-  font-size: 0.8rem;
-  color: var(--ff-muted);
-}
-.monitor-pagination {
-  padding-top: 1.5rem;
-}
-.monitor-pagination p {
-  color: var(--ff-muted);
-  font-size: 0.8rem;
-}
-@media (max-width: 575px) {
-  .monitor-summary {
-    gap: 0.35rem 1rem;
-    font-size: 0.75rem;
-  }
-  .ticket-header {
-    padding: 1rem 1rem 0;
-  }
-  .ticket-main {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    padding: 0.875rem 1rem 1rem;
-  }
-  .ticket-price {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    text-align: left;
-    gap: 0.25rem 0.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--ff-line);
-  }
-  .ticket-price .price-label {
-    grid-column: 1 / -1;
-  }
-  .ticket-price .price-context {
-    text-align: right;
-    max-width: 9rem;
-  }
-  .ticket-observation,
-  .freshness-note {
-    grid-column: 1 / -1;
-  }
-  .ticket-observation {
-    margin-top: 0.4rem;
-  }
-  .ticket-price:has(.price-pending) {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-  }
-  .pending-mark {
-    grid-row: 1 / 3;
-    margin: 0 0.4rem 0 0;
-  }
-  .ticket-price:has(.price-pending) .price-context {
-    grid-column: 2;
-    text-align: left;
-    max-width: none;
-  }
-  .ticket-actions {
-    grid-template-columns: 1fr;
-    padding: 0.5rem 0.75rem;
-  }
-  .ticket-primary-actions {
-    justify-content: space-between;
-  }
-  .ticket-management > summary {
-    width: 100%;
-    justify-content: space-between;
-    border-top: 1px solid var(--ff-line);
-    border-radius: 0;
-  }
-  .ticket-details {
-    grid-template-columns: 1fr;
-  }
-  .ticket-management-body {
-    padding-inline: 0.25rem;
-  }
-  .collection-note {
-    padding-inline: 1rem;
-  }
-  .monitor-toolbar {
-    flex-wrap: wrap;
-  }
-  .monitor-search {
-    flex-basis: 100%;
-  }
-  .monitor-filter {
-    width: 100%;
-  }
+  margin: 0 0 1rem;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
 }
 
-@media (min-width: 576px) {
-  .ticket-actions:has(.ticket-management[open]) .ticket-primary-actions {
-    padding-right: 10rem;
-  }
-  .ticket-management[open] > summary {
-    position: absolute;
-    top: 0.65rem;
-    right: 1.25rem;
-  }
+.monitor-list {
+  display: grid;
+  gap: 1rem;
 }
 
-/* Where the latest price stands against this monitor's own record. */
+/*
+ * A watched flight is a baggage tag laid flat: the route on the body, the price on
+ * the stub past the perforation, the state on a sticker.
+ */
+.flight-ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(15rem, 30%, 19rem);
+  grid-template-areas:
+    'header price'
+    'route price'
+    'note price'
+    'actions price';
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
+  overflow: clip;
+  clip-path: polygon(1.75rem 0, 100% 0, 100% 100%, 0 100%, 0 1.75rem);
+}
+.ticket-main {
+  display: contents;
+}
+.ticket-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1.35rem 1.75rem 0 2.25rem;
+}
+/* On a tag the state is a sticker, pressed on a little askew. */
+.ticket-header .status {
+  padding: 0.42rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  rotate: -3deg;
+  box-shadow:
+    0 1px 0 rgb(23 20 31 / 0.16),
+    0 8px 14px -9px rgb(23 20 31 / 0.45);
+}
+.ticket-header .status::before {
+  display: none;
+}
+.ticket-airlines {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  min-width: 0;
+}
+.search-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ff-ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ticket-route {
+  grid-area: route;
+  min-width: 0;
+  padding: 1rem 1.75rem 0;
+}
+.ticket-route h2 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(2.2rem, 5.4vw, 4.75rem);
+  font-stretch: 118%;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+.ticket-date {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.ticket-times {
+  margin: 0.15rem 0 0;
+  color: var(--ff-ink-2);
+  font-size: 0.92rem;
+}
+.trip-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+.trip-details span {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--ff-paper);
+  color: var(--ff-ink-2);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+.match-detail {
+  margin: 0.6rem 0 0;
+  color: var(--ff-ink-2);
+  font-size: 0.85rem;
+}
+.ticket-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 620;
+}
+
+/* The stub. Its punched notches are the page showing through. */
+.ticket-price {
+  grid-area: price;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 1.5rem 1.5rem 1.5rem 1.75rem;
+  border-left: 2px dotted var(--ff-line-strong);
+}
+.ticket-price::before,
+.ticket-price::after {
+  content: '';
+  position: absolute;
+  left: -0.7rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: var(--ff-paper);
+}
+.ticket-price::before {
+  top: -0.7rem;
+}
+.ticket-price::after {
+  bottom: -0.7rem;
+}
+.price-label {
+  color: var(--ff-ink-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.ticket-price strong {
+  font-size: clamp(2.1rem, 3.6vw, 3rem);
+  font-stretch: 108%;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.price-context {
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.ticket-price .price-pending {
+  font-size: 1.3rem;
+  font-stretch: 100%;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+.pending-mark {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.4rem;
+  border-radius: 50%;
+  background: var(--ff-hatch);
+  box-shadow: inset 0 0 0 1.5px var(--ff-ink);
+  font-size: 1.05rem;
+}
 .price-low {
-  font-size: 0.75rem;
-  color: var(--ff-muted);
-  font-variant-numeric: tabular-nums;
+  margin-top: 0.5rem;
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 .price-at-low {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  color: var(--ff-success);
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--ff-lime);
+  color: var(--ff-ink);
+  font-weight: 700;
+  rotate: -2deg;
+}
+.ticket-observation {
+  margin-top: 0.5rem;
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+}
+.freshness-note {
+  width: fit-content;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ff-paper-deep);
+  color: var(--ff-ink);
+  font-size: 0.78rem;
   font-weight: 650;
 }
+/* The recent record sits at the head of the stub, above the price it explains. */
+.ticket-strip {
+  max-width: 15rem;
+  margin-bottom: 1rem;
+}
+/* A flight that is no longer checked is the same tag on grey paper. */
+.ticket-paused {
+  background: var(--ff-paper-deep);
+}
+.ticket-paused .ticket-price::before,
+.ticket-paused .ticket-price::after {
+  background: var(--ff-paper);
+}
+.ticket-paused .trip-details span {
+  background: var(--ff-card);
+}
+.ticket-paused :is(.ticket-route h2, .ticket-price strong) {
+  color: var(--ff-ink-2);
+}
 .ticket-paused .price-at-low {
-  color: var(--ff-muted);
+  background: var(--ff-card);
+  rotate: none;
 }
 
-/* First run: says what to do, and how, beside a calm picture of where it leads. */
+.collection-note {
+  grid-area: note;
+  margin: 1rem 1.75rem 0;
+  padding: 0.8rem 1rem;
+  border-radius: 1rem;
+  background: var(--ff-lav-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.collection-note .bi {
+  margin-right: 0.3rem;
+}
+.collection-code {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--ff-ink-2);
+  font-size: 0.8rem;
+}
+.collection-code code {
+  color: var(--ff-ink);
+}
+
+.ticket-actions {
+  grid-area: actions;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.25rem 1.75rem 1.5rem;
+}
+.ticket-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ticket-management {
+  border-radius: 1rem;
+}
+.ticket-management[open] {
+  background: var(--ff-paper);
+}
+.ticket-management > summary {
+  justify-content: flex-start;
+  gap: 0.4rem;
+  width: fit-content;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  color: var(--ff-ink);
+  font-size: 0.86rem;
+  font-weight: 620;
+}
+.ticket-management > summary:hover {
+  background: var(--ff-paper);
+}
+.ticket-management-body {
+  padding: 0.25rem 0.9rem 0.9rem;
+}
+.ticket-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 0.9rem;
+}
+.ticket-details dt {
+  color: var(--ff-ink-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.ticket-details dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.ticket-details .detail-note {
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+.ticket-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ticket-manage-actions .btn-quiet {
+  --bs-btn-bg: var(--ff-card);
+}
+.ticket-manage-actions .btn-quiet-danger {
+  margin-left: auto;
+}
+
+/* The next free slot: a tag cut out but not yet printed. */
+.free-slot {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  min-height: 5.5rem;
+  padding: 1rem 1.75rem;
+  border: 1.5px dashed var(--ff-line-strong);
+  border-radius: var(--ff-radius-block);
+  background: transparent;
+  color: var(--ff-ink);
+  text-align: left;
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease;
+}
+.free-slot:hover {
+  background: var(--ff-card);
+  border-color: var(--ff-ink);
+}
+.free-slot-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--ff-hatch);
+  box-shadow: inset 0 0 0 1.5px var(--ff-ink);
+  font-size: 1.1rem;
+  transition:
+    background-color 240ms ease,
+    transform 520ms var(--ff-ease);
+}
+.free-slot:hover .free-slot-mark {
+  background: var(--ff-lime);
+  transform: rotate(90deg);
+}
+.free-slot-copy {
+  display: grid;
+  gap: 0.1rem;
+}
+.free-slot-copy strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.free-slot-copy span {
+  color: var(--ff-ink-2);
+  font-size: 0.88rem;
+}
+
+.monitor-pagination {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.monitor-pagination p {
+  margin: 0;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
+}
+
+/* First run: the page is one invitation. */
 .first-flight {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: stretch;
   padding: 0;
-  overflow: hidden;
+  background: var(--ff-lav);
+  overflow: clip;
 }
 .first-flight-copy {
-  padding: clamp(1.75rem, 4vw, 3rem);
+  padding: clamp(1.5rem, 3.4vw, 3rem);
 }
 .first-flight h2 {
-  font-size: 1.6rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.9rem, 3.6vw, 3rem);
+  font-stretch: 112%;
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -0.04em;
 }
 .first-flight-copy > p {
-  max-width: 36ch;
-  margin-bottom: 1.5rem;
-  color: var(--ff-muted);
+  max-width: 30rem;
+  margin: 0 0 1.5rem;
+  font-size: 1.08rem;
+  line-height: 1.5;
 }
 .first-flight-steps {
   display: grid;
-  gap: 0.7rem;
-  padding: 1.5rem 0 0;
-  margin: 1.75rem 0 0;
-  border-top: 1px solid var(--ff-line);
+  gap: 0.6rem;
+  max-width: 31rem;
+  margin: 2rem 0 0;
+  padding: 1.25rem 0 0;
+  border-top: 1.5px dotted rgb(23 20 31 / 40%);
   list-style: none;
   counter-reset: step;
-  color: var(--ff-muted);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 .first-flight-steps li {
   position: relative;
-  padding-left: 1.6rem;
+  padding-left: 2.4rem;
   counter-increment: step;
 }
 .first-flight-steps li::before {
   content: counter(step);
   position: absolute;
+  top: -0.1rem;
   left: 0;
-  color: var(--ff-ink);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ff-ink);
+  font-size: 0.8rem;
+  font-weight: 750;
 }
 .first-flight-steps strong {
-  color: var(--ff-ink);
-  font-weight: 650;
+  font-weight: 700;
 }
 .first-flight-photo {
   width: 100%;
   height: 100%;
-  min-height: 19rem;
+  min-height: 16rem;
   object-fit: cover;
-  object-position: 62% 50%;
+  object-position: 30% 50%;
 }
 
-/* Offered where the need is felt: a flight is being watched and nothing can ring. */
 .telegram-invite {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem 2.5rem;
-  padding: 1.25rem 1.5rem;
+  gap: 1rem 1.5rem;
   margin-bottom: 1.25rem;
-  border: 1px solid var(--ff-line);
-  border-radius: 0.875rem;
-  background: var(--ff-sidebar);
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-lime);
+}
+.telegram-invite-art {
+  width: 5.5rem;
+  height: auto;
+  filter: drop-shadow(0 12px 12px rgb(23 20 31 / 20%));
 }
 .telegram-invite h2 {
-  margin-bottom: 0.35rem;
-  font-size: 1.05rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  margin: 0 0 0.3rem;
+  font-size: 1.35rem;
+  font-weight: 740;
+  letter-spacing: -0.025em;
 }
 .telegram-invite-copy p {
-  max-width: 54ch;
+  max-width: 34rem;
   margin: 0;
-  color: var(--ff-muted);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 .telegram-invite-action {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem 1.25rem;
-}
-.telegram-invite-linking {
   display: grid;
   justify-items: start;
-  gap: 0.75rem;
+  gap: 0.5rem;
+}
+.telegram-invite-linking {
+  grid-column: 1 / -1;
 }
 .telegram-invite-close {
-  min-height: 24px;
-  color: var(--ff-muted);
-  font-size: 0.85rem;
+  min-height: 44px;
+  font-size: 0.9rem;
 }
 
-/* The shape of a flight while the list loads, so the page does not jump when it arrives. */
 .ticket-skeleton {
   display: grid;
-  gap: 0.9rem;
-  padding: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+  gap: 0.85rem;
+  padding: 1.75rem;
 }
 .skeleton-line {
-  display: block;
-  height: 0.8rem;
-  border-radius: 0.4rem;
-  background: var(--ff-soft);
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--ff-paper-deep);
 }
 .skeleton-short {
-  width: 9rem;
+  width: 28%;
 }
 .skeleton-medium {
-  width: min(16rem, 70%);
+  width: 52%;
 }
 .skeleton-title {
-  width: min(13rem, 55%);
-  height: 1.7rem;
+  width: 44%;
+  height: 2.4rem;
+  border-radius: 0.8rem;
 }
+
+@media (max-width: 767px) {
+  .monitor-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* On a phone the stub hangs below the body, and the price stays near the top. */
+  .flight-ticket {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'header'
+      'route'
+      'price'
+      'note'
+      'actions';
+    border-radius: 1.4rem;
+  }
+  .ticket-header {
+    padding: 1.1rem 1.1rem 0 1.75rem;
+  }
+  .ticket-route {
+    padding: 0.75rem 1.1rem 0;
+  }
+  .ticket-price {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.15rem 0.75rem;
+    margin-top: 1rem;
+    padding: 1rem 1.1rem 0;
+    border-left: 0;
+    border-top: 2px dotted var(--ff-line-strong);
+  }
+  .ticket-price > * {
+    grid-column: 1;
+  }
+  /* Beside the price on a phone, where the stub runs across the tag. */
+  .ticket-price > .ticket-strip {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: end;
+    width: 8.5rem;
+    margin: 0;
+  }
+  .ticket-price > .ticket-observation,
+  .ticket-price > .freshness-note {
+    grid-column: 1 / -1;
+  }
+  .freshness-note {
+    justify-self: start;
+  }
+  .ticket-price::before,
+  .ticket-price::after {
+    top: -0.7rem;
+    bottom: auto;
+  }
+  .ticket-price::after {
+    left: auto;
+    right: -0.7rem;
+  }
+  .ticket-price .pending-mark {
+    display: none;
+  }
+  .collection-note {
+    margin: 0.85rem 1.1rem 0;
+  }
+  .ticket-actions {
+    padding: 1rem 1.1rem 1.1rem;
+  }
+  .ticket-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .free-slot {
+    padding: 1rem 1.1rem 1rem 1.5rem;
+    border-radius: 1.4rem;
+  }
+  .first-flight {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .first-flight-photo {
+    min-height: 12rem;
+    max-height: 15rem;
+  }
+  .telegram-invite {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.1rem;
+    border-radius: 1.4rem;
+  }
+  .telegram-invite-art {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    width: 4rem;
+  }
+  .telegram-invite-copy {
+    padding-right: 4rem;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  .flight-ticket:not(.ticket-skeleton) {
+    animation: ticket-press 620ms var(--ff-ease) backwards;
+  }
+  .flight-ticket:nth-child(2) {
+    animation-delay: 70ms;
+  }
+  .flight-ticket:nth-child(3) {
+    animation-delay: 140ms;
+  }
+  .flight-ticket:nth-child(n + 4) {
+    animation-delay: 200ms;
+  }
   .skeleton-line {
     animation: skeleton-breathe 1.4s ease-in-out infinite alternate;
   }
 }
+@keyframes ticket-press {
+  from {
+    transform: translateY(1.75rem) scale(0.97) rotate(-0.6deg);
+  }
+}
 @keyframes skeleton-breathe {
   to {
-    opacity: 0.45;
-  }
-}
-@media (max-width: 991px) {
-  .first-flight {
-    grid-template-columns: 1fr;
-  }
-  .first-flight-photo {
-    order: -1;
-    height: 10.5rem;
-    min-height: 0;
-  }
-}
-@media (max-width: 767px) {
-  .telegram-invite {
-    grid-template-columns: 1fr;
-    padding: 1.1rem 1rem;
-  }
-  .telegram-invite-action {
-    justify-content: flex-start;
-  }
-  .price-low {
-    grid-column: 1 / -1;
+    background: var(--ff-line);
   }
 }

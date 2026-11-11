@@ -1,53 +1,62 @@
+/* Shared by the workspace and the sign-in pages: panels, headings, tables, quiet actions. */
 :where(ff-dashboard, ff-auth) {
   .overline {
     display: block;
     font-size: 0.8rem;
-    font-weight: 550;
+    font-weight: 600;
     line-height: 1.6;
-    color: var(--ff-muted);
+    color: var(--ff-ink-2);
   }
   .form-stack {
     display: grid;
     gap: 1.25rem;
   }
+  /* A panel is a sheet of white paper on the desk. No outline: the ground does the work. */
   .panel {
-    padding: 1.5rem;
-    border: 1px solid var(--ff-line);
-    border-radius: 0.75rem;
-    background: var(--ff-surface);
+    padding: clamp(1.25rem, 2.4vw, 2rem);
+    border-radius: var(--ff-radius-block);
+    background: var(--ff-card);
   }
   .panel h2 {
-    font-size: 1.2rem;
     margin-bottom: 1rem;
-    letter-spacing: -0.02em;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
   }
   .panel-icon {
-    font-size: 1.5rem;
-    color: var(--ff-accent);
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
     margin-bottom: 1rem;
+    border-radius: 50%;
+    background: var(--ff-lav);
+    color: var(--ff-ink);
+    font-size: 1.25rem;
   }
   .page-heading {
     display: flex;
-    align-items: flex-start;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: clamp(1.25rem, 2.6vw, 2rem);
   }
   .page-heading h1 {
-    font-size: 2rem;
-    font-weight: 650;
-    letter-spacing: -0.035em;
-    margin: 0 0 0.55rem;
+    margin: 0 0 0.5rem;
+    font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+    font-stretch: 112%;
+    font-weight: 780;
+    line-height: 1;
+    letter-spacing: -0.04em;
   }
   .page-heading p:last-child {
-    color: var(--ff-muted);
-    margin-bottom: 0;
-    font-size: 0.9rem;
     max-width: 65ch;
+    margin-bottom: 0;
+    color: var(--ff-ink-2);
+    font-size: 1rem;
   }
   .page-heading > .btn {
     flex-shrink: 0;
-    margin-top: 0.1rem;
   }
   .section-heading {
     display: flex;
@@ -57,152 +66,158 @@
     margin-bottom: 1rem;
   }
   .section-heading h2 {
-    font-size: 1.1rem;
     margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
   .inline-form {
     display: flex;
     align-items: end;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   .inline-form > div {
     min-width: 0;
   }
   /* The action is as tall as the field it sits beside. */
   .inline-form > .btn {
-    min-height: calc(3rem + 2px);
+    min-height: 48px;
     flex-shrink: 0;
   }
   .table-subtext {
     display: block;
-    font-size: 0.78rem;
-    color: var(--ff-muted);
     margin-top: 0.25rem;
+    color: var(--ff-ink-2);
+    font-size: 0.8rem;
+  }
+  .table {
+    --bs-table-color: var(--ff-ink);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--ff-line);
+    margin-bottom: 0;
   }
   .table > :not(caption) > * > * {
     padding: 1rem 0.75rem;
     background: transparent;
+    border-bottom-style: dotted;
+    border-bottom-width: 1.5px;
+  }
+  .table > tbody > tr:last-child > * {
+    border-bottom: 0;
   }
   .table th {
-    color: var(--ff-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
+    color: var(--ff-ink-2);
+    font-size: 0.78rem;
+    font-weight: 650;
   }
   .table td {
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     vertical-align: middle;
   }
-  .table {
-    --bs-table-color: var(--ff-ink);
-  }
   .table-panel {
-    padding: 0;
+    padding: 0.5rem 0;
     overflow: hidden;
   }
   /* Wide enough for a real table: its edges line up with the panel's other content. */
   @media (min-width: 576px) {
     .table-panel .table > :not(caption) > * > :first-child {
-      padding-left: 1.5rem;
+      padding-left: clamp(1.25rem, 2.4vw, 2rem);
     }
     .table-panel .table > :not(caption) > * > :last-child {
-      padding-right: 1.5rem;
+      padding-right: clamp(1.25rem, 2.4vw, 2rem);
     }
   }
-  .status {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    gap: 0.35rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.4;
-    color: var(--ff-muted);
-    background: var(--ff-soft);
-    border-radius: 0.4rem;
-    padding: 0.3rem 0.55rem;
-  }
-  .status-active,
-  .status-sent {
-    color: #17624f;
-    background: #e7f4ee;
-  }
-  .status-pending {
-    color: var(--ff-muted);
-    background: var(--ff-soft);
-  }
-  .status-stale,
-  .status-degraded {
-    color: #754a12;
-    background: #fbefd6;
-  }
-  .status-dead_letter {
-    color: #a52d29;
-    background: #fbe8e2;
-  }
-  /* One look for "nothing here yet", wherever it appears. */
+  /* One look for "nothing here yet", wherever it appears: an empty slot, cut but not filled. */
   .empty-state {
     display: grid;
     justify-items: center;
     gap: 0.4rem;
-    padding: 2.75rem 1.5rem;
-    border-style: dashed;
+    padding: 3rem 1.5rem;
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--ff-line-strong);
+    background-image: var(--ff-hatch);
+    background-size: 100% 0.5rem;
+    background-repeat: no-repeat;
+    background-position: 0 0;
     text-align: center;
   }
   .empty-state > .bi {
     display: grid;
     place-items: center;
-    width: 3rem;
-    height: 3rem;
+    width: 3.25rem;
+    height: 3.25rem;
     margin-bottom: 0.5rem;
     border-radius: 50%;
-    background: var(--ff-soft);
-    color: var(--ff-link);
+    background: var(--ff-lav);
+    color: var(--ff-ink);
     font-size: 1.3rem;
   }
+  /* Where a paper object stands in for the glyph. */
+  .empty-state > .empty-art {
+    width: 7.5rem;
+    height: auto;
+    margin: -0.5rem 0 0.25rem;
+  }
   .empty-state :is(h2, h3) {
-    font-size: 1.1rem;
-    font-weight: 650;
-    letter-spacing: -0.015em;
     margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
   .empty-state p {
     max-width: 34rem;
     margin: 0;
-    color: var(--ff-muted);
-    font-size: 0.9rem;
+    color: var(--ff-ink-2);
+    font-size: 0.95rem;
   }
   .empty-state > .btn {
     margin-top: 0.85rem;
   }
   .page-note {
     max-width: 75ch;
-    line-height: 1.7;
-    font-size: 0.8rem;
-    color: var(--ff-muted);
     margin-top: 1.5rem;
+    color: var(--ff-ink-2);
+    font-size: 0.85rem;
+    line-height: 1.6;
   }
   .icon-button {
     min-width: 44px;
     min-height: 44px;
+    border-radius: 50%;
+    text-decoration: none;
+  }
+  .icon-button:hover {
+    background: var(--ff-paper-deep);
   }
   .quiet-link {
+    color: var(--ff-ink-2);
     font-size: 0.9rem;
-    color: var(--ff-muted);
   }
   .btn-quiet {
     --bs-btn-color: var(--ff-ink);
+    --bs-btn-bg: var(--ff-paper);
+    --bs-btn-border-color: transparent;
     --bs-btn-hover-color: var(--ff-ink);
+    --bs-btn-hover-bg: var(--ff-paper-deep);
+    --bs-btn-hover-border-color: transparent;
     --bs-btn-active-color: var(--ff-ink);
-    --bs-btn-hover-bg: var(--ff-soft);
     --bs-btn-active-bg: var(--ff-line);
-    --bs-btn-disabled-color: var(--ff-muted);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--ff-ink-3);
+    --bs-btn-disabled-bg: var(--ff-paper);
+    --bs-btn-disabled-border-color: transparent;
+    --bs-btn-disabled-opacity: 1;
   }
   .btn-quiet-danger {
-    --bs-btn-color: #a52d29;
-    --bs-btn-hover-color: #8a211e;
-    --bs-btn-active-color: #8a211e;
-    --bs-btn-hover-bg: #fbeeea;
-    --bs-btn-active-bg: #f7e0db;
+    --bs-btn-color: var(--ff-danger);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: #7c1a15;
+    --bs-btn-hover-bg: #ffe3de;
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: #7c1a15;
+    --bs-btn-active-bg: #ffd2ca;
+    --bs-btn-active-border-color: transparent;
   }
   @media (max-width: 575px) {
     .page-heading {
@@ -211,10 +226,11 @@
       gap: 1rem;
     }
     .panel {
-      padding: 1rem;
+      padding: 1.1rem;
+      border-radius: 1.4rem;
     }
     .table-panel {
-      padding: 0;
+      padding: 0.25rem 0;
     }
     .inline-form {
       align-items: stretch;

@@ -1,0 +1,572 @@
+:host {
+  display: block;
+}
+.hero {
+  padding: clamp(1rem, 2.6vw, 2.5rem) 0 clamp(4rem, 7vw, 6.5rem);
+  overflow-x: clip;
+}
+.hero-grid {
+  --title: clamp(2.75rem, 6.5vw, 7rem);
+  --phone: clamp(14.5rem, 20.5vw, 18.5rem);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--phone);
+  column-gap: clamp(1.5rem, 4.5vw, 4.5rem);
+}
+.hero-title {
+  position: relative;
+  z-index: 2;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  margin: 0;
+  font-size: var(--title);
+  pointer-events: none;
+}
+.line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  /* Room for descenders and the italic overhang inside the mask. */
+  padding: 0.04em 0.08em 0.1em 0;
+  margin-bottom: -0.1em;
+}
+.line > span {
+  display: block;
+}
+
+/* The lavender field starts halfway up the last line, so the word drops into it. */
+.hero-field {
+  position: relative;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: calc(var(--title) * -0.52);
+  padding: calc(var(--title) * 0.52 + clamp(1.5rem, 2.6vw, 2.5rem)) clamp(1.25rem, 3vw, 3rem)
+    clamp(1.25rem, 2.4vw, 2rem);
+  padding-right: calc(var(--phone) + clamp(2.5rem, 7vw, 7.5rem));
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-lav);
+}
+.hero-lede {
+  max-width: 33rem;
+  margin: 0 0 1.75rem;
+  color: var(--ff-ink);
+  font-size: clamp(1.05rem, 1.35vw, 1.3rem);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+.link-form {
+  position: relative;
+  z-index: 1;
+  max-width: 40rem;
+}
+.link-form .form-label {
+  font-weight: 650;
+}
+/* One pill: the link goes in on the left, the action leaves on the right. */
+.link-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border: 1.5px solid var(--ff-ink);
+  border-radius: 999px;
+  background: var(--ff-card);
+  transition: box-shadow 220ms var(--ff-ease);
+}
+.link-field:focus-within {
+  box-shadow: 0 0 0 4px rgb(23 20 31 / 16%);
+}
+.link-field:has([aria-invalid='true']) {
+  border-color: var(--ff-danger);
+}
+.link-field .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding-inline: 1.1rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  text-overflow: ellipsis;
+}
+.link-field .form-control:focus-visible {
+  outline: 0;
+}
+.link-field .btn {
+  flex: 0 0 auto;
+  min-height: 50px;
+}
+.link-note {
+  min-height: 1.5rem;
+  margin: 0.8rem 0 0;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.link-note a {
+  color: var(--ff-ink);
+  font-weight: 620;
+  white-space: nowrap;
+}
+.link-ok,
+.link-problem {
+  color: var(--ff-ink);
+  font-weight: 620;
+}
+.link-problem {
+  color: #8f1d17;
+}
+.hero-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  margin: clamp(1.75rem, 3.4vw, 3.25rem) 0 0;
+  padding-top: 1rem;
+  border-top: 1.5px dotted rgb(23 20 31 / 38%);
+  color: var(--ff-ink-2);
+  font-size: 0.85rem;
+}
+.hero-foot a {
+  color: var(--ff-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.hero-foot a:hover {
+  text-decoration: underline;
+}
+
+/* The drawn route, and the paper plane that travels it as the page scrolls. */
+.hero-route {
+  position: absolute;
+  right: calc(var(--phone) * 0.42);
+  bottom: clamp(3.5rem, 6vw, 5.5rem);
+  width: clamp(16rem, 34vw, 31rem);
+  overflow: visible;
+  pointer-events: none;
+}
+.route-line {
+  fill: none;
+  stroke: var(--ff-ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 7;
+}
+
+/*
+ * The phone body is a render, so it has edges, buttons and a shadow of its own.
+ * The alert on its screen is real type: one flat box laid over the blank screen
+ * with the picture's own perspective. Everything on the screen is sized in --r,
+ * a sixteenth-ish of the phone's width, so the screen scales with the body.
+ */
+.phone {
+  --r: calc(var(--phone) / 17.5);
+  position: relative;
+  z-index: 3;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  width: var(--phone);
+  aspect-ratio: 894 / 2050;
+  margin: 0 clamp(0.75rem, 2.6vw, 2.75rem) -3.25rem 0;
+  rotate: 2deg;
+  transform-origin: 60% 100%;
+}
+.phone-body {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  /* A close contact shadow and a long soft one, both cut to the phone's outline. */
+  filter: drop-shadow(0 0.2rem 0.3rem rgb(23 20 31 / 26%))
+    drop-shadow(0 2.2rem 2rem rgb(23 20 31 / 30%));
+}
+/* Position and angles are measured from the render: see docs/BRAND_ASSETS.md. */
+.phone-screen {
+  position: absolute;
+  left: -3.682%;
+  top: 3.425%;
+  width: 93.966%;
+  height: 93.309%;
+  display: grid;
+  align-content: start;
+  gap: calc(0.8 * var(--r));
+  padding: calc(0.95 * var(--r)) calc(0.9 * var(--r)) calc(1.1 * var(--r));
+  border-radius: calc(1.75 * var(--r));
+  overflow: hidden;
+  transform: perspective(calc(var(--phone) * 4.2257)) rotateZ(0.132deg) rotateY(-24deg)
+    rotateX(-0.316deg);
+}
+.phone-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding-inline: calc(0.7 * var(--r)) calc(0.5 * var(--r));
+  font-size: calc(0.78 * var(--r));
+  font-weight: 650;
+}
+.phone-island {
+  width: calc(4.6 * var(--r));
+  height: calc(1.35 * var(--r));
+  border-radius: 999px;
+  background: var(--ff-ink);
+}
+.phone-icons {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(0.3 * var(--r));
+  font-size: calc(0.82 * var(--r));
+}
+.phone-app {
+  display: flex;
+  align-items: center;
+  gap: calc(0.45 * var(--r));
+  margin-top: calc(0.35 * var(--r));
+  font-size: calc(0.82 * var(--r));
+  font-weight: 800;
+  font-stretch: 116%;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+.phone-app .status {
+  margin-left: auto;
+  font-stretch: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* The alert is a baggage tag: clipped corner, punched hole, a stub for the price. */
+.alert-tag {
+  position: relative;
+  display: grid;
+  gap: calc(0.85 * var(--r));
+  padding: calc(1 * var(--r)) calc(1 * var(--r)) 0;
+  border-radius: calc(1.2 * var(--r));
+  background: var(--ff-card);
+  box-shadow: var(--ff-shadow-card);
+  clip-path: polygon(
+    0 0,
+    calc(100% - calc(1.5 * var(--r))) 0,
+    100% calc(1.5 * var(--r)),
+    100% 100%,
+    0 100%
+  );
+}
+.alert-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(0.5 * var(--r));
+  padding-right: calc(1 * var(--r));
+}
+.alert-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(0.4 * var(--r));
+  font-size: calc(0.78 * var(--r));
+  font-weight: 700;
+}
+.alert-example {
+  padding: calc(0.15 * var(--r)) calc(0.5 * var(--r));
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.25px var(--ff-line-strong);
+  color: var(--ff-ink-2);
+  font-size: calc(0.68 * var(--r));
+  font-weight: 600;
+}
+.alert-airline {
+  display: flex;
+  align-items: center;
+  gap: calc(0.5 * var(--r));
+  color: var(--ff-ink-2);
+  font-size: calc(0.78 * var(--r));
+  font-weight: 550;
+}
+.alert-airline img {
+  width: calc(1.5 * var(--r));
+  height: calc(1.5 * var(--r));
+  border-radius: calc(0.4 * var(--r));
+  object-fit: contain;
+}
+.alert-route {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: calc(0.5 * var(--r));
+}
+.alert-route > i {
+  margin-top: calc(0.55 * var(--r));
+  font-size: calc(1 * var(--r));
+}
+.alert-route div:last-child {
+  text-align: right;
+}
+.alert-route strong {
+  display: block;
+  font-size: calc(2.05 * var(--r));
+  font-weight: 800;
+  font-stretch: 118%;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.alert-route span {
+  display: block;
+  margin-top: calc(0.3 * var(--r));
+  color: var(--ff-ink-2);
+  font-size: calc(0.7 * var(--r));
+  line-height: 1.25;
+}
+.alert-bars {
+  width: 100%;
+  height: auto;
+  fill: var(--ff-ink);
+}
+.alert-bars pattern path {
+  stroke: var(--ff-ink);
+  stroke-width: 1.6;
+}
+.alert-bars .gap {
+  fill: url('#hero-hatch');
+}
+.alert-bars .low {
+  fill: var(--ff-lime-deep);
+  stroke: var(--ff-ink);
+  stroke-width: 1.25;
+}
+.alert-stub {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(0.5 * var(--r));
+  margin-inline: calc(-1 * var(--r));
+  padding: calc(0.85 * var(--r)) calc(1 * var(--r)) calc(1 * var(--r));
+  border-top: 2px dotted var(--ff-line-strong);
+}
+.alert-stub strong {
+  display: block;
+  font-size: calc(2.3 * var(--r));
+  font-weight: 800;
+  font-stretch: 112%;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+.alert-stub div span {
+  display: block;
+  margin-top: calc(0.3 * var(--r));
+  color: var(--ff-ink-2);
+  font-size: calc(0.7 * var(--r));
+}
+.price-change {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(0.25 * var(--r));
+  padding: calc(0.35 * var(--r)) calc(0.65 * var(--r));
+  border-radius: 999px;
+  background: var(--ff-lime);
+  font-size: calc(0.76 * var(--r));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.alert-rule {
+  margin: 0;
+  padding-inline: calc(0.35 * var(--r));
+  color: var(--ff-ink-2);
+  font-size: calc(0.74 * var(--r));
+  line-height: 1.4;
+}
+.phone-checks {
+  display: grid;
+  margin: 0;
+  padding: calc(0.25 * var(--r)) calc(0.9 * var(--r));
+  border-radius: calc(1.2 * var(--r));
+  background: var(--ff-card);
+  list-style: none;
+  font-size: calc(0.74 * var(--r));
+}
+.phone-checks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(0.5 * var(--r));
+  padding-block: calc(0.6 * var(--r));
+  color: var(--ff-ink-2);
+}
+.phone-checks li + li {
+  border-top: 1.5px dotted var(--ff-line);
+}
+.phone-checks strong {
+  color: var(--ff-ink);
+  font-weight: 700;
+}
+
+/* The shared status chip, at the screen's scale. */
+.phone-app .status {
+  gap: calc(0.4 * var(--r));
+  padding: calc(0.3 * var(--r)) calc(0.7 * var(--r));
+  font-size: calc(0.76 * var(--r));
+}
+.phone-app .status::before {
+  width: calc(0.45 * var(--r));
+  height: calc(0.45 * var(--r));
+}
+.phone-app img {
+  width: calc(1.625 * var(--r));
+  height: calc(1.625 * var(--r));
+}
+
+@media (max-width: 991px) {
+  .hero-grid {
+    --title: clamp(2.5rem, 8.6vw, 5rem);
+    --phone: clamp(12.5rem, 26vw, 14rem);
+  }
+  .hero-route {
+    display: none;
+  }
+  .hero-field {
+    padding-right: calc(var(--phone) + clamp(2rem, 6vw, 4rem));
+  }
+}
+@media (max-width: 767px) {
+  .hero {
+    padding-bottom: 3.5rem;
+  }
+  .hero-grid {
+    --title: clamp(2.35rem, 12.4vw, 4.25rem);
+    --phone: min(17.5rem, 78vw);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Narrow screens let the first two lines wrap as one sentence. */
+  .hero-title {
+    font-stretch: 104%;
+  }
+  .line {
+    display: inline;
+    overflow: visible;
+    white-space: normal;
+    padding: 0;
+    margin: 0;
+  }
+  .line > span {
+    display: inline;
+  }
+  .line.turn {
+    display: block;
+  }
+  .hero-field {
+    padding-inline: 1.1rem;
+    padding-bottom: 6.5rem;
+  }
+  .link-field {
+    display: grid;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    gap: 0.6rem;
+  }
+  .link-field:focus-within {
+    box-shadow: none;
+  }
+  .link-field .form-control {
+    border: 1.5px solid var(--ff-ink);
+    background: var(--ff-card);
+    padding-inline: 1.1rem;
+  }
+  .link-field .form-control:focus-visible {
+    outline: 3px solid var(--ff-ink);
+    outline-offset: 2px;
+  }
+  .link-field .btn {
+    width: 100%;
+  }
+  .phone {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: center;
+    margin: -5rem 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .line > span {
+    animation: line-rise 1000ms var(--ff-ease) both;
+  }
+  .line:nth-child(2) > span {
+    animation-delay: 90ms;
+  }
+  .line:nth-child(3) > span {
+    animation-delay: 180ms;
+  }
+  .hero-field {
+    animation: field-unfold 1100ms var(--ff-ease) 160ms backwards;
+  }
+  .phone {
+    animation: phone-land 1200ms var(--ff-ease) 320ms both;
+  }
+  @supports (offset-path: path('M0 0')) {
+    .route-plane {
+      transform: none;
+      offset-path: path(
+        'M8 286 C 96 290 150 236 138 176 C 128 126 62 132 72 184 C 84 246 214 232 262 150 C 300 84 346 44 412 22'
+      );
+      offset-rotate: auto;
+      offset-distance: 78%;
+      animation: plane-arrive 1700ms var(--ff-ease) 500ms both;
+    }
+  }
+  @supports (animation-timeline: scroll()) {
+    .phone {
+      animation:
+        phone-land 1200ms var(--ff-ease) 320ms both,
+        phone-drift linear both;
+      animation-timeline: auto, scroll(root);
+      animation-range:
+        normal,
+        0 90vh;
+    }
+    @supports (offset-path: path('M0 0')) {
+      .route-plane {
+        animation:
+          plane-arrive 1700ms var(--ff-ease) 500ms backwards,
+          plane-leave linear forwards;
+        animation-timeline: auto, scroll(root);
+        animation-range:
+          normal,
+          2vh 70vh;
+      }
+    }
+  }
+}
+@keyframes line-rise {
+  from {
+    transform: translateY(112%);
+  }
+}
+@keyframes field-unfold {
+  from {
+    clip-path: inset(100% -1rem -6rem -1rem round 1.75rem);
+  }
+  to {
+    clip-path: inset(-4rem -1rem -6rem -1rem round 1.75rem);
+  }
+}
+@keyframes phone-land {
+  from {
+    transform: translateY(5rem) rotate(7deg) scale(0.96);
+  }
+}
+@keyframes phone-drift {
+  to {
+    translate: 0 -3.5rem;
+  }
+}
+@keyframes plane-arrive {
+  from {
+    offset-distance: 0%;
+  }
+}
+@keyframes plane-leave {
+  to {
+    offset-distance: 100%;
+  }
+}

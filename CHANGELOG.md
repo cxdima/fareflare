@@ -108,9 +108,10 @@ Notable changes to Fareflare. The format follows
   usually succeeds; the note appears from the second failure in a row, or at once
   when checks have stopped. It now says "We will keep trying" instead of naming
   the next scheduled check, which was not when the retry happened.
-- **Buttons** share one design: a key that sits slightly proud of the page, settles
-  when pressed and, on the primary action, catches one band of light on hover. A
-  disabled button is plainly grey instead of a pale version of the active one.
+- **Buttons** share one design: a pill, in ink for the main action. The action
+  that starts a flight carries a lime disc with an arrow, which tips upward on
+  hover. A button settles when pressed, and a disabled one is plainly grey instead
+  of a pale version of the active one.
 - The page header and footer line up with the page content at every window width,
   and account settings use one width for the section tabs and the panels.
 - Telegram options in **Account settings → Notifications** are grouped as *Include
@@ -119,18 +120,39 @@ Notable changes to Fareflare. The format follows
   `Alert activity · Fareflare`.
 - When every monitor is in use, the flights page says why **Watch a flight** is
   unavailable.
-- **The website is redesigned.** The front page shows a link going in, a recorded
-  price falling and the alert that follows, in one picture; the steps are stops on
-  a route, the alert rules can be tried on an example, and the footer is organized
-  into Product, Developers and Legal. Guides show their contents beside the text on
-  wide screens and a breadcrumb above the title. Sign-in, sign-up and recovery put
-  the form first, with the title as the page heading.
+- **Every page is redesigned** around one object, a baggage tag: warm paper, ink,
+  a lavender field, and lime for the thing to notice. Headlines are large capitals
+  with a light italic line; the typeface is Mona Sans, self-hosted.
+  - The front page opens with the headline, the link field and a phone showing an
+    example alert. Two pictures move with the scroll: a paper plane unfolds into
+    a baggage tag as the three steps go by, and the closing section flies into a
+    flock of paper planes. With reduced motion both are still pictures. The alert
+    rules can be tried on an example, and the facts sit in a grid of unequal
+    tiles.
+  - In the workspace each flight is a tag: route code at full size, a sticker for
+    its state, and a stub with the latest price and a strip of its recent recorded
+    prices. The lowest is marked in lime and times with no recorded price are
+    hatched, never filled in. The strip reads the flight's own history
+    (`GET /v1/monitors/{id}/history?limit=48`) when the tag comes into view; if
+    that fails the tag simply goes without it.
+  - Navigation is a rail of pills on wide screens and a bar at the bottom of a
+    phone. Lists with nothing in them yet show a paper object and one sentence.
+  - Sign-in, sign-up and recovery put the form first, beside a poster that
+    follows the form as a short band on a phone. Guides show their contents
+    beside the text on wide screens. The status page states the answer in a block
+    of its colour, with the last 24 hours as bars.
+  - The artwork is generated and documented in
+    [docs/BRAND_ASSETS.md](docs/BRAND_ASSETS.md), with each prompt recorded beside
+    its file. The four editorial photographs are gone; the link preview image is
+    now `/assets/social.jpg`.
 - The workspace header no longer repeats the page title, and it has the only
   **Refresh** button: on **Alert activity** it reloads the alerts as well, so the
   separate *Refresh alerts* button is gone.
 - Lists with nothing in them yet (alerts, webhook receivers, API keys, a search
   with no matches) share one look, and a field with a button beside it lines up:
   the MCP server address is a single line joined to its **Copy URL** button.
+- The front page's closing line reads "Accounts are free", since sign-up can be
+  by invitation.
 - Saved preferences are read tolerantly: a field this release does not recognize
   falls back to its default instead of making the record unreadable. Updates are
   still validated strictly.

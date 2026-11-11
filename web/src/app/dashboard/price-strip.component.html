@@ -1,0 +1,46 @@
+<figure class="strip" [class.is-empty]="!view()">
+  <svg
+    [attr.viewBox]="'0 0 ' + width + ' ' + (strip.height + 2)"
+    [attr.role]="view() ? 'img' : null"
+    [attr.aria-label]="view() ? label() : null"
+    [attr.aria-hidden]="view() ? null : 'true'"
+  >
+    <defs>
+      <pattern
+        [attr.id]="hatch()"
+        width="4"
+        height="4"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <line class="strip-hatch" x1="0" y1="0" x2="0" y2="4" />
+      </pattern>
+    </defs>
+    <line
+      class="strip-base"
+      x1="0"
+      [attr.y1]="strip.height + 1"
+      [attr.x2]="width"
+      [attr.y2]="strip.height + 1"
+    />
+    @if (view(); as recorded) {
+      @for (bar of recorded.bars; track bar.x) {
+        <rect
+          [class]="'strip-' + bar.kind"
+          [attr.x]="bar.x"
+          [attr.y]="bar.y"
+          [attr.width]="strip.bar"
+          [attr.height]="bar.height"
+          [attr.fill]="bar.kind === 'gap' ? hatchFill() : null"
+          rx="2.5"
+        />
+      }
+    }
+  </svg>
+  @if (view()) {
+    <figcaption aria-hidden="true">
+      <span>{{ since() }}</span
+      ><span>Now</span>
+    </figcaption>
+  }
+</figure>

@@ -23,6 +23,10 @@ build/
 .coverage
 htmlcov/
 
+# Design review captures are regenerated on demand; the brief and design.json are kept.
+.impeccable/review/
+.impeccable/config.local.json
+
 # Frontend
 web/node_modules/
 web/playwright-report/

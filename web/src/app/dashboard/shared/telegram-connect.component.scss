@@ -28,16 +28,15 @@
 .telegram-steps li::before {
   content: counter(step);
   min-width: 0.7rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 .telegram-waiting {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   margin-bottom: 0.5rem;
-  color: var(--ff-muted);
+  color: var(--ff-ink-2);
   font-size: 0.9rem;
 }
 .telegram-fallback {

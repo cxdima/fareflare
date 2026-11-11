@@ -15,7 +15,7 @@ from fareflare.product_config import ProductConfig
 
 GITHUB_URL = "https://github.com/cxdima/fareflare"
 PUBLISHED = "2026-11-05"
-SOCIAL_IMAGE = "/assets/window-seat.jpg"
+SOCIAL_IMAGE = "/assets/social.jpg"
 PRIVATE_PATHS = frozenset({"/app", "/login", "/register", "/recover"})
 
 
@@ -462,7 +462,7 @@ def structured_data(page: Page, config: ProductConfig) -> dict:
         "name": config.product_name,
         "url": origin + "/",
         "sameAs": [GITHUB_URL],
-        "logo": origin + "/assets/fareflare-mark.png?v=2",
+        "logo": origin + "/assets/fareflare-mark.png?v=3",
     }
     graph: list[dict] = [
         organization,
@@ -651,9 +651,12 @@ def render_document(
         ("og:url", canonical),
         ("og:site_name", config.product_name),
         ("og:image", config.public_url.rstrip("/") + SOCIAL_IMAGE),
-        ("og:image:width", "1280"),
-        ("og:image:height", "853"),
-        ("og:image:alt", "A view of clouds through an aircraft window"),
+        ("og:image:width", "1200"),
+        ("og:image:height", "630"),
+        (
+            "og:image:alt",
+            "White paper planes in flight on a lavender backdrop, one of them lime green",
+        ),
     ):
         metadata += '<meta property="' + key + '" content="' + escape(value, quote=True) + '">'
     metadata += '<meta name="twitter:card" content="summary_large_image">'

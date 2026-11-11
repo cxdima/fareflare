@@ -10,7 +10,6 @@
 }
 .alert-price {
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
 }
 @media (min-width: 576px) {
   .alert-actions {
@@ -39,7 +38,7 @@
     padding: 1rem;
   }
   .table tr + tr {
-    border-top: 1px solid var(--ff-line);
+    border-top: 1.5px dotted var(--ff-line-strong);
   }
   .table td {
     padding: 0;
@@ -62,7 +61,7 @@
     gap: 0.6rem;
     flex-wrap: wrap;
     padding-top: 0.75rem;
-    border-top: 1px solid var(--ff-line);
+    border-top: 1.5px dotted var(--ff-line-strong);
   }
   .alert-delivery .table-subtext {
     margin: 0;

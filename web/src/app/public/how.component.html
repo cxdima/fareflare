@@ -1,0 +1,76 @@
+<section
+  #track
+  class="how"
+  id="how-it-works"
+  aria-labelledby="how-title"
+  [class.is-pinned]="motion()"
+>
+  <div class="how-pin">
+    <div class="public-container how-block">
+      <div class="how-copy">
+        <h2 id="how-title" class="display">From a flight link <em>to a price alert</em></h2>
+        <p class="how-lede">No Google account connection required.</p>
+        <ol class="how-steps" role="list">
+          <li [class.is-current]="step() === 0" [class.is-done]="step() > 0">
+            <span class="how-num" aria-hidden="true">1</span>
+            <div class="how-step">
+              <h3>Add your flight</h3>
+              <div class="how-more">
+                <p>Paste a supported itinerary or route search from Google Flights.</p>
+                <a href="/guides/choosing-a-flight-link"
+                  >See supported links <i class="bi bi-arrow-right" aria-hidden="true"></i
+                ></a>
+              </div>
+            </div>
+          </li>
+          <li [class.is-current]="step() === 1" [class.is-done]="step() > 1">
+            <span class="how-num" aria-hidden="true">2</span>
+            <div class="how-step">
+              <h3>Choose when to be notified</h3>
+              <div class="how-more">
+                <p>
+                  Watch for a new low or set a target price. Connect Telegram to receive alerts.
+                </p>
+              </div>
+            </div>
+          </li>
+          <li [class.is-current]="step() === 2">
+            <span class="how-num" aria-hidden="true">3</span>
+            <div class="how-step">
+              <h3>Review the price</h3>
+              <div class="how-more">
+                <p>
+                  Check the recorded history, then follow the flight link to see current
+                  availability.
+                </p>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </div>
+      <figure class="how-stage">
+        <div class="how-frame">
+          <ff-scroll-sequence
+            base="/assets/seq/plane-tag"
+            [frames]="108"
+            [framesSmall]="54"
+            [track]="track"
+            [live]="motion()"
+            (progress)="follow($event)"
+          />
+          <div class="how-print" aria-hidden="true" [class.is-printed]="printed()">
+            <span class="print-sticker">New low</span>
+            <span class="print-label">Example</span>
+            <span class="print-route">DEN <i class="bi bi-arrow-right"></i> DFW</span>
+            <span class="print-price">$191</span>
+            <span class="print-unit">USD total</span>
+          </div>
+        </div>
+        <figcaption class="visually-hidden">
+          A paper plane unfolds into a baggage tag printed with an example alert: Denver to
+          Dallas–Fort Worth, $191, a new low. Illustrative, not a live fare.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>

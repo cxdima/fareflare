@@ -20,6 +20,7 @@ import { flightTimes, routeName, statusLabel, travelTime } from './shared/presen
 import { DialogComponent } from './shared/dialog.component';
 import { MonitorEditorComponent } from './monitor-editor.component';
 import { PriceHistoryComponent } from './price-history.component';
+import { PriceStripComponent } from './price-strip.component';
 import { MonitorPresenter } from './monitor-presentation';
 import { AirlineComponent } from './shared/airline.component';
 import { TelegramConnectComponent } from './shared/telegram-connect.component';
@@ -33,6 +34,7 @@ const DAY = 86400;
     DialogComponent,
     MonitorEditorComponent,
     PriceHistoryComponent,
+    PriceStripComponent,
     AirlineComponent,
     TelegramConnectComponent,
   ],
@@ -104,6 +106,22 @@ export class MonitorsComponent {
       return terms.every((term) => search.includes(term));
     });
   });
+  /** One mark per monitor the account may have: filled when in use, hatched when free. */
+  readonly slots = computed(() => {
+    const limit = Math.min(this.workspace.session.config()?.limits.monitors ?? 0, 30);
+    const used = this.workspace.activeCount();
+    return Array.from({ length: limit }, (_, index) => index < used);
+  });
+  /** With room left and nothing filtered away, the list ends in an empty slot to fill. */
+  readonly freeSlot = computed(
+    () =>
+      this.workspace.monitorsLoaded() &&
+      !this.atLimit() &&
+      !this.query() &&
+      this.filter() === 'all' &&
+      !this.workspace.monitorCursor() &&
+      this.visible().length > 0,
+  );
   constructor() {
     const clock = setInterval(() => this.now.set(Date.now()), 30000);
     inject(DestroyRef).onDestroy(() => clearInterval(clock));

@@ -1,23 +1,40 @@
 # Fareflare artwork
 
-These project assets were generated with the built-in image generation tool on
-November 5, 2026, then resized/encoded for delivery. They are illustrations, not
-documentation of an actual flight or airline. The logo is accompanied by live
-text in the interface so the product name remains accessible and sharp.
+Everything pictured on the site belongs to one small paper world: a white paper
+plane, a baggage tag, and a handful of folded-paper objects on a flat lavender
+backdrop. The pictures are illustrations. None of them shows a real flight,
+airline, airport or fare, and the tag in the pictures is always blank: prices and
+route codes on the site are live text, never part of an image.
 
-| Asset | Saved path | Use |
+The raster artwork was generated with Higgsfield on November 10 and 11, 2026
+(`gpt_image_2_6` for stills, `kling4_0` image-to-video for the two scroll
+sequences), then trimmed, resized and encoded for delivery. Original generation
+files stay outside the repository.
+
+## Where each prompt is recorded
+
+Every generated raster carries its own prompt:
+
+- WebP files have a sidecar beside them, `<file>.webp.json`, with the prompt and
+  the date. `web/angular.json` ignores `**/*.webp.json`, so sidecars are in the
+  repository and never in the build.
+- `social.jpg` carries its prompt in a JPEG comment and `fareflare-mark.png`
+  carries a note on its origin in a PNG text chunk.
+
+The prompts below are the ones worth reading in one place. The sidecars are the
+complete record.
+
+## The mark
+
+| Asset | Path | Use |
 | --- | --- | --- |
-| Wing-shaped F mark | `web/public/assets/fareflare-mark.png` | Navigation and favicon |
-| Window-seat editorial image | `web/public/assets/window-seat.jpg` | Sign-in page and social preview |
-| Coastal approach editorial image | `web/public/assets/coastal-approach.webp` | Landing page |
-| Above-the-clouds editorial image | `web/public/assets/above-the-clouds.jpg` | First-run panel of the flights page |
-| Coastal runway editorial image | `web/public/assets/coastal-runway.jpg` | Sign-in page |
+| Wing-shaped F mark | `web/public/assets/fareflare-mark.png` (256 × 256) | Navigation, sign-in, footer, structured data |
+| Favicon | `web/public/favicon.svg` | Browser tab |
 
-The final logo has a transparent background. It was refined from the original
-flat mark using a background-extraction edit, then resized to 192px. Original
-generation files remain outside the repository; the website uses optimized assets.
-
-## Final logo prompt
+The mark is the wing-shaped F drawn for the project on November 5, 2026. It was
+not regenerated: the same shape was recoloured in code to a lime mark
+(`#c6ff4d`) on an ink disc (`#17141f`). The product name always sits beside it
+as live text. Its original prompt, kept for the record:
 
 > Create a clean graphic-design brand icon on a solid warm off-white #f7f4ed
 > background, like a flat printed logo on paper. A compact abstract letter F formed
@@ -27,71 +44,176 @@ generation files remain outside the repository; the website uses optimized asset
 > lighting, shadows, glow, black, texture, gradients, words, presentation mockup,
 > or dimensionality.
 
-## Transparent logo edit
+## Large artwork
 
-> Remove the off-white background and preserve the two orange swept wing shapes.
-> Keep crisp solid edges, the original arrangement, and a transparent background.
-> No glow, shadow, outline, texture, text, or additional elements.
+| Asset | Path | Size | Use |
+| --- | --- | --- | --- |
+| Paper plane, cut out | `web/public/assets/art/paper-plane.webp` | 720 × 582, 31 KiB | Hero, workspace sidebar, page-not-found and load-error pages |
+| Phone body with a blank screen | `web/public/assets/art/phone.webp` | 760 × 1743, 35 KiB | Hero |
+| Suitcase with a blank tag | `web/public/assets/art/suitcase.webp` | 1200 × 1607, 33 KiB | Sign-in, sign-up and recovery |
+| Three tag slots | `web/public/assets/art/tag-slots.webp` | 1168 × 880, 10 KiB | Flights page, before the first flight |
+| Flock of paper planes | `web/public/assets/social.jpg` | 1200 × 630, 30 KiB | Social preview (`og:image`) |
 
-## Window image prompt
+The backdrop asked for in every prompt was lavender `#DAD4F7`. Encoded, the
+frames settle at `#d2cbf6`, and that measured value is the site's `--ff-lav`, so
+a picture and the panel behind it meet without a seam. The suitcase picture came
+out a little deeper, so its backdrop was snapped to one colour, `#d0c5f6`, and
+the sign-in panel uses exactly that.
 
-> Use case: photorealistic-natural. Asset: editorial travel image for the Fareflare
-> flight price tracker landing page, 3:2 landscape. A quiet close view out of an
-> airliner window at dawn, the ivory window surround framing a distant pale-blue
-> mountain range and scattered clouds, small portion of the wing visible crossing
-> the lower view. Warm morning sunlight grazes the window frame; subdued slate
-> blue sky and soft cream tones, natural realistic film grain, refined independent
-> travel-magazine photography. Off-center composition, intimate and calm,
-> believable geometry, understated rather than spectacular. No people, no airline
-> branding, no logos, no words, no interface, no graphic overlays, no oversaturated
-> sunset.
+### The phone in the hero
 
-## Coastal image prompt
+The phone is a picture of a body only. Its screen is blank, and the alert shown
+on it is live HTML laid over the picture, so the price, the route and the bars
+are real text. To make the two agree, the flat HTML box is given the picture's
+own perspective. The numbers in `.phone-screen`
+(`web/src/app/public/hero.component.scss`) are measured from the render:
 
-Generated with the built-in image tool on November 5, 2026. The original is
-1536 × 1024; the deployed WebP is 1280 × 853 and approximately 115 KiB. It
-depicts an imagined coastline, not a destination associated with the example
-fare. The image has an explicit aspect ratio to reserve its layout space.
+- The body fills the trimmed picture, 894 × 2050 before resizing.
+- The four screen corners, as fractions of that width: top left (0.0224, 0.1223),
+  top right (0.8826, 0.0278), bottom right (0.8826, 2.2688), bottom left
+  (0.0224, 2.1693).
+- Solved for a box turned 24° about its vertical axis: `left: -3.682%`,
+  `top: 3.425%`, `width: 93.966%`, `height: 93.309%`, and
+  `perspective(4.2257 × phone width) rotateZ(0.132deg) rotateY(-24deg)
+  rotateX(-0.316deg)`. The corners land within one pixel.
 
-> Use case: photorealistic-natural. Asset type: editorial travel photograph for
-> the Fareflare flight price tracker website, landscape 3:2, 1536 by 1024.
-> Create a quiet, believable aerial view of a rugged Mediterranean-style
-> coastline seen from an arriving aircraft: deep slate blue open water in the
-> foreground, a narrow headland with soft limestone cliffs and small pale
-> buildings set well back, muted green hills receding into a naturally hazy
-> horizon. No aircraft or window frame in the image. Natural late-afternoon
-> directional light, subtle warm stone against cool water. Premium independent
-> travel-magazine photography, restrained color, real fine water and terrain
-> texture, a slightly imperfect candid composition, soft atmospheric depth.
-> The coast runs diagonally across the frame with generous clean blue water
-> around it; readable at small sizes. Beautiful but ordinary enough to feel
-> real. No famous landmarks, no impossible cliffs, no dramatic oversaturated
-> sunset, no invented text, no people in foreground, no logos, no graphics,
-> no gradient overlays, no border, no watermark.
+Everything on the screen is sized in `--r`, a fixed fraction of the phone's
+width, so the screen scales with the body. A replacement render needs its
+corners measured and these numbers solved again.
 
-## First-run and sign-in image prompts
+> Single isolated object on a fully transparent background: one modern smartphone
+> with a matte near-black (#17141F) body, softly rounded corners and a thin even
+> black bezel, floating upright. It is seen in an isometric three-quarter view:
+> turned about 22 degrees around its vertical axis so the screen faces slightly
+> toward the viewer's left, and tipped back very slightly, so the front face and
+> the whole right side edge are visible. The right side edge shows real
+> thickness: a rounded dark graphite metal frame with a soft highlight running
+> along it and two small side buttons. […] The screen is switched off-white: one
+> completely blank, perfectly uniform flat matte off-white surface (#F3F2EE) from
+> bezel to bezel, like a sheet of uncoated paper set into the phone, with no
+> notch, no camera hole, no icons, no interface, no reflections, no glare and no
+> gradient. Soft diffuse studio light from the top left, gentle realistic shading
+> in cool lavender-grey tones, fully matte finish, no gloss. Photoreal 3D product
+> render, crisp edges. […] No ground shadow, no background, no hands, no text, no
+> letters, no numbers, no logos.
 
-Generated on November 9, 2026 with Higgsfield (`gpt_image_2_6`), then resized to
-1024 × 688 and encoded as JPEG (126 KiB and 146 KiB). Like the images above they
-are illustrations of imagined places, chosen to sit in the same quiet,
-early-light world as the window-seat image. The window-seat image now accompanies
-sign-up and recovery.
+The full prompt is in `phone.webp.json`. The render's screen was lifted to the
+site's paper colour, keeping its soft shading.
 
-> Photorealistic editorial travel photograph, 3:2 landscape. View from an airliner
-> cabin window seat looking along the aircraft wing, high above a calm sea of low
-> broken clouds shortly after sunrise. Soft warm light on the wing's upper
-> surface, muted sage and slate tones below, pale peach horizon. Restrained
-> natural color, fine film grain, independent travel-magazine photography,
-> off-center composition, calm and ordinary enough to feel real. No people, no
-> text, no logos, no airline livery or markings, no window frame, no watermark.
+Paper plane:
 
-> Photorealistic editorial travel photograph, 3:2 landscape. A small regional
-> airport seen from the air at early morning: a single pale runway crossing a
-> muted sage-green coastal plain, soft low mist in the hollows, a calm slate-teal
-> sea beyond, warm peach light on the horizon. Restrained natural color, fine
-> film grain, independent travel-magazine photography, off-center composition,
-> quiet and believable. No aircraft in the foreground, no people, no text, no
-> logos, no watermark.
+> Single isolated object on a fully transparent background: one crisp white paper
+> airplane, classic dart fold, thick matte uncoated paper with visible fold
+> creases, banking upward and flying toward the upper right, seen from a
+> three-quarter rear-below view so the underside and one wing are visible. Soft
+> diffuse studio light from the top left, gentle realistic shading in cool
+> lavender-grey tones. Photoreal 3D render. No shadow on the ground, no
+> background, no text.
+
+Suitcase:
+
+> Minimal high-end 3D studio render, portrait composition. A compact hard-shell
+> cabin suitcase in smooth matte pastel lavender (slightly deeper than the
+> background) with fine horizontal ribs, standing upright on a seamless floor,
+> seen from a three-quarter front view. Tied to its top handle with a thin black
+> elastic cord hangs a tall blank white paper luggage tag with clipped top corners
+> and a row of tiny perforation holes near its bottom; a round fluorescent
+> lime-green (#C6FF4D) sticker sits on the tag. A single crisp white paper
+> airplane rests leaning against the base of the suitcase. Seamless pastel
+> lavender studio backdrop, colour #DAD4F7, floor and wall blending with no
+> visible horizon. Soft diffuse top-left light, soft realistic contact shadows.
+> The suitcase sits in the lower two thirds of the frame, the upper third is calm
+> empty lavender. Clean, calm, design-studio product photography. No text, no
+> letters, no numbers, no logos, no people.
+
+## Scroll sequences
+
+Two pictures on the front page move with the scroll. Each is a short generated
+video between two generated keyframes, cut into still frames. The page draws
+the frame that matches the scroll position onto a canvas; nothing plays on its
+own.
+
+| Sequence | Path | Wide set | Narrow set | Use |
+| --- | --- | --- | --- | --- |
+| A paper plane unfolds into a baggage tag | `web/public/assets/seq/plane-tag/` | `w1440/`: 108 frames, 1440 × 813, 630 KiB | `w800/`: 54 frames, 800 × 452, 130 KiB | "From a flight link to a price alert" |
+| The camera flies into a flock of planes | `web/public/assets/seq/flock/` | `w1440/`: 61 frames, 1440 × 813, 978 KiB | `w800/`: 41 frames, 800 × 452, 303 KiB | Closing section |
+
+Each folder also holds `poster.webp`, the still shown before the frames arrive
+and whenever the reader asks for reduced motion. Frames are numbered from
+`000.webp`. The narrow set is used on small screens. In each frame the backdrop
+was flattened to one colour before encoding, which is most of why 108 frames
+fit in 630 KiB.
+
+Both videos: Higgsfield `kling4_0`, image-to-video, 1080p, five seconds. The
+video and keyframe prompts are in each folder's `poster.webp.json`. The plane
+and tag video prompt:
+
+> One continuous locked-off studio shot, no cuts, no camera movement. A white
+> paper airplane glides gently in mid-air, slows down and turns to face the
+> camera, then smoothly unfolds itself: its wings open flat one fold at a time,
+> in clean precise origami motion, the creases relaxing until the sheet becomes a
+> flat upright white paper luggage tag. As it flattens, a black elastic cord loop
+> appears at its top, a lime green round sticker pops onto its upper right corner
+> and a small barcode prints onto the bottom stub. The tag settles and hangs
+> perfectly still in the centre. The flat pastel lavender background and soft
+> lighting never change. Slow, calm, elegant, physically believable paper motion.
+> No text, no people, no hands, no extra objects.
+
+The flock video prompt:
+
+> One continuous smooth camera move, no cuts. A flock of white folded paper planes
+> glides to the right across a soft lavender studio backdrop. The camera slowly
+> pushes in and travels alongside the single lime green paper plane until it
+> fills the frame, while the white paper planes drift behind it and fall softly
+> out of focus. Matte paper texture, soft even studio light, gentle shallow depth
+> of field. The backdrop colour stays the same flat lavender for the whole shot.
+> No text, no logos, no people.
+
+The social preview is a crop of the flock sequence's opening keyframe.
+
+## Paper objects
+
+Nine small objects, all 280 × 280 WebP with a transparent background, 9 to
+16 KiB each, in `web/public/assets/art/`. They are decorative and carry an empty
+text alternative: the heading beside each one says what it stands for.
+
+| File | Object | Use |
+| --- | --- | --- |
+| `stopwatch.webp` | Stopwatch with a lime quarter of its dial | Front page: check interval |
+| `shield.webp` | Shield with a lime check mark | Front page: no Google account connection |
+| `terminal.webp` | Ink card with a lime prompt | Front page: open source |
+| `bubble.webp` | Speech bubble with a plane leaving it | Front page: alerts. Flights page: the invitation to connect Telegram |
+| `search.webp` | Magnifying glass around a lime plane | Front page: price history |
+| `plug.webp` | Plug meeting a paper socket | Front page: API and MCP |
+| `bell.webp` | Bell with a lime sticker | Alerts page, before the first alert |
+| `link.webp` | Two chain links, one lime | Webhooks page, before the first receiver |
+| `key.webp` | Key with a lime tag | API keys, before the first key |
+
+One prompt frame was used for all nine, with only the object changed, so they
+share a material and a light:
+
+> Single isolated papercraft object on a fully transparent background: [object].
+> Everything is hand-folded and cut from thick matte uncoated paper with visible
+> fold creases and clean cut edges, the same material as a crisp folded paper
+> airplane. Soft diffuse studio light from the top left, gentle realistic shading
+> in cool lavender-grey tones, three-quarter view, centred with a generous empty
+> margin on every side so nothing touches the image edges. Photoreal 3D render,
+> fully matte: no gloss, no plastic, no ceramic. No ground shadow, no background,
+> no text, no letters, no numbers.
+
+Each object's own sentence is in its sidecar.
+
+## Adding or replacing artwork
+
+1. Keep to the world: matte paper, top-left light, lavender `#DAD4F7` backdrop
+   or a transparent one, ink `#17141F` and lime `#C6FF4D` as the only accents.
+   No text, numbers or logos inside a picture.
+2. Encode to WebP at the size the page uses and give the `<img>` its `width` and
+   `height`.
+3. Record the prompt beside the file as `<file>.webp.json`.
+4. Assets are served from the site's own origin. The server only serves known
+   image, font, style and script suffixes, so a new kind of file needs a look at
+   the static whitelist first.
 
 ## Airline identification
 
@@ -111,19 +233,27 @@ appearance does not imply endorsement or affiliation.
 
 ## Typography
 
-Plus Jakarta Sans is self-hosted through `@fontsource-variable/plus-jakarta-sans`
-under the SIL Open Font License. The build includes its full copyright/license
-notice in the served `3rdpartylicenses.txt`. See the package's `LICENSE` and
-[Fontsource's provenance](https://fontsource.org/fonts/plus-jakarta-sans/about).
+Mona Sans is self-hosted as a variable font through
+`@fontsource-variable/mona-sans` under the SIL Open Font License 1.1. One file
+covers text and display: headlines use its wider, heavier end in capitals, with
+a light italic for the turn. The build includes the font's full copyright and
+license notice in the served `3rdpartylicenses.txt`
+(`web/scripts/font-license.mjs`). See the package's `LICENSE` and
+[Fontsource's provenance](https://fontsource.org/fonts/mona-sans/about).
 
 ## Interface vectors
 
-`web/public/assets/flight-watermark.svg` uses Bootstrap Icons' `airplane-fill`
-shape under the MIT license. It is served locally as a decorative CSS mask inside
-flight buttons, with no text alternative because the button already has a label.
-The build includes the Bootstrap Icons copyright and license in
-`3rdpartylicenses.txt`. Source: [Bootstrap Icons airplane-fill](https://icons.getbootstrap.com/icons/airplane-fill/).
+`web/public/assets/arrow-out.svg` and `web/public/assets/control-chevron.svg`
+are project-authored strokes in the interface's ink colour, covered by the
+repository's MIT license. The arrow sits in the round end of the main buttons;
+the chevron marks select fields and disclosures. Other interface icons come from
+Bootstrap Icons under the MIT license, whose notice is also in
+`3rdpartylicenses.txt`.
 
-`web/public/assets/control-chevron.svg` is a project-authored, three-point
-chevron used by native select fields and disclosures. It shares the interface's
-teal color and is covered by the repository's MIT license.
+## Retired artwork
+
+The four editorial photographs used before November 2026 (`window-seat.jpg`,
+`coastal-approach.webp`, `above-the-clouds.jpg`, `coastal-runway.jpg`) and
+`flight-watermark.svg` were removed with the redesign. Anything that checks a
+deployment by fetching an image should ask for `/assets/social.jpg` or
+`/assets/art/paper-plane.webp`.
