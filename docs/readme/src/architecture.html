@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      #figure {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        border-radius: 36px;
+        background: var(--paper);
+      }
+      .zone {
+        position: absolute;
+        border-radius: 28px;
+      }
+      .aws {
+        top: 36px;
+        left: 312px;
+        width: 590px;
+        height: 648px;
+        background: #fff;
+        box-shadow: inset 0 0 0 1.5px var(--line);
+      }
+      .zone-label {
+        position: absolute;
+        top: 18px;
+        left: 24px;
+        color: var(--ink-2);
+        font-size: 13px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .side-label {
+        position: absolute;
+        top: 54px;
+        color: var(--ink-2);
+        font-size: 13px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .card {
+        position: absolute;
+        display: grid;
+        align-content: center;
+        gap: 4px;
+        padding: 14px 18px;
+        border-radius: 20px;
+        background: #fff;
+        box-shadow:
+          0 0 0 1.5px var(--line),
+          0 14px 24px -20px rgb(23 20 31 / 45%);
+      }
+      .card strong {
+        font-size: 18px;
+        font-weight: 760;
+        letter-spacing: -0.015em;
+      }
+      .card span {
+        color: var(--ink-2);
+        font-size: 14px;
+        line-height: 1.35;
+      }
+      .card.ink {
+        background: var(--ink);
+        color: #fff;
+        box-shadow: 0 18px 30px -22px rgb(23 20 31 / 70%);
+      }
+      .card.ink span {
+        color: #b9b4cc;
+      }
+      .card.lime {
+        background: var(--lime);
+        box-shadow: 0 14px 24px -20px rgb(23 20 31 / 45%);
+      }
+      .card.lime span {
+        color: #2b2738;
+      }
+      .card.lav {
+        background: var(--lav);
+        box-shadow: none;
+      }
+      .card.lav span {
+        color: #2b2738;
+      }
+      svg {
+        position: absolute;
+        inset: 0;
+      }
+      .wire {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 2;
+      }
+      .wire.dotted {
+        stroke-dasharray: 2 7;
+        stroke-linecap: round;
+      }
+      .tag {
+        fill: var(--ink-2);
+        font-size: 12px;
+        font-weight: 650;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="figure">
+      <span class="side-label" style="left: 40px">People and tools</span>
+      <span class="side-label" style="left: 942px">Outside services</span>
+      <div class="zone aws"><span class="zone-label">Your AWS account</span></div>
+
+      <div class="card" style="top: 90px; left: 40px; width: 236px; height: 96px">
+        <strong>Website</strong><span>Angular dashboard, sign-in with a passkey</span>
+      </div>
+      <div class="card" style="top: 206px; left: 40px; width: 236px; height: 96px">
+        <strong>Telegram</strong><span>Add flights and get alerts in a chat</span>
+      </div>
+      <div class="card" style="top: 322px; left: 40px; width: 236px; height: 96px">
+        <strong>REST API</strong><span>API keys, OpenAPI at /docs</span>
+      </div>
+      <div class="card" style="top: 438px; left: 40px; width: 236px; height: 96px">
+        <strong>MCP clients</strong><span>AI assistants over OAuth or a key</span>
+      </div>
+
+      <div class="card lav" style="top: 230px; left: 340px; width: 190px; height: 104px">
+        <strong>API Gateway</strong><span>HTTPS, your domain</span>
+      </div>
+      <div class="card ink" style="top: 190px; left: 566px; width: 310px; height: 184px">
+        <strong>API Lambda</strong>
+        <span>Python 3.12 · FastAPI · arm64 container. Accounts, passkeys, two-step codes, monitors, webhooks, OAuth and MCP.</span>
+      </div>
+      <div class="card" style="top: 82px; left: 566px; width: 310px; height: 82px">
+        <strong>DynamoDB</strong><span>One table: accounts, flights, prices, alerts</span>
+      </div>
+      <div class="card lav" style="top: 470px; left: 340px; width: 190px; height: 104px">
+        <strong>EventBridge</strong><span>Every 1, 5 or 15 minutes</span>
+      </div>
+      <div class="card ink" style="top: 446px; left: 566px; width: 310px; height: 160px">
+        <strong>Worker Lambda</strong>
+        <span>Chromium + Selenium. Checks due flights, records each price, sends alerts.</span>
+      </div>
+
+      <div class="card" style="top: 90px; left: 942px; width: 298px; height: 96px">
+        <strong>Amazon SES</strong><span>Reset and confirmation email</span>
+      </div>
+      <div class="card lime" style="top: 360px; left: 942px; width: 298px; height: 96px">
+        <strong>Google Flights</strong><span>The public price of the pasted link</span>
+      </div>
+      <div class="card" style="top: 480px; left: 942px; width: 298px; height: 126px">
+        <strong>Alerts out</strong><span>Telegram Bot API, signed webhooks, the dashboard inbox</span>
+      </div>
+
+      <svg viewBox="0 0 1280 720" aria-hidden="true">
+        <defs>
+          <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#17141f" />
+          </marker>
+        </defs>
+        <path class="wire" d="M276 138 C 310 138 310 270 338 272" marker-end="url(#head)" />
+        <path class="wire" d="M276 254 C 305 254 310 280 338 282" marker-end="url(#head)" />
+        <path class="wire" d="M276 370 C 305 370 310 292 338 290" marker-end="url(#head)" />
+        <path class="wire" d="M276 486 C 310 486 310 300 338 300" marker-end="url(#head)" />
+        <path class="wire" d="M530 282 L 564 282" marker-end="url(#head)" />
+        <path class="wire" d="M720 190 L 720 166" marker-end="url(#head)" />
+        <path class="wire" d="M876 230 C 910 230 905 140 940 140" marker-end="url(#head)" />
+        <text class="tag" x="896" y="182">email</text>
+        <path class="wire" d="M530 522 L 564 522" marker-end="url(#head)" />
+        <text class="tag" x="533" y="512">run</text>
+        <path class="wire dotted" d="M600 446 C 600 420 520 410 540 360 C 548 330 548 140 564 124" marker-end="url(#head)" />
+        <text class="tag" x="472" y="410">prices</text>
+        <path class="wire" d="M876 470 C 910 470 905 408 940 408" marker-end="url(#head)" />
+        <text class="tag" x="898" y="430">reads</text>
+        <path class="wire" d="M876 560 L 940 560" marker-end="url(#head)" />
+        <text class="tag" x="884" y="548">delivers</text>
+      </svg>
+    </div>
+  </body>
+</html>

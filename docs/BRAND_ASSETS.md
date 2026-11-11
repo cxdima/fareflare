@@ -215,6 +215,13 @@ Each object's own sentence is in its sidecar.
    image, font, style and script suffixes, so a new kind of file needs a look at
    the static whitelist first.
 
+## README artwork
+
+The README's header and section banners are five more Higgsfield images
+(`gpt_image_2_6`, 21:9) in the same paper world, with titles set in HTML rather than
+in the pictures. Their prompts are in `docs/readme/src/art/PROMPTS.md`, and
+`node docs/readme/render.mjs` redraws every README figure from `docs/readme/src`.
+
 ## Airline identification
 
 The dashboard bundles 70px airline identification images from Google's public

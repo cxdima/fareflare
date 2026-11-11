@@ -7,7 +7,7 @@ help:
 	@echo "make install       Install locked Python development dependencies"
 	@echo "make lock          Regenerate the hash-locked requirement files (needs uv)"
 	@echo "make build         Install frontend dependencies and build the website"
-	@echo "make serve         Serve the website, API, and MCP at http://127.0.0.1:8001"
+	@echo "make serve         Serve the website, API, and MCP at http://localhost:8001"
 	@echo "make worker        Collect due monitors once and deliver queued alerts"
 	@echo "make mcp           Run the stdio MCP adapter (needs FAREFLARE_API_KEY)"
 	@echo "make test          Run isolated Python tests without live services"

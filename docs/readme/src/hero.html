@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      #figure {
+        position: relative;
+        width: 1280px;
+        height: 540px;
+        overflow: hidden;
+        border-radius: 36px;
+        background: #d3cdf6 url('art/hero.webp') right center / auto 100% no-repeat;
+      }
+      .copy {
+        position: absolute;
+        top: 46px;
+        left: 64px;
+        width: 660px;
+      }
+      .copy h1 {
+        margin: 34px 0 24px;
+        font-size: 66px;
+      }
+      p {
+        max-width: 540px;
+        margin: 0 0 26px;
+        color: #2b2738;
+        font-size: 20px;
+        line-height: 1.45;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="figure">
+      <div class="copy">
+        <div class="brand"><img src="../../../web/public/assets/fareflare-mark.png" alt="" />Fareflare</div>
+        <h1 class="display">Know when your flight price <em>drops</em></h1>
+        <p>
+          Paste a Google Flights link. Fareflare records its price on every check and alerts you
+          at a new low or your target: in the dashboard, Telegram, a signed webhook or MCP.
+        </p>
+        <div class="chips">
+          <span class="chip lime">Free at fareflare.dev</span>
+          <span class="chip">Open source, MIT</span>
+          <span class="chip">Self-host on AWS</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

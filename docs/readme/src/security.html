@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      #figure {
+        position: relative;
+        width: 1280px;
+        height: 760px;
+        overflow: hidden;
+        border-radius: 36px;
+        background: var(--lav);
+      }
+      .shot {
+        position: absolute;
+        overflow: hidden;
+        border-radius: 18px;
+        background: var(--paper);
+        box-shadow:
+          0 0 0 1px rgb(23 20 31 / 8%),
+          0 40px 70px -40px rgb(23 20 31 / 55%);
+      }
+      .shot img {
+        display: block;
+        width: 100%;
+      }
+      .signin {
+        top: 56px;
+        left: 52px;
+        width: 560px;
+        height: 350px;
+      }
+      .setup {
+        top: 428px;
+        left: 52px;
+        width: 560px;
+        background: #fff;
+      }
+      .settings {
+        top: 56px;
+        right: 52px;
+        width: 600px;
+        height: 648px;
+      }
+      .settings img {
+        width: 1046px;
+        margin-left: -416px;
+        margin-top: -160px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="figure">
+      <div class="shot signin"><img src="shots/signin-desktop.webp" alt="" /></div>
+      <div class="shot setup"><img src="shots/two-step-setup.webp" alt="" /></div>
+      <div class="shot settings"><img src="shots/security-desktop.webp" alt="" /></div>
+    </div>
+  </body>
+</html>

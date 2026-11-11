@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="base.css" />
+    <style>
+      #figure {
+        position: relative;
+        width: 1280px;
+        height: 300px;
+        overflow: hidden;
+        border-radius: 32px;
+        background-color: #d3cdf6;
+        background-repeat: no-repeat;
+        background-position: right center;
+        background-size: auto 100%;
+      }
+      .copy {
+        position: absolute;
+        top: 50%;
+        left: 64px;
+        transform: translateY(-50%);
+      }
+      .number {
+        display: inline-grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        margin-bottom: 22px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #fff;
+        font-size: 19px;
+        font-weight: 750;
+      }
+      h1 {
+        font-size: 74px;
+      }
+      h1 em {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- banner.html?n=01&title=How it&turn=works&art=how -->
+    <div id="figure">
+      <div class="copy">
+        <span class="number" id="number"></span>
+        <h1 class="display"><span id="title"></span> <em id="turn"></em></h1>
+      </div>
+    </div>
+    <script>
+      const query = new URLSearchParams(location.search);
+      document.getElementById('number').textContent = query.get('n');
+      document.getElementById('title').textContent = query.get('title');
+      document.getElementById('turn').textContent = query.get('turn');
+      document.getElementById('figure').style.backgroundImage = `url('art/${query.get('art')}.webp')`;
+    </script>
+  </body>
+</html>
