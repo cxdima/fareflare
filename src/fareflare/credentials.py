@@ -81,6 +81,11 @@ class RateLimiter:
             return f"rate:{tenant}:{now // 60}"
         return f"rate:{tenant}:w{self.window}:{now // self.window}"
 
+    def used(self, tenant: str) -> int:
+        """How much of the current window is spent."""
+        doc = self.store.get(self._key(tenant, int(self.clock())))
+        return int(doc.data["count"]) if doc else 0
+
     def exhausted(self, tenant: str) -> bool:
         """True when the current window is used up, without spending from it."""
         doc = self.store.get(self._key(tenant, int(self.clock())))

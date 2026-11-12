@@ -145,6 +145,35 @@ resends a day, so sign-up and address changes cannot be used to mail strangers.
 Reset, confirmation and backup codes are stored only as hashes. An authenticator
 secret is kept so its codes can be checked; passkeys are stored as public keys.
 
+## Admin panel
+
+An account with the admin role sees **Admin** in the workspace navigation:
+
+- **Overview**: accounts and sign-ups over 30 days, watched flights against the shared
+  collection slots, price checks hour by hour for the last day, how many accounts use
+  email confirmation, two-step sign-in, passkeys, Telegram and API keys, and how much of
+  each account-email budget is spent.
+- **Users**: every account, searchable by email or ID and filterable by state. An
+  account's page shows its sign-in methods, flights, API keys, passkeys, connected
+  applications, webhook hosts (never their paths) and recent alerts. Actions: sign out
+  everywhere, turn off two-step sign-in, issue a 24-hour temporary password, suspend or
+  reactivate, delete (the address must be typed), and pause, resume or stop any flight.
+- **Flights**: every itinerary being checked, once, with everyone who watches it.
+- **Activity**: every admin action with who did it, to whom and why. The panel can read
+  this record but not change it.
+- **Controls**: pause new sign-ups, or pause every price check, during an incident.
+
+Nothing in the panel shows a password, code, key, token or authenticator secret. It
+opens only for an admin who has two-step sign-in or a passkey, in a session that began
+with one of them less than twelve hours ago; API keys and connected applications never
+reach it. Admins cannot act on other admins or themselves from the panel.
+
+The role itself is granted only from the command line, with the database's own
+credentials (see [Admin access](OPERATIONS.md#admin-access)). Public sign-up refuses
+addresses at the service's own domain, so nobody can take `admin@<domain>` first. A new
+admin signs in once with a temporary password, must replace it before anything else
+works, and then sets up a second factor.
+
 ## Product configuration
 
 | Environment variable | Default | Purpose |

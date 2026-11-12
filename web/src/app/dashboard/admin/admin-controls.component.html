@@ -1,0 +1,101 @@
+@if (loading.error()) {
+  <div class="alert alert-danger" role="alert">{{ loading.error() }}</div>
+}
+@if (switches(); as current) {
+  <section class="panel" aria-labelledby="switches-title">
+    <h2 id="switches-title">During an incident</h2>
+    <p class="lead-copy">
+      Each switch takes effect at once for everyone and is recorded in the activity log.
+    </p>
+    @if (saving.error()) {
+      <div class="alert alert-danger" role="alert">{{ saving.error() }}</div>
+    }
+    @if (note()) {
+      <p class="switch-note" role="status">{{ note() }}</p>
+    }
+    <div class="toggle-row">
+      <div class="toggle-copy">
+        <label for="pause-sign-ups" class="toggle-label">Pause new sign-ups</label>
+        <p class="form-text">
+          For a wave of fake accounts. People who already have an account keep signing in.
+        </p>
+      </div>
+      <input
+        id="pause-sign-ups"
+        class="form-check-input switch"
+        type="checkbox"
+        role="switch"
+        [checked]="current.registration_paused"
+        [disabled]="saving.busy()"
+        (change)="flip('registration_paused', $event)"
+      />
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-copy">
+        <label for="pause-checks" class="toggle-label">Pause every price check</label>
+        <p class="form-text">
+          For when Google refuses checks or the worker misbehaves. Flights wait and are checked once
+          you turn this off; nothing is lost.
+        </p>
+      </div>
+      <input
+        id="pause-checks"
+        class="form-check-input switch"
+        type="checkbox"
+        role="switch"
+        [checked]="current.collection_paused"
+        [disabled]="saving.busy()"
+        (change)="flip('collection_paused', $event)"
+      />
+    </div>
+  </section>
+
+  @if (config(); as settings) {
+    <section class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title">How the service is configured</h2>
+      <p class="lead-copy">
+        Set in the deployment (Terraform), not here. Change them there and deploy.
+      </p>
+      <dl class="settings-list">
+        <div>
+          <dt>Sign-up</dt>
+          <dd>{{ settings.registration_mode === 'open' ? 'Open to anyone' : 'Closed' }}</dd>
+        </div>
+        <div>
+          <dt>Flights per account</dt>
+          <dd>{{ settings.monitor_limit }}</dd>
+        </div>
+        <div>
+          <dt>Shared collection slots</dt>
+          <dd>{{ settings.global_target_limit ?? 'No limit' }}</dd>
+        </div>
+        <div>
+          <dt>Shortest check interval</dt>
+          <dd>{{ minutes(settings.min_interval_seconds) }}</dd>
+        </div>
+        <div>
+          <dt>Account email</dt>
+          <dd>{{ settings.email_enabled ? 'Amazon SES' : 'Off' }}</dd>
+        </div>
+        <div>
+          <dt>Breached-password check</dt>
+          <dd>{{ settings.breach_check ? 'On' : 'Off' }}</dd>
+        </div>
+      </dl>
+    </section>
+  }
+
+  <section class="panel" aria-labelledby="admins-title">
+    <h2 id="admins-title">Who is an admin</h2>
+    <p class="lead-copy">
+      The panel cannot make or remove an admin. That takes the database’s own credentials, from the
+      command line:
+    </p>
+    <pre><code>python -m fareflare.admin_cli --table &lt;table&gt; grant person&#64;example.com
+python -m fareflare.admin_cli --table &lt;table&gt; revoke person&#64;example.com
+python -m fareflare.admin_cli --table &lt;table&gt; list</code></pre>
+  </section>
+} @else if (loading.busy()) {
+  <div class="controls-loading" aria-hidden="true"><span></span></div>
+  <p class="visually-hidden" role="status">Loading controls…</p>
+}

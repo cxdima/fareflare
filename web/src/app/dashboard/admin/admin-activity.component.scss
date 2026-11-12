@@ -1,0 +1,9 @@
+:host {
+  display: block;
+}
+.activity-loading span {
+  display: block;
+  min-height: 16rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
+}

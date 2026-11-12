@@ -1,0 +1,89 @@
+<div class="page-heading">
+  <div>
+    <h1>Admin</h1>
+    <p>Everyone who uses Fareflare, every flight it checks, and the switches for the service.</p>
+  </div>
+  @if (gate()?.expires_at; as until) {
+    <p class="admin-session">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>Admin access until
+      {{ format.timestamp(until) }}
+    </p>
+  }
+</div>
+
+@if (loading.busy() && !gate()) {
+  <div class="admin-loading" aria-hidden="true">
+    <span class="admin-skeleton"></span><span class="admin-skeleton"></span
+    ><span class="admin-skeleton admin-skeleton-wide"></span>
+  </div>
+  <p class="visually-hidden" role="status">Checking admin access…</p>
+} @else if (loading.error()) {
+  <div class="alert alert-danger" role="alert">{{ loading.error() }}</div>
+} @else if (gate(); as current) {
+  @if (!current.ready) {
+    <section class="panel admin-gate" aria-labelledby="admin-gate-title">
+      <span class="admin-gate-disc" aria-hidden="true"><i class="bi bi-shield-lock"></i></span>
+      @if (current.reason === 'mfa') {
+        <h2 id="admin-gate-title">Turn on two-step sign-in first</h2>
+        <p>
+          The admin panel shows everyone’s account. It opens only for an admin who signs in with a
+          passkey or an authenticator code, so a password alone is never enough.
+        </p>
+        <a class="btn btn-primary" href="/app#settings?section=security">Open security settings</a>
+      } @else {
+        <h2 id="admin-gate-title">Sign in again to continue</h2>
+        <p>
+          Admin access lasts twelve hours from a sign-in with a passkey or your authenticator code.
+          Sign in again that way to open the panel.
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="leaving.busy()"
+          (click)="signInAgain()"
+        >
+          {{ leaving.busy() ? 'Signing out…' : 'Sign in again' }}
+        </button>
+        @if (leaving.error()) {
+          <p class="field-error" role="alert">{{ leaving.error() }}</p>
+        }
+      }
+    </section>
+  } @else {
+    <nav class="admin-tabs" aria-label="Admin sections">
+      @for (item of tabs; track item.id) {
+        <button
+          type="button"
+          [attr.aria-pressed]="tab() === item.id"
+          aria-controls="admin-content"
+          (click)="open(item.id)"
+        >
+          <i [class]="'bi ' + item.icon" aria-hidden="true"></i>{{ item.label }}
+        </button>
+      }
+    </nav>
+    <div id="admin-content">
+      @switch (tab()) {
+        @case ('users') {
+          @if (user(); as id) {
+            <ff-admin-user [id]="id" (back)="closeUser()" />
+          } @else {
+            <ff-admin-users (choose)="openUser($event)" />
+          }
+        }
+        @case ('flights') {
+          <ff-admin-flights (choose)="openUser($event)" />
+        }
+        @case ('activity') {
+          <ff-admin-activity (choose)="openUser($event)" />
+        }
+        @case ('controls') {
+          <ff-admin-controls />
+        }
+        @default {
+          <ff-admin-overview (go)="open($event)" />
+        }
+      }
+    </div>
+  }
+}

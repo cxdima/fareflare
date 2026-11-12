@@ -8,6 +8,19 @@ Notable changes to Fareflare. The format follows
 
 ### Added
 
+- **Admin panel.** For the operator: every account (searchable, with its flights,
+  sign-in methods and connections), every checked itinerary with who watches it,
+  sign-ups over 30 days, price checks hour by hour, how accounts are protected, and the
+  account-email budgets. Actions for support and abuse: sign out everywhere, turn off
+  two-step sign-in, issue a temporary password, suspend or reactivate, delete, and
+  pause, resume or stop any flight; switches to pause sign-ups or every price check.
+  Every action is recorded with who did it and why. The panel opens only for an admin
+  with a second factor, in a session that began with it in the last twelve hours, and
+  never through an API key. It loads as its own bundle, so other people never download it.
+- **Admin access from the command line** (`python -m fareflare.admin_cli`): bootstrap
+  an admin with a temporary password that must be replaced at first sign-in, grant or
+  revoke the role, list admins, and recover a locked-out admin. Nothing in the panel can
+  make an admin. Public sign-up refuses addresses at the service's own domain.
 - **Passkeys.** Sign in with a fingerprint, face or device PIN instead of a password,
   from 1Password, iCloud Keychain, Google Password Manager, the browser or a
   security key. The sign-in page offers a saved passkey in the email field's

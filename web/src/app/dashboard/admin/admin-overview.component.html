@@ -1,0 +1,242 @@
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ action.error() }}
+    <button type="button" class="btn btn-link" (click)="load()">Retry</button>
+  </div>
+}
+@if (data(); as overview) {
+  <div class="overview-bar">
+    <p>
+      Updated {{ format.timestamp(overview.generated_at) }}
+      @if (overview.users.truncated) {
+        · <strong>Counts cover the first 10,000 accounts.</strong>
+      }
+    </p>
+    <button type="button" class="btn btn-quiet" [disabled]="action.busy()" (click)="load()">
+      <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+      {{ action.busy() ? 'Refreshing…' : 'Refresh' }}
+    </button>
+  </div>
+
+  <div class="bento">
+    <!-- People: who uses the service and how fast that grows. -->
+    <section class="tile tile-lime tile-people" aria-labelledby="people-title">
+      <div class="tile-head">
+        <h2 id="people-title">
+          {{ overview.users.total }} {{ overview.users.total === 1 ? 'account' : 'accounts' }},
+          {{ overview.users.new_week }} new this week
+        </h2>
+        <button type="button" class="btn btn-light" (click)="go.emit('users')">See everyone</button>
+      </div>
+      <ul class="tile-facts">
+        <li>{{ overview.users.signed_in_month }} signed in this month</li>
+        <li>{{ overview.users.new_day }} joined today</li>
+        <li>{{ overview.users.suspended }} suspended</li>
+        <li>{{ overview.users.admins }} {{ overview.users.admins === 1 ? 'admin' : 'admins' }}</li>
+      </ul>
+      <figure class="signups">
+        <figcaption>Sign-ups, last 30 days</figcaption>
+        <ol class="signup-bars" aria-hidden="true">
+          @for (item of overview.signups; track item.day) {
+            <li
+              [class.signup-empty]="!item.count"
+              [style.--fill]="item.count / peak()"
+              [attr.title]="day(item.day) + ': ' + item.count"
+            ></li>
+          }
+        </ol>
+        <div class="signup-axis" aria-hidden="true">
+          <span>{{ day(overview.signups[0].day) }}</span
+          ><span>Today</span>
+        </div>
+        <table class="visually-hidden">
+          <caption>
+            Sign-ups per day
+          </caption>
+          <tbody>
+            @for (item of overview.signups; track item.day) {
+              <tr>
+                <th scope="row">{{ day(item.day) }}</th>
+                <td>{{ item.count }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </figure>
+    </section>
+
+    <!-- Flights: what is watched, against the shared collection capacity. -->
+    <section class="tile tile-white tile-flights" aria-labelledby="flights-title">
+      <div class="tile-head">
+        <h2 id="flights-title">
+          {{ overview.flights.watched }}
+          {{ overview.flights.watched === 1 ? 'flight' : 'flights' }} watched
+        </h2>
+        <button type="button" class="btn btn-quiet" (click)="go.emit('flights')">
+          All flights
+        </button>
+      </div>
+      @if (overview.flights.capacity.limit; as limit) {
+        <p class="tile-sentence">
+          {{ overview.flights.capacity.used }} of {{ limit }} shared collection slots in use. Each
+          account may watch {{ overview.config.monitor_limit }}.
+        </p>
+        <ol
+          class="slots"
+          [attr.aria-label]="overview.flights.capacity.used + ' of ' + limit + ' slots used'"
+        >
+          @for (used of slots(); track $index) {
+            <li [class.slot-used]="used"></li>
+          }
+        </ol>
+      }
+      @if (flightCounts().length) {
+        <ul class="sticker-row">
+          @for (item of flightCounts(); track item.state) {
+            <li>
+              <span [class]="'status status-' + item.state">{{ statusLabel(item.state) }}</span>
+              {{ item.count }}
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="tile-quiet">No one is watching a flight yet.</p>
+      }
+      @if (overview.flights.targets.blocked) {
+        <p class="tile-warning">
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+          {{ overview.flights.targets.blocked }} blocked after repeated failures. Owners can retry
+          them; you can stop them.
+        </p>
+      }
+    </section>
+
+    <!-- Price checks: the worker's last 24 hours, in the status page's own grammar. -->
+    <section class="tile tile-ink tile-checks" aria-labelledby="checks-title">
+      <div class="tile-head">
+        <h2 id="checks-title">Price checks, last 24 hours</h2>
+        @if (overview.switches.collection_paused) {
+          <span class="status status-degraded">Paused</span>
+        }
+      </div>
+      <p class="tile-sentence">
+        {{ checks().collected }} collected · {{ checks().failed }} failed · {{ checks().alerts }}
+        {{ checks().alerts === 1 ? 'alert' : 'alerts' }} sent
+        @if (checks().last; as last) {
+          · last run {{ format.ago(last) }}
+        } @else {
+          · no run recorded
+        }
+      </p>
+      <ol class="hour-bars">
+        @for (hour of overview.collection.hours; track hour.start) {
+          <li [attr.data-status]="hour.status" [attr.title]="hourSummary(hour)">
+            <span class="visually-hidden">{{ hourSummary(hour) }}</span>
+          </li>
+        }
+      </ol>
+      <div class="hour-axis" aria-hidden="true"><span>24 hours ago</span><span>Now</span></div>
+    </section>
+
+    <!-- Sign-in security: how much of the user base is protected beyond a password. -->
+    <section class="tile tile-lav tile-security" aria-labelledby="security-title">
+      <h2 id="security-title">How accounts are protected</h2>
+      <ul class="meters">
+        @for (item of adoption(); track item.label) {
+          <li>
+            <span class="meter-label">{{ item.label }}</span>
+            <span class="meter-value"
+              >{{ item.count }} · {{ share(item.count, overview.users.total) }}</span
+            >
+            <span class="meter" aria-hidden="true"
+              ><span class="meter-fill" [style.--fill]="item.part"></span
+            ></span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <!-- Email: the budgets that keep sign-up from being used to mail strangers. -->
+    <section class="tile tile-white tile-email" aria-labelledby="email-title">
+      <div class="tile-head">
+        <h2 id="email-title">Account email</h2>
+        <span [class]="'status status-' + (overview.config.email_enabled ? 'active' : 'paused')">{{
+          overview.config.email_enabled ? 'Sending' : 'Off'
+        }}</span>
+      </div>
+      <table class="table budget-table">
+        <caption class="visually-hidden">
+          Email sent this hour and today, against each budget
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Kind</th>
+            <th scope="col">This hour</th>
+            <th scope="col">Today</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of budgets(); track item.label) {
+            <tr>
+              <th scope="row">{{ item.label }}</th>
+              <td [class.budget-full]="item.hour.used >= item.hour.limit">
+                {{ item.hour.used }} <span>of {{ item.hour.limit }}</span>
+              </td>
+              <td [class.budget-full]="item.day.used >= item.day.limit">
+                {{ item.day.used }} <span>of {{ item.day.limit }}</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <!-- The service: switches and the limits it runs with. -->
+    <section class="tile tile-white tile-service" aria-labelledby="service-title">
+      <div class="tile-head">
+        <h2 id="service-title">Service</h2>
+        <button type="button" class="btn btn-quiet" (click)="go.emit('controls')">Controls</button>
+      </div>
+      <dl class="facts">
+        <div>
+          <dt>Sign-ups</dt>
+          <dd>
+            @if (overview.config.registration_mode === 'closed') {
+              Closed by configuration
+            } @else if (overview.switches.registration_paused) {
+              <span class="status status-degraded">Paused</span>
+            } @else {
+              Open
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Price checks</dt>
+          <dd>
+            @if (overview.switches.collection_paused) {
+              <span class="status status-degraded">Paused</span>
+            } @else {
+              Running
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Shortest check interval</dt>
+          <dd>{{ minutes(overview.config.min_interval_seconds) }}</dd>
+        </div>
+        <div>
+          <dt>Breached-password check</dt>
+          <dd>{{ overview.config.breach_check ? 'On' : 'Off' }}</dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+} @else if (action.busy()) {
+  <div class="bento" aria-hidden="true">
+    <span class="tile tile-placeholder tile-people"></span>
+    <span class="tile tile-placeholder tile-flights"></span>
+    <span class="tile tile-placeholder tile-checks"></span>
+    <span class="tile tile-placeholder tile-security"></span>
+  </div>
+  <p class="visually-hidden" role="status">Loading the overview…</p>
+}

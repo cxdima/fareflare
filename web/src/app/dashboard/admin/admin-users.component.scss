@@ -1,0 +1,47 @@
+:host {
+  display: block;
+}
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 14rem) minmax(11rem, 14rem);
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.search-field {
+  position: relative;
+}
+.search-field .bi {
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  color: var(--ff-ink-2);
+  translate: 0 -50%;
+  pointer-events: none;
+}
+.search-field .form-control {
+  padding-left: 2.6rem;
+}
+.admin-rows {
+  display: grid;
+  gap: 0.5rem;
+}
+.admin-rows span {
+  display: block;
+  height: 4rem;
+  border-radius: 1.25rem;
+  background: var(--ff-card);
+}
+@media (max-width: 767px) {
+  .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .toolbar-search {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 380px) {
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

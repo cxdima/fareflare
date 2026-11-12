@@ -114,6 +114,40 @@ must be accepted before notifications arrive. Without it, alarms still change st
 in CloudWatch but nobody is told. The collection-failure alarm is not routed there:
 Google's own error pages make some failures routine.
 
+## Admin access
+
+The admin role can only be granted or removed from the command line, with access to the
+database: AWS credentials for the DynamoDB table of a deployed service, or the SQLite
+file of a local one. Nothing in the panel can make an admin.
+
+```bash
+# First admin. Prints when the temporary password stops working (30 minutes by default).
+PYTHONPATH=src .venv/bin/python -m fareflare.admin_cli --table <name> \
+  bootstrap admin@<domain> --temporary-password '<temporary>'
+PYTHONPATH=src .venv/bin/python -m fareflare.admin_cli --table <name> grant person@example.com
+PYTHONPATH=src .venv/bin/python -m fareflare.admin_cli --table <name> revoke person@example.com
+PYTHONPATH=src .venv/bin/python -m fareflare.admin_cli --table <name> list
+# Locked out: a new temporary password; every browser is signed out.
+PYTHONPATH=src .venv/bin/python -m fareflare.admin_cli --table <name> reset-password admin@<domain>
+```
+
+Omit `--temporary-password` to have a random one printed. Run `bootstrap` just before
+signing in: until the temporary password is replaced, anyone who has it can choose the
+account's real password. `bootstrap` refuses an address another account already uses;
+`--reclaim` takes it over and removes that account's sessions, API keys, passkeys and
+two-step sign-in. Public sign-up refuses addresses at the service's own domain, so an
+`admin@<domain>` account can only come from here.
+
+After the first sign-in the admin must choose a password, then turn on two-step sign-in
+or add a passkey: the panel opens only in a session that began with one of them, and for
+twelve hours from that sign-in. Every admin action is written to an audit log
+(`admin_audit` partition, kept 400 days) that the panel can read and not change.
+
+The **Controls** tab holds two switches stored in `configuration:admin`: pausing new
+sign-ups (existing accounts keep working) and pausing every price check (the worker skips
+collection; due flights are checked once it is turned off). Both are recorded in the
+activity log.
+
 ## Accounts and capacity
 
 The hosted release uses `registration_mode="open"` and `billing_enabled=false`.

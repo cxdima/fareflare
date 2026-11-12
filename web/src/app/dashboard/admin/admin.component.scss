@@ -1,0 +1,112 @@
+:host {
+  display: block;
+}
+.admin-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: var(--ff-card);
+  color: var(--ff-ink-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.admin-session .bi {
+  color: var(--ff-ink);
+}
+
+/* The same pill switcher as the settings sections. */
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1.25rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: var(--ff-card);
+}
+.admin-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ff-ink);
+  font-size: 0.9rem;
+  font-weight: 620;
+}
+.admin-tabs button:hover:not([aria-pressed='true']) {
+  background: var(--ff-paper);
+}
+.admin-tabs button[aria-pressed='true'] {
+  background: var(--ff-ink);
+  color: #fff;
+}
+.admin-tabs button[aria-pressed='true'] .bi {
+  color: var(--ff-lime);
+}
+
+.admin-gate {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  max-width: 44rem;
+}
+.admin-gate h2 {
+  margin: 0;
+}
+.admin-gate p {
+  max-width: 60ch;
+  margin: 0 0 0.5rem;
+  color: var(--ff-ink-2);
+  line-height: 1.6;
+}
+.admin-gate-disc {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: var(--ff-lav);
+  font-size: 1.35rem;
+}
+
+.admin-loading {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.admin-skeleton {
+  display: block;
+  min-height: 14rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
+}
+.admin-skeleton-wide {
+  grid-column: 1 / -1;
+  min-height: 9rem;
+}
+
+@media (max-width: 575px) {
+  .admin-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    border-radius: 1.4rem;
+  }
+  .admin-tabs button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .admin-session {
+    white-space: normal;
+  }
+}

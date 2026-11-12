@@ -26,6 +26,8 @@ import { PreferencesFacade } from '../core/preferences.facade';
 import { RegionalFormat } from '../core/regional-format';
 import { TelegramFacade } from '../core/telegram.facade';
 import { StatusService } from '../core/status.service';
+import { AdminComponent } from './admin/admin.component';
+import { PasswordRequiredComponent } from './password-required.component';
 
 const navigation = [
   { id: 'monitors', label: 'Flight monitors', shortLabel: 'Flights', icon: 'bi-airplane' },
@@ -34,9 +36,11 @@ const navigation = [
   { id: 'developer', label: 'API & MCP', shortLabel: 'API & MCP', icon: 'bi-terminal' },
   { id: 'settings', label: 'Account settings', shortLabel: 'Account', icon: 'bi-person' },
 ];
+/** Shown only to admins; the server answers its requests only for them too. */
+const adminItem = { id: 'admin', label: 'Admin', shortLabel: 'Admin', icon: 'bi-shield-lock' };
 function currentView(): string {
   const fragment = location.hash.slice(1).split('?')[0];
-  return navigation.some((item) => item.id === fragment) ? fragment : 'monitors';
+  return [...navigation, adminItem].some((item) => item.id === fragment) ? fragment : 'monitors';
 }
 
 @Component({
@@ -49,6 +53,8 @@ function currentView(): string {
     DeveloperComponent,
     SettingsComponent,
     ConsentComponent,
+    AdminComponent,
+    PasswordRequiredComponent,
   ],
   providers: [WorkspaceFacade, PreferencesFacade, RegionalFormat, TelegramFacade],
   templateUrl: './dashboard.component.html',
@@ -65,19 +71,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly title = inject(Title);
-  readonly navigation = navigation;
+  readonly navigation = computed(() =>
+    this.session.account()?.admin ? [...navigation, adminItem] : navigation,
+  );
   readonly view = signal(currentView());
   readonly logoutAction = new ActionState();
   readonly authorization = this.route.snapshot.queryParamMap.get('authorize');
   readonly pageName = computed(() =>
     this.authorization
       ? 'Connect application'
-      : (navigation.find((item) => item.id === this.view())?.label ?? 'Flight monitors'),
+      : this.session.account()?.must_change_password
+        ? 'Choose your password'
+        : (this.navigation().find((item) => item.id === this.view())?.label ?? 'Flight monitors'),
   );
   readonly main = viewChild<ElementRef<HTMLElement>>('main');
   private timer: ReturnType<typeof setInterval> | undefined;
   private firstPrice: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
+  private started = false;
   private readonly hashChanged = () => {
     // A settings section changes the address too; only a new page starts over.
     if (currentView() !== this.view()) this.show(currentView());
@@ -117,6 +128,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     window.addEventListener('hashchange', this.hashChanged);
     if (!this.session.ready()) await this.session.bootstrap();
     if (this.destroyed || !this.session.account()) return;
+    // A temporary password unlocks nothing else: the workspace loads once it is replaced.
+    if (this.session.account()?.must_change_password) return;
+    await this.start();
+  }
+  private async start(): Promise<void> {
+    if (this.started) return;
+    this.started = true;
+    if (this.view() === 'admin' && !this.session.account()?.admin) this.view.set('monitors');
     void this.health.load();
     await Promise.allSettled([this.workspace.refresh(), this.preferences.load()]);
     if (this.destroyed) return;
@@ -132,6 +151,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     clearInterval(this.timer);
     clearTimeout(this.firstPrice);
     window.removeEventListener('hashchange', this.hashChanged);
+  }
+  /** The password is replaced: open the workspace where the person should go next. */
+  passwordChanged(view: string): void {
+    history.replaceState(null, '', location.pathname + location.search + '#' + view);
+    this.show(view.split('?')[0]);
+    void this.start();
   }
   refresh(): void {
     void this.workspace.refreshAll();

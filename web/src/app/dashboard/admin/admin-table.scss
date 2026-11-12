@@ -1,0 +1,93 @@
+/* Shared by the admin tables: real tables on a sheet, rows of cards on a phone. */
+.admin-table .cell-main {
+  display: block;
+  min-width: 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.admin-table .cell-link {
+  color: var(--ff-ink);
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.admin-table .cell-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.admin-table .cell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+.admin-table .table-subtext {
+  overflow-wrap: anywhere;
+}
+.admin-table tbody tr.row-dim > * {
+  color: var(--ff-ink-2);
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+  color: var(--ff-ink-2);
+  font-size: 0.88rem;
+}
+.pager p {
+  margin: 0;
+}
+.pager div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 575px) {
+  .admin-table-wrap {
+    overflow: visible;
+  }
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .admin-table tbody {
+    display: block;
+  }
+  .admin-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem 1rem;
+    padding: 1rem 1.1rem;
+  }
+  .admin-table tbody tr + tr {
+    border-top: 1.5px dotted var(--ff-line-strong);
+  }
+  .admin-table td,
+  .admin-table th[scope='row'] {
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    font-size: 0.86rem;
+  }
+  .admin-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--ff-ink-2);
+    font-size: 0.74rem;
+    font-weight: 650;
+  }
+  .admin-table .cell-wide {
+    grid-column: 1 / -1;
+  }
+  .admin-table .cell-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

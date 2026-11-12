@@ -53,6 +53,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "src/fareflare/cli.py" = ["T201"]
 "src/fareflare/product_cli.py" = ["T201"]
+"src/fareflare/admin_cli.py" = ["T201"]
 "src/fareflare/runtime.py" = ["T201"]  # One structured metrics line per invocation.
 "scripts/*" = ["T201"]
 "examples/*" = ["T201"]

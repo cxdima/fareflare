@@ -597,6 +597,11 @@ class MonitoringService:
         event_ids = []
         counts = {"collected": 0, "failed": 0, "skipped": 0}
         codes: dict[str, int] = {}
+        # An admin can pause every price check, for example while Google is refusing
+        # them; due flights simply wait and are checked once checks resume.
+        switches = self.store.get("configuration:admin")
+        if switches and switches.data.get("collection_paused"):
+            return CollectionBatch(counts, (), codes)
         # Discover one bounded page. Re-querying its head after each collection
         # can return the same stale GSI row and starve other due targets.
         for candidate in self.store.page("targets", self._now(), limit=limit).items:

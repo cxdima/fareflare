@@ -5,7 +5,7 @@ import hmac
 import re
 import secrets
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 from urllib.parse import urlsplit
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -29,6 +29,7 @@ from fareflare.accounts import (
     AuthenticationFailed,
     IncorrectPassword,
 )
+from fareflare.admin import ACTIONS, Admin, AdminDenied
 from fareflare.api import create_app
 from fareflare.api_reference import render_api_reference
 from fareflare.credentials import RateLimiter
@@ -148,6 +149,33 @@ class ConsentInput(BaseModel):
     approve: bool
 
 
+class AdminActionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    reason: str = Field(default="", max_length=500)
+
+
+class AdminDeleteInput(AdminActionInput):
+    confirm: str = Field(min_length=1, max_length=MAX_USERNAME_LENGTH)
+
+
+class AdminFlightInput(AdminActionInput):
+    status: Literal["paused", "active", "cancelled"]
+
+
+class AdminSwitchesInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    registration_paused: bool | None = None
+    collection_paused: bool | None = None
+
+
+# While a temporary password is in use, a session may only replace it.
+_PASSWORD_CHANGE_ONLY = {
+    ("GET", "/v1/account"),
+    ("POST", "/auth/password"),
+    ("POST", "/auth/logout"),
+}
+
+
 def create_portal(
     service: MonitoringService,
     config: ProductConfig,
@@ -180,6 +208,11 @@ def create_portal(
         result = accounts.authenticate_session(request.cookies.get(cookie_name, ""))
         if not result:
             raise HTTPException(401, "Sign in to continue")
+        if (
+            result["account"]["must_change_password"]
+            and (request.method, request.url.path) not in _PASSWORD_CHANGE_ONLY
+        ):
+            raise HTTPException(403, "Choose a new password before continuing")
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             check_origin(request)
             supplied = request.headers.get("x-csrf-token", "")
@@ -275,6 +308,8 @@ def create_portal(
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         if response.status_code == 200 and getattr(request.state, "asset_cache", None):
             response.headers["Cache-Control"] = request.state.asset_cache
+        if request.url.path.startswith("/v1/admin/"):
+            response.headers["Cache-Control"] = "no-store"
         if (
             request.url.path.startswith(("/v1/", "/auth/", "/oauth/", "/telegram/"))
             or request.url.path in ("/mcp", "/site-content.json", "/docs")
@@ -416,8 +451,12 @@ def create_portal(
         return accounts.start_two_factor(identity["account"]["id"], body.password)
 
     @app.post("/auth/two-factor/enable")
-    def enable_two_factor(body: CodeInput, identity: Annotated[dict, Depends(session)]):
-        return accounts.enable_two_factor(identity["account"]["id"], body.code)
+    def enable_two_factor(
+        body: CodeInput, request: Request, identity: Annotated[dict, Depends(session)]
+    ):
+        return accounts.enable_two_factor(
+            identity["account"]["id"], body.code, request.cookies.get(cookie_name)
+        )
 
     @app.post("/auth/two-factor/disable")
     def disable_two_factor(body: PasswordAndCodeInput, identity: Annotated[dict, Depends(session)]):
@@ -435,9 +474,15 @@ def create_portal(
         return accounts.passkey_registration_options(identity["account"]["id"], body.password)
 
     @app.post("/auth/passkeys", status_code=201)
-    def add_passkey(body: NewPasskeyInput, identity: Annotated[dict, Depends(session)]):
+    def add_passkey(
+        body: NewPasskeyInput, request: Request, identity: Annotated[dict, Depends(session)]
+    ):
         return accounts.add_passkey(
-            identity["account"]["id"], body.challenge_id, body.credential, body.name
+            identity["account"]["id"],
+            body.challenge_id,
+            body.credential,
+            body.name,
+            request.cookies.get(cookie_name),
         )
 
     @app.patch("/auth/passkeys/{identifier}")
@@ -540,6 +585,84 @@ def create_portal(
     def disconnect_app(identifier: str, identity: Annotated[dict, Depends(session)]):
         oauth.revoke_grant(identity["account"]["id"], identifier)
         return {"revoked": True}
+
+    panel = Admin(service.store, accounts, service, clock=service.clock, oauth=oauth)
+
+    def administrator(identity: Annotated[dict, Depends(session)]) -> dict:
+        try:
+            return panel.require(identity)
+        except AdminDenied as denied:
+            if denied.reason == "not_admin":
+                raise HTTPException(404, "Not found") from None
+            raise HTTPException(403, str(denied)) from None
+
+    @app.get("/v1/admin/gate", include_in_schema=False)
+    def admin_gate(identity: Annotated[dict, Depends(session)]):
+        gate = panel.gate(identity)
+        if gate["reason"] == "not_admin":
+            raise HTTPException(404, "Not found")
+        return gate
+
+    @app.get("/v1/admin/overview", include_in_schema=False)
+    def admin_overview(admin: Annotated[dict, Depends(administrator)]):
+        return panel.overview()
+
+    @app.get("/v1/admin/users", include_in_schema=False)
+    def admin_users(
+        admin: Annotated[dict, Depends(administrator)],
+        q: str = Query("", max_length=254),
+        status: str = Query("all", max_length=20),
+        sort: str = Query("newest", max_length=20),
+        offset: int = Query(0, ge=0, le=100_000),
+        limit: int = Query(50, ge=1, le=200),
+    ):
+        return panel.users(q, status, sort, offset, limit)
+
+    @app.get("/v1/admin/users/{tenant}", include_in_schema=False)
+    def admin_user(tenant: str, admin: Annotated[dict, Depends(administrator)]):
+        return panel.user(tenant)
+
+    @app.post("/v1/admin/users/{tenant}/{action}", include_in_schema=False)
+    def admin_act(
+        tenant: str,
+        action: str,
+        body: AdminActionInput,
+        admin: Annotated[dict, Depends(administrator)],
+    ):
+        if action not in ACTIONS:
+            raise HTTPException(404, "Not found")
+        return panel.act(admin, tenant, action, body.reason)
+
+    @app.delete("/v1/admin/users/{tenant}", include_in_schema=False)
+    def admin_delete(
+        tenant: str, body: AdminDeleteInput, admin: Annotated[dict, Depends(administrator)]
+    ):
+        return panel.delete(admin, tenant, body.confirm, body.reason)
+
+    @app.patch("/v1/admin/users/{tenant}/flights/{monitor_id}", include_in_schema=False)
+    def admin_flight(
+        tenant: str,
+        monitor_id: str,
+        body: AdminFlightInput,
+        admin: Annotated[dict, Depends(administrator)],
+    ):
+        return panel.set_flight(admin, tenant, monitor_id, body.status, body.reason)
+
+    @app.get("/v1/admin/flights", include_in_schema=False)
+    def admin_flights(admin: Annotated[dict, Depends(administrator)]):
+        return panel.flights()
+
+    @app.get("/v1/admin/audit", include_in_schema=False)
+    def admin_audit(
+        admin: Annotated[dict, Depends(administrator)],
+        limit: int = Query(50, ge=1, le=200),
+        cursor: str | None = Query(None, max_length=4096),
+    ):
+        return panel.audit(limit=limit, cursor=cursor)
+
+    @app.put("/v1/admin/switches", include_in_schema=False)
+    def admin_switches(body: AdminSwitchesInput, admin: Annotated[dict, Depends(administrator)]):
+        return panel.set_switches(admin, body.model_dump(exclude_none=True))
 
     app.mount("/oauth", oauth.build_app())
     app.router.routes.extend(oauth.discovery_routes())

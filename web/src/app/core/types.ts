@@ -14,6 +14,10 @@ export type Account = {
   created_at?: number;
   email?: string | null;
   email_verified?: boolean;
+  /** Admins see the admin panel; the role is granted only from the command line. */
+  admin?: boolean;
+  /** Signed in with a temporary password: nothing else works until it is replaced. */
+  must_change_password?: boolean;
 };
 export type AccountResponse = { account: Account; csrf_token: string };
 /** A password sign-in that still needs a code from an authenticator app. */
@@ -174,3 +178,132 @@ export interface StatusReport {
   components: StatusComponentReport[];
   hours: StatusHour[];
 }
+
+// The admin panel.
+export type AdminGate = {
+  ready: boolean;
+  reason: 'password' | 'mfa' | 'reauth' | null;
+  message: string | null;
+  expires_at: number | null;
+};
+export type AdminSwitches = { registration_paused: boolean; collection_paused: boolean };
+export type AdminUserRow = {
+  id: string;
+  email: string | null;
+  status: 'active' | 'suspended' | 'deleted';
+  admin: boolean;
+  created_at: number | null;
+  last_sign_in_at: number | null;
+  email_verified: boolean;
+  two_factor: boolean;
+  passkeys: number;
+  api_keys: number;
+  flights: number;
+  telegram: boolean;
+  must_change_password: boolean;
+  suspended_at: number | null;
+};
+export type AdminUsers = {
+  items: AdminUserRow[];
+  total: number;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+};
+export type AuditEntry = {
+  at: number;
+  action: string;
+  admin_id: string;
+  admin: string;
+  target_id: string | null;
+  target: string | null;
+  detail: Record<string, string | boolean>;
+};
+export type AdminUser = {
+  account: AdminUserRow & {
+    sessions: number;
+    suspended_reason: string | null;
+    temporary_password_expires_at: number | null;
+    alerts_muted: boolean;
+  };
+  flights: Monitor[];
+  alerts: {
+    id: string;
+    monitor_id: string;
+    reason: string;
+    status: string;
+    attempts: number;
+    observed_at: number | null;
+    amount_minor: number | null;
+    currency: string | null;
+  }[];
+  api_keys: { name: string; created_at: number | null; expires_at: number; revoked: boolean }[];
+  passkeys: { name: string; provider: string; created_at: number; last_used_at: number | null }[];
+  applications: { client_name: string; created_at: number; revoked: boolean }[];
+  webhooks: { host: string; status: string; created_at: number | null }[];
+  audit: AuditEntry[];
+};
+export type Budget = { used: number; limit: number };
+export type AdminOverview = {
+  generated_at: number;
+  users: {
+    total: number;
+    active: number;
+    suspended: number;
+    deleted: number;
+    admins: number;
+    new_day: number;
+    new_week: number;
+    new_month: number;
+    signed_in_week: number;
+    signed_in_month: number;
+    email_verified: number;
+    two_factor: number;
+    passkeys: number;
+    telegram: number;
+    api_keys: number;
+    truncated: boolean;
+  };
+  signups: { day: number; count: number }[];
+  flights: {
+    watched: number;
+    by_status: Record<string, number>;
+    targets: { collecting: number; blocked: number; idle: number };
+    capacity: { used: number; limit: number | null };
+  };
+  collection: StatusReport;
+  email: Record<'confirm' | 'reset' | 'notice', { hour: Budget; day: Budget }>;
+  switches: AdminSwitches;
+  config: {
+    registration_mode: 'open' | 'closed';
+    email_enabled: boolean;
+    breach_check: boolean;
+    monitor_limit: number;
+    global_target_limit: number | null;
+    min_interval_seconds: number;
+  };
+};
+export type AdminFlight = {
+  id: string;
+  state: 'collecting' | 'blocked' | 'idle';
+  target: Monitor['target'];
+  latest: Observation | null;
+  failures: number;
+  last_error: string | null;
+  next_check_at: number | null;
+  interval_seconds: number | null;
+  watcher_count: number;
+  watchers: {
+    monitor_id: string;
+    account_id: string;
+    email: string | null;
+    status: Monitor['status'];
+    interval_seconds: number;
+    created_at: number | null;
+  }[];
+};
+export type AdminFlights = {
+  items: AdminFlight[];
+  capacity: { used: number; limit: number | null };
+  expired: number;
+};

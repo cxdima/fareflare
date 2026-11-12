@@ -326,3 +326,305 @@ export async function fakePasskeys(page: BrowserPage, { autofill = false } = {})
     }) as unknown as typeof navigator.credentials.get;
   }, autofill);
 }
+
+/**
+ * The admin API, layered over `mock`: Playwright runs the newest route first, and
+ * anything this layer does not answer falls through to the ordinary mock.
+ */
+export async function mockAdmin(
+  page: BrowserPage,
+  {
+    gate = 'ready',
+    mustChange = false,
+  }: { gate?: 'ready' | 'mfa' | 'reauth'; mustChange?: boolean } = {},
+) {
+  const calls: { path: string; method: string; body: any; csrf?: string }[] = [];
+  let changing = mustChange;
+  const switches = { registration_paused: false, collection_paused: false };
+  const alice = {
+    id: 'acct_' + 'a'.repeat(32),
+    email: 'alice@example.com',
+    status: 'active',
+    admin: false,
+    created_at: now - 3 * 86400,
+    last_sign_in_at: now - 600,
+    email_verified: true,
+    two_factor: true,
+    passkeys: 1,
+    api_keys: 1,
+    flights: 1,
+    telegram: true,
+    must_change_password: false,
+    suspended_at: null as number | null,
+  };
+  const users = [
+    alice,
+    {
+      ...alice,
+      id: 'acct_' + 'b'.repeat(32),
+      email: 'bob@example.com',
+      created_at: now - 86400,
+      last_sign_in_at: null,
+      email_verified: false,
+      two_factor: false,
+      passkeys: 0,
+      api_keys: 0,
+      flights: 0,
+      telegram: false,
+    },
+  ];
+  const audit: {
+    at: number;
+    action: string;
+    admin_id: string;
+    admin: string;
+    target_id: string | null;
+    target: string | null;
+    detail: Record<string, unknown>;
+  }[] = [
+    {
+      at: now - 7200,
+      action: 'stop-flight',
+      admin_id: 'acct_admin',
+      admin: 'admin@fareflare.dev',
+      target_id: alice.id,
+      target: alice.email,
+      detail: { route: 'DEN → DFW', reason: 'Duplicate' },
+    },
+    {
+      at: now - 9000,
+      action: 'switches',
+      admin_id: 'acct_admin',
+      admin: 'admin@fareflare.dev',
+      target_id: null,
+      target: null,
+      detail: { collection_paused: false },
+    },
+  ];
+  const hours = Array.from({ length: 24 }, (_, index) => ({
+    start: now - (23 - index) * 3600,
+    runs: index < 3 ? 0 : 12,
+    collected: index < 3 ? 0 : 11,
+    failed: index < 3 ? 0 : index === 10 ? 6 : 1,
+    alerts_sent: index % 5 === 0 ? 1 : 0,
+    status: index < 3 ? 'none' : index === 10 ? 'degraded' : 'operational',
+  }));
+  await page.route(/\/(?:v1|auth)\//, async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const method = request.method();
+    const body = request.postDataJSON();
+    const reply = (value: unknown, status = 200) =>
+      route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+    if (path === '/v1/account' && method === 'GET')
+      return reply({
+        account: {
+          id: 'acct_admin',
+          username: 'admin@fareflare.dev',
+          email: 'admin@fareflare.dev',
+          email_verified: false,
+          admin: true,
+          must_change_password: changing,
+        },
+        csrf_token: 'csrf-test',
+      });
+    if (path === '/auth/password' && method === 'POST') {
+      calls.push({ path, method, body, csrf: request.headers()['x-csrf-token'] });
+      if (body?.current_password !== '123')
+        return reply({ detail: 'That password is not correct' }, 403);
+      changing = false;
+      return reply({ changed: true });
+    }
+    if (!path.startsWith('/v1/admin/')) return route.fallback();
+    calls.push({ path, method, body, csrf: request.headers()['x-csrf-token'] });
+    if (path === '/v1/admin/gate')
+      return reply(
+        gate === 'ready'
+          ? { ready: true, reason: null, message: null, expires_at: now + 6 * 3600 }
+          : { ready: false, reason: gate, message: 'Not yet', expires_at: null },
+      );
+    if (path === '/v1/admin/overview')
+      return reply({
+        generated_at: now,
+        users: {
+          total: 29,
+          active: 27,
+          suspended: 1,
+          deleted: 6,
+          admins: 1,
+          new_day: 2,
+          new_week: 6,
+          new_month: 19,
+          signed_in_week: 11,
+          signed_in_month: 21,
+          email_verified: 14,
+          two_factor: 4,
+          passkeys: 3,
+          telegram: 5,
+          api_keys: 2,
+          truncated: false,
+        },
+        signups: Array.from({ length: 30 }, (_, index) => ({
+          day: now - (29 - index) * 86400,
+          count: [0, 1, 3, 0, 2, 5, 1][index % 7],
+        })),
+        flights: {
+          watched: 6,
+          by_status: { active: 4, pending: 1, paused: 1 },
+          targets: { collecting: 4, blocked: 1, idle: 0 },
+          capacity: { used: 5, limit: 20 },
+        },
+        collection: {
+          status: 'operational',
+          updated_at: now,
+          window_hours: 24,
+          components: [
+            { id: 'price_checks', status: 'operational', reason: null, last_run_at: now - 50 },
+          ],
+          hours,
+        },
+        email: {
+          confirm: { hour: { used: 2, limit: 60 }, day: { used: 9, limit: 300 } },
+          reset: { hour: { used: 0, limit: 60 }, day: { used: 1, limit: 300 } },
+          notice: { hour: { used: 60, limit: 60 }, day: { used: 60, limit: 300 } },
+        },
+        switches,
+        config: {
+          registration_mode: 'open',
+          email_enabled: true,
+          breach_check: true,
+          monitor_limit: 20,
+          global_target_limit: 20,
+          min_interval_seconds: 900,
+        },
+      });
+    if (path === '/v1/admin/users' && method === 'GET') {
+      const query = new URL(request.url()).searchParams.get('q') ?? '';
+      const items = users.filter((user) => user.email.includes(query.toLowerCase()));
+      return reply({ items, total: items.length, offset: 0, limit: 50, truncated: false });
+    }
+    const person = users.find((user) => path.startsWith(`/v1/admin/users/${user.id}`));
+    if (person && method === 'GET')
+      return reply({
+        account: {
+          ...person,
+          sessions: 2,
+          suspended_reason: person.status === 'suspended' ? 'Card testing' : null,
+          temporary_password_expires_at: null,
+          alerts_muted: false,
+        },
+        flights: person === alice ? [structuredClone(monitor)] : [],
+        alerts: [
+          {
+            id: 'alert-1',
+            monitor_id: monitor.id,
+            reason: 'new_low',
+            status: 'sent',
+            attempts: 1,
+            observed_at: now - 1800,
+            amount_minor: 24500,
+            currency: 'USD',
+          },
+        ],
+        api_keys: [
+          {
+            name: 'Spreadsheet sync',
+            created_at: now - 86400,
+            expires_at: now + 86400 * 60,
+            revoked: false,
+          },
+        ],
+        passkeys: [
+          {
+            name: '1Password',
+            provider: '1Password',
+            created_at: now - 86400,
+            last_used_at: now - 600,
+          },
+        ],
+        applications: [{ client_name: 'Travel helper', created_at: now - 86400, revoked: false }],
+        webhooks: [{ host: 'hooks.example.com', status: 'active', created_at: now - 86400 }],
+        audit: audit.filter((entry) => entry.target_id === person.id),
+      });
+    if (person && method === 'POST') {
+      const action = path.split('/').pop();
+      if (action === 'suspend') Object.assign(person, { status: 'suspended', suspended_at: now });
+      if (action === 'reactivate') Object.assign(person, { status: 'active', suspended_at: null });
+      if (action === 'reset-two-factor') person.two_factor = false;
+      audit.unshift({
+        at: now,
+        action: action!,
+        admin_id: 'acct_admin',
+        admin: 'admin@fareflare.dev',
+        target_id: person.id,
+        target: person.email,
+        detail: body?.reason ? { reason: body.reason } : {},
+      });
+      return reply(
+        action === 'temporary-password'
+          ? { done: true, temporary_password: 'Tq9-x2Lm4Zp8', expires_at: now + 86400 }
+          : { done: true },
+      );
+    }
+    if (person && method === 'DELETE') {
+      if (body?.confirm !== person.email)
+        return reply({ detail: "Type the account's email address to confirm." }, 422);
+      person.status = 'deleted';
+      return reply({ deleted: true });
+    }
+    if (person && method === 'PATCH')
+      return reply({ ...structuredClone(monitor), status: body.status });
+    if (path === '/v1/admin/flights')
+      return reply({
+        items: [
+          {
+            id: 'target-1',
+            state: 'collecting',
+            target: monitor.target,
+            latest: observation,
+            failures: 0,
+            last_error: null,
+            next_check_at: now + 600,
+            interval_seconds: 900,
+            watcher_count: 2,
+            watchers: [
+              {
+                monitor_id: monitor.id,
+                account_id: alice.id,
+                email: alice.email,
+                status: 'active',
+                interval_seconds: 900,
+                created_at: now - 86400,
+              },
+              {
+                monitor_id: 'b'.repeat(32),
+                account_id: users[1].id,
+                email: users[1].email,
+                status: 'paused',
+                interval_seconds: 900,
+                created_at: now - 3600,
+              },
+            ],
+          },
+        ],
+        capacity: { used: 5, limit: 20 },
+        expired: 3,
+      });
+    if (path === '/v1/admin/audit') return reply({ items: audit, next_cursor: null });
+    if (path === '/v1/admin/switches') {
+      Object.assign(switches, body);
+      audit.unshift({
+        at: now,
+        action: 'switches',
+        admin_id: 'acct_admin',
+        admin: 'admin@fareflare.dev',
+        target_id: null,
+        target: null,
+        detail: body,
+      });
+      return reply(switches);
+    }
+    return reply({ detail: 'Not found' }, 404);
+  });
+  return calls;
+}

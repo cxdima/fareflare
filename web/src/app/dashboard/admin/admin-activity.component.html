@@ -1,0 +1,76 @@
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ action.error() }}
+    <button type="button" class="btn btn-link" (click)="load(false)">Retry</button>
+  </div>
+}
+@if (items().length) {
+  <section class="panel table-panel">
+    <div class="table-responsive admin-table-wrap">
+      <table class="table admin-table">
+        <caption class="visually-hidden">
+          Admin activity, newest first
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">When</th>
+            <th scope="col">What</th>
+            <th scope="col">Account</th>
+            <th scope="col">Admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of items(); track $index) {
+            <tr>
+              <td data-label="When">{{ format.timestamp(entry.at) }}</td>
+              <td class="cell-wide">
+                <span class="cell-main">{{ actionLabels[entry.action] ?? entry.action }}</span>
+                @if (auditDetail(entry)) {
+                  <span class="table-subtext">{{ auditDetail(entry) }}</span>
+                }
+              </td>
+              <td data-label="Account">
+                @if (entry.target_id; as account) {
+                  <a
+                    class="cell-link"
+                    [href]="'/app#admin?tab=users&user=' + account"
+                    (click)="open($event, account)"
+                    >{{ entry.target ?? account }}</a
+                  >
+                } @else {
+                  The whole service
+                }
+              </td>
+              <td data-label="Admin">{{ entry.admin }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  @if (cursor()) {
+    <div class="pager">
+      <p>Showing the latest {{ items().length }}.</p>
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        [disabled]="action.busy()"
+        (click)="load(true)"
+      >
+        {{ action.busy() ? 'Loading…' : 'Show earlier' }}
+      </button>
+    </div>
+  }
+} @else if (loaded()) {
+  <section class="panel empty-state">
+    <i class="bi bi-journal-text" aria-hidden="true"></i>
+    <h2>No admin actions yet</h2>
+    <p>
+      Suspensions, sign-outs, deletions, flight changes and switch changes appear here, with who
+      made them and why.
+    </p>
+  </section>
+} @else if (action.busy()) {
+  <div class="activity-loading" aria-hidden="true"><span></span></div>
+  <p class="visually-hidden" role="status">Loading activity…</p>
+}

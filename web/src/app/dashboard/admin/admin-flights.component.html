@@ -1,0 +1,118 @@
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ action.error() }}
+    <button type="button" class="btn btn-link" (click)="load()">Retry</button>
+  </div>
+}
+@if (data(); as current) {
+  <div class="flights-bar">
+    <p>
+      @if (current.capacity.limit; as limit) {
+        <strong>{{ current.capacity.used }} of {{ limit }}</strong> shared slots in use.
+      }
+      People watching the same itinerary share one check. {{ current.expired }} departed
+      {{ current.expired === 1 ? 'itinerary is' : 'itineraries are' }} no longer checked.
+    </p>
+    <button type="button" class="btn btn-quiet" [disabled]="action.busy()" (click)="load()">
+      <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+      {{ action.busy() ? 'Refreshing…' : 'Refresh' }}
+    </button>
+  </div>
+  @if (current.items.length) {
+    <section class="panel table-panel">
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
+          <caption class="visually-hidden">
+            Flights the service checks
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Flight</th>
+              <th scope="col">State</th>
+              <th scope="col">Watched by</th>
+              <th scope="col">Latest total</th>
+              <th scope="col">Checked</th>
+              <th scope="col">Next check</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (flight of current.items; track flight.id) {
+              <tr [class.row-dim]="flight.state === 'idle'">
+                <td class="cell-wide">
+                  @if (safeFlightUrl(flight.target.url); as url) {
+                    <a class="cell-link" [href]="url" target="_blank" rel="noreferrer"
+                      >{{ routeOf(flight.target)
+                      }}<span class="visually-hidden"> on Google Flights (opens a new tab)</span></a
+                    >
+                  } @else {
+                    <span class="cell-main">{{ routeOf(flight.target) }}</span>
+                  }
+                  <span class="table-subtext"
+                    >{{ format.tripDate(flight.target.segments[0].date) }} ·
+                    {{ tripShape(flight.target) }}
+                    @if (flightNumbers(flight.target.segments)) {
+                      · {{ flightNumbers(flight.target.segments) }}
+                    }
+                  </span>
+                </td>
+                <td data-label="State">
+                  <span [class]="'status status-' + stateTone[flight.state]">{{
+                    stateLabels[flight.state]
+                  }}</span>
+                  @if (flight.failures) {
+                    <span class="table-subtext"
+                      >{{ flight.failures }} failed {{ flight.failures === 1 ? 'check' : 'checks' }}
+                      @if (flight.last_error) {
+                        · {{ flight.last_error }}
+                      }
+                    </span>
+                  }
+                </td>
+                <td data-label="Watched by" class="cell-wide-phone">
+                  <ul class="watchers">
+                    @for (watcher of flight.watchers; track watcher.monitor_id) {
+                      <li>
+                        <a
+                          class="cell-link"
+                          [href]="'/app#admin?tab=users&user=' + watcher.account_id"
+                          (click)="open($event, watcher.account_id)"
+                          >{{ watcher.email ?? watcher.account_id }}</a
+                        >
+                        @if (watcher.status === 'paused') {
+                          <span class="table-subtext">Paused</span>
+                        }
+                      </li>
+                    } @empty {
+                      <li class="table-subtext">No one</li>
+                    }
+                  </ul>
+                  @if (flight.watcher_count > flight.watchers.length) {
+                    <span class="table-subtext"
+                      >and {{ flight.watcher_count - flight.watchers.length }} more</span
+                    >
+                  }
+                </td>
+                <td data-label="Latest total">{{ price(flight) }}</td>
+                <td data-label="Checked">
+                  {{ flight.latest ? format.ago(flight.latest.observed_at) : 'Not yet' }}
+                </td>
+                <td data-label="Next check">
+                  {{ flight.next_check_at ? format.timestamp(flight.next_check_at) : '–' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else {
+    <section class="panel empty-state">
+      <i class="bi bi-airplane" aria-hidden="true"></i>
+      <h2>No flights are being checked</h2>
+      <p>When someone watches a flight, it appears here with everyone who watches it.</p>
+    </section>
+  }
+} @else if (action.busy()) {
+  <div class="flights-loading" aria-hidden="true"><span></span></div>
+  <p class="visually-hidden" role="status">Loading flights…</p>
+}

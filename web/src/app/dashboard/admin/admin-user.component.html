@@ -1,0 +1,487 @@
+<a class="back-link" href="/app#admin?tab=users" (click)="$event.preventDefault(); back.emit()"
+  ><i class="bi bi-arrow-left" aria-hidden="true"></i>All accounts</a
+>
+
+@if (loading.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ loading.error() }}
+    <button type="button" class="btn btn-link" (click)="load()">Retry</button>
+  </div>
+}
+@if (note()) {
+  <p class="admin-note" role="status">
+    <i class="bi bi-check2-circle" aria-hidden="true"></i>{{ note() }}
+  </p>
+}
+
+@if (data(); as user) {
+  <section class="panel person" aria-labelledby="person-title">
+    <div class="person-head">
+      <div>
+        <h2 id="person-title">{{ user.account.email ?? 'Deleted account' }}</h2>
+        <p class="person-id">{{ user.account.id }}</p>
+      </div>
+      <div class="person-stickers">
+        <span [class]="'status status-' + statusTone[user.account.status]">{{
+          statusLabels[user.account.status]
+        }}</span>
+        @if (user.account.admin) {
+          <span class="status status-active">Admin</span>
+        }
+        @if (user.account.must_change_password) {
+          <span class="status status-pending">Temporary password</span>
+        }
+      </div>
+    </div>
+    @if (user.account.status === 'suspended') {
+      <p class="person-warning">
+        <i class="bi bi-slash-circle" aria-hidden="true"></i>
+        Suspended {{ user.account.suspended_at ? format.timestamp(user.account.suspended_at) : '' }}
+        @if (user.account.suspended_reason) {
+          for “{{ user.account.suspended_reason }}”.
+        }
+      </p>
+    }
+    <dl class="person-facts">
+      <div>
+        <dt>Joined</dt>
+        <dd
+          [attr.title]="user.account.created_at ? format.timestamp(user.account.created_at) : null"
+        >
+          {{ user.account.created_at ? format.day(user.account.created_at) : '–' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Last sign-in</dt>
+        <dd>
+          {{ user.account.last_sign_in_at ? format.ago(user.account.last_sign_in_at) : 'Never' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Signed-in browsers</dt>
+        <dd>{{ user.account.sessions }}</dd>
+      </div>
+      <div>
+        <dt>Email</dt>
+        <dd>
+          @if (!user.account.email) {
+            None
+          } @else if (user.account.email_verified) {
+            Confirmed
+          } @else {
+            Not confirmed
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Two-step sign-in</dt>
+        <dd>{{ user.account.two_factor ? 'On' : 'Off' }}</dd>
+      </div>
+      <div>
+        <dt>Passkeys</dt>
+        <dd>{{ user.account.passkeys }}</dd>
+      </div>
+      <div>
+        <dt>Telegram</dt>
+        <dd>{{ user.account.telegram ? 'Connected' : 'Not connected' }}</dd>
+      </div>
+      <div>
+        <dt>Alerts</dt>
+        <dd>{{ user.account.alerts_muted ? 'Muted' : 'On' }}</dd>
+      </div>
+      @if (user.account.temporary_password_expires_at; as until) {
+        <div>
+          <dt>Temporary password</dt>
+          <dd>Until {{ format.timestamp(until) }}</dd>
+        </div>
+      }
+    </dl>
+  </section>
+
+  <section class="panel table-panel" aria-labelledby="person-flights">
+    <div class="section-heading panel-inset">
+      <h2 id="person-flights">Flights</h2>
+      <span class="count">{{ user.flights.length }}</span>
+    </div>
+    @if (flightAction.error()) {
+      <div class="alert alert-danger panel-inset" role="alert">{{ flightAction.error() }}</div>
+    }
+    @if (user.flights.length) {
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
+          <caption class="visually-hidden">
+            This account's flights
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Flight</th>
+              <th scope="col">State</th>
+              <th scope="col">Latest total</th>
+              <th scope="col">Checked</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (flight of user.flights; track flight.id) {
+              <tr [class.row-dim]="flight.status === 'cancelled' || flight.status === 'expired'">
+                <td class="cell-wide">
+                  <span class="cell-main">{{ routeOf(flight.target) }}</span>
+                  <span class="table-subtext"
+                    >{{ format.tripDate(flight.target.segments[0].date) }} ·
+                    {{ tripShape(flight.target) }}</span
+                  >
+                </td>
+                <td data-label="State">
+                  <span [class]="'status status-' + flight.status">{{
+                    statusLabel(flight.status)
+                  }}</span>
+                </td>
+                <td data-label="Latest total">{{ price(flight) }}</td>
+                <td data-label="Checked">
+                  {{ flight.latest ? format.ago(flight.latest.observed_at) : 'Not yet' }}
+                </td>
+                <td class="cell-actions">
+                  @if (canPause(flight)) {
+                    <button
+                      type="button"
+                      class="btn btn-quiet btn-sm"
+                      [disabled]="flightAction.busy()"
+                      (click)="setFlight(flight, 'paused')"
+                    >
+                      Pause<span class="visually-hidden"> {{ routeOf(flight.target) }}</span>
+                    </button>
+                  } @else if (flight.status === 'paused') {
+                    <button
+                      type="button"
+                      class="btn btn-quiet btn-sm"
+                      [disabled]="flightAction.busy()"
+                      (click)="setFlight(flight, 'active')"
+                    >
+                      Resume<span class="visually-hidden"> {{ routeOf(flight.target) }}</span>
+                    </button>
+                  }
+                  @if (canStop(flight)) {
+                    <button
+                      type="button"
+                      class="btn btn-quiet-danger btn-sm"
+                      [disabled]="flightAction.busy()"
+                      (click)="askStop(flight)"
+                    >
+                      Stop<span class="visually-hidden"> {{ routeOf(flight.target) }}</span>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="panel-inset quiet">No flights.</p>
+    }
+  </section>
+
+  <div class="person-grid">
+    <section class="panel" aria-labelledby="person-access">
+      <h2 id="person-access">Access</h2>
+      <ul class="access-list">
+        <li>
+          <span class="access-kind">API keys</span>
+          @for (key of user.api_keys; track $index) {
+            <span
+              >{{ key.name }}
+              <span class="access-meta"
+                >· expires {{ format.day(key.expires_at)
+                }}{{ key.revoked ? ' · revoked' : '' }}</span
+              ></span
+            >
+          } @empty {
+            <span class="access-meta">None</span>
+          }
+        </li>
+        <li>
+          <span class="access-kind">Passkeys</span>
+          @for (passkey of user.passkeys; track $index) {
+            <span
+              >{{ passkey.name }}
+              <span class="access-meta"
+                >·
+                {{
+                  passkey.last_used_at ? 'used ' + format.ago(passkey.last_used_at) : 'not used yet'
+                }}</span
+              ></span
+            >
+          } @empty {
+            <span class="access-meta">None</span>
+          }
+        </li>
+        <li>
+          <span class="access-kind">Connected applications</span>
+          @for (app of user.applications; track $index) {
+            <span
+              >{{ app.client_name }}
+              <span class="access-meta"
+                >· since {{ format.day(app.created_at) }}{{ app.revoked ? ' · revoked' : '' }}</span
+              ></span
+            >
+          } @empty {
+            <span class="access-meta">None</span>
+          }
+        </li>
+        <li>
+          <span class="access-kind">Webhooks</span>
+          @for (hook of user.webhooks; track $index) {
+            <span
+              >{{ hook.host }} <span class="access-meta">· {{ hookLabel(hook.status) }}</span></span
+            >
+          } @empty {
+            <span class="access-meta">None</span>
+          }
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="person-alerts">
+      <h2 id="person-alerts">Recent alerts</h2>
+      @if (user.alerts.length) {
+        <ul class="alert-list">
+          @for (alert of user.alerts; track alert.id) {
+            <li>
+              <span class="cell-main"
+                >{{ routes().get(alert.monitor_id) ?? 'Flight' }} ·
+                {{ reasonLabel(alert.reason) }}</span
+              >
+              <span class="access-meta"
+                >{{ money(alert.amount_minor, alert.currency) }} ·
+                {{ statusLabel(alert.status) }}
+                @if (alert.observed_at) {
+                  · {{ format.ago(alert.observed_at) }}
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="quiet">No alerts yet.</p>
+      }
+    </section>
+  </div>
+
+  @if (actionable()) {
+    <section class="panel actions-panel" aria-labelledby="person-actions">
+      <h2 id="person-actions">Account actions</h2>
+      <p class="quiet">Each one is recorded in the activity log with your name and reason.</p>
+      <ul class="action-rows">
+        <li>
+          <div>
+            <h3>Sign out everywhere</h3>
+            <p>Ends every session, API key, application and the Telegram link.</p>
+          </div>
+          <button type="button" class="btn btn-outline-primary" (click)="ask('sign-out')">
+            Sign out
+          </button>
+        </li>
+        @if (user.account.two_factor) {
+          <li>
+            <div>
+              <h3>Turn off two-step sign-in</h3>
+              <p>For someone locked out without their authenticator or backup codes.</p>
+            </div>
+            <button type="button" class="btn btn-outline-primary" (click)="ask('reset-two-factor')">
+              Turn off
+            </button>
+          </li>
+        }
+        @if (user.account.status === 'active') {
+          <li>
+            <div>
+              <h3>Issue a temporary password</h3>
+              <p>For someone who cannot reset their own: no confirmed email, or no access to it.</p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              (click)="ask('temporary-password')"
+            >
+              Issue
+            </button>
+          </li>
+          <li>
+            <div>
+              <h3>Suspend</h3>
+              <p>Stops sign-in and alerts and keeps the flights, until you reactivate it.</p>
+            </div>
+            <button type="button" class="btn btn-outline-danger" (click)="ask('suspend')">
+              Suspend
+            </button>
+          </li>
+        } @else {
+          <li>
+            <div>
+              <h3>Reactivate</h3>
+              <p>Lets the person sign in again and resumes their alerts.</p>
+            </div>
+            <button type="button" class="btn btn-outline-primary" (click)="ask('reactivate')">
+              Reactivate
+            </button>
+          </li>
+        }
+        <li>
+          <div>
+            <h3>Delete account</h3>
+            <p>Ends sign-in, flights and every connection for good.</p>
+          </div>
+          <button type="button" class="btn btn-outline-danger" (click)="ask('delete')">
+            Delete
+          </button>
+        </li>
+      </ul>
+    </section>
+  } @else if (user.account.status !== 'deleted') {
+    <p class="quiet panel-note">
+      @if (own()) {
+        This is your account. Change it from your security settings.
+      } @else {
+        Admins are managed from the command line, not from the panel.
+      }
+    </p>
+  }
+
+  <section class="panel" aria-labelledby="person-activity">
+    <h2 id="person-activity">Admin activity on this account</h2>
+    @if (user.audit.length) {
+      <ol class="audit-list">
+        @for (entry of user.audit; track $index) {
+          <li>
+            <span class="cell-main">{{ actionLabels[entry.action] ?? entry.action }}</span>
+            <span class="access-meta"
+              >{{ entry.admin }} · {{ format.timestamp(entry.at) }}
+              @if (auditDetail(entry)) {
+                · {{ auditDetail(entry) }}
+              }
+            </span>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="quiet">No admin has changed this account.</p>
+    }
+  </section>
+
+  @if (asking(); as action) {
+    <ff-dialog [title]="consequences[action].title" (closed)="asking.set(null)">
+      <p>{{ consequences[action].body }}</p>
+      @if (accountAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ accountAction.error() }}</div>
+      }
+      <form class="form-stack" novalidate (submit)="confirm($event)">
+        <div>
+          <label class="form-label" for="admin-reason"
+            >Reason{{ needsReason(action) ? '' : ' (optional)' }}</label
+          >
+          <textarea
+            id="admin-reason"
+            class="form-control"
+            rows="2"
+            maxlength="500"
+            [value]="reason()"
+            (input)="reason.set($any($event.target).value)"
+            aria-describedby="admin-reason-help"
+          ></textarea>
+          <p class="form-text" id="admin-reason-help">
+            Kept in the activity log, not shown to them.
+          </p>
+        </div>
+        @if (action === 'delete') {
+          <div>
+            <label class="form-label" for="admin-confirm"
+              >Type <strong>{{ user.account.email ?? user.account.id }}</strong> to confirm</label
+            >
+            <input
+              id="admin-confirm"
+              class="form-control"
+              autocomplete="off"
+              spellcheck="false"
+              [value]="confirmText()"
+              (input)="confirmText.set($any($event.target).value)"
+            />
+          </div>
+        }
+        <div class="d-flex justify-content-end flex-wrap gap-2">
+          <button type="button" class="btn btn-outline-primary" (click)="asking.set(null)">
+            Cancel</button
+          ><button
+            type="submit"
+            [class]="
+              action === 'delete' || action === 'suspend' ? 'btn btn-danger' : 'btn btn-primary'
+            "
+            [disabled]="
+              accountAction.busy() ||
+              (needsReason(action) && !reason().trim()) ||
+              (action === 'delete' && !confirmText().trim())
+            "
+          >
+            {{ accountAction.busy() ? 'Working…' : consequences[action].button }}
+          </button>
+        </div>
+      </form>
+    </ff-dialog>
+  }
+
+  @if (stopping(); as flight) {
+    <ff-dialog title="Stop this flight?" (closed)="stopping.set(null)">
+      <p>
+        <strong>{{ routeOf(flight.target) }}</strong> stops being checked for this person and frees
+        its slot. They can add it again later.
+      </p>
+      @if (flightAction.error()) {
+        <div class="alert alert-danger" role="alert">{{ flightAction.error() }}</div>
+      }
+      <form class="form-stack" novalidate (submit)="stop($event)">
+        <div>
+          <label class="form-label" for="admin-stop-reason">Reason (optional)</label>
+          <input
+            id="admin-stop-reason"
+            class="form-control"
+            maxlength="500"
+            [value]="reason()"
+            (input)="reason.set($any($event.target).value)"
+          />
+        </div>
+        <div class="d-flex justify-content-end flex-wrap gap-2">
+          <button type="button" class="btn btn-outline-primary" (click)="stopping.set(null)">
+            Keep it</button
+          ><button type="submit" class="btn btn-danger" [disabled]="flightAction.busy()">
+            {{ flightAction.busy() ? 'Stopping…' : 'Stop flight' }}
+          </button>
+        </div>
+      </form>
+    </ff-dialog>
+  }
+
+  @if (issued(); as password) {
+    <ff-dialog title="Temporary password" (closed)="closeIssued()">
+      <p>
+        Give this to the person over a channel you trust. It works until
+        {{ format.timestamp(password.expires_at) }}, and only to choose a new password.
+      </p>
+      <div class="issued">
+        <code>{{ password.temporary_password }}</code>
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          (click)="copy(password.temporary_password)"
+        >
+          {{ copied() ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+      <p class="quiet">It is not stored anywhere you can see it again.</p>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-primary" (click)="closeIssued()">Done</button>
+      </div>
+    </ff-dialog>
+  }
+} @else if (loading.busy()) {
+  <div class="person-loading" aria-hidden="true"><span></span><span></span></div>
+  <p class="visually-hidden" role="status">Loading the account…</p>
+}

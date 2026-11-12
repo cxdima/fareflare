@@ -1,0 +1,42 @@
+:host {
+  display: block;
+}
+.flights-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+.flights-bar p {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ff-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.flights-bar strong {
+  color: var(--ff-ink);
+}
+.watchers {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.watchers .cell-link {
+  font-weight: 600;
+}
+.flights-loading span {
+  display: block;
+  min-height: 18rem;
+  border-radius: var(--ff-radius-block);
+  background: var(--ff-card);
+}
+@media (max-width: 575px) {
+  .cell-wide-phone {
+    grid-column: 1 / -1;
+  }
+}

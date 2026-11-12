@@ -18,6 +18,7 @@ import secrets
 import time
 import uuid
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 from fareflare import mailer as mail
 from fareflare import passwords, totp
@@ -109,20 +110,29 @@ def _password(value: str) -> bytes:
     return value.encode()
 
 
+def _temporary(value: str) -> bytes:
+    if not isinstance(value, str) or not 1 <= len(value) <= MAX_PASSWORD_LENGTH:
+        raise ValueError("Use a temporary password of 1–128 characters")
+    if len(value.encode()) > 1024:
+        raise ValueError("Use a temporary password of 1–128 characters")
+    return value.encode()
+
+
 def _derive(password: bytes, salt: bytes) -> bytes:
     return hashlib.scrypt(
         password, salt=salt, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P, maxmem=_SCRYPT_MAXMEM, dklen=32
     )
 
 
-def hash_password(value: str) -> str:
+def hash_password(value: str, *, temporary: bool = False) -> str:
     salt = secrets.token_bytes(16)
-    return "scrypt$131072$8$1$" + salt.hex() + "$" + _derive(_password(value), salt).hex()
+    plain = _temporary(value) if temporary else _password(value)
+    return "scrypt$131072$8$1$" + salt.hex() + "$" + _derive(plain, salt).hex()
 
 
-def verify_password(value: str, stored: str | None) -> bool:
+def verify_password(value: str, stored: str | None, *, temporary: bool = False) -> bool:
     """Unknown accounts perform the same expensive derivation as valid accounts."""
-    password = _password(value)
+    password = _temporary(value) if temporary else _password(value)
     valid = False
     salt, expected = _DUMMY_SALT, bytes(32)
     if isinstance(stored, str):
@@ -212,6 +222,8 @@ class Accounts:
             "created_at": data["created_at"],
             "email": data.get("email"),
             "email_verified": bool(data.get("email_verified")),
+            "admin": data.get("role") == "admin",
+            "must_change_password": bool(data.get("must_change_password")),
         }
 
     def _account(self, tenant: str) -> Document:
@@ -258,7 +270,9 @@ class Accounts:
         if self.breached is not None and self.breached(password):
             raise ValueError(passwords.BREACHED)
 
-    def _session(self, account: Document) -> tuple[dict, list[Document]]:
+    def _session(self, account: Document, strong: bool = False) -> tuple[dict, list[Document]]:
+        """A new browser session. ``strong`` records that it began with a passkey or a
+        second step, which the admin panel requires."""
         token, expires = secrets.token_urlsafe(32), self._now() + _SESSION_LIFETIME
         identifier = _digest(token)
         session = Document(
@@ -269,6 +283,8 @@ class Accounts:
                 "auth_epoch": account.data["auth_epoch"],
                 "expires_at": expires,
                 "revoked": False,
+                "strong": strong,
+                "created_at": self._now(),
             },
             expires_at=expires,
         )
@@ -284,30 +300,75 @@ class Accounts:
             "expires_at": expires,
         }, [account.update(data), session]
 
-    def _signed_in(self, account: Document, extra: list[Document] | None = None) -> dict:
-        response, writes = self._session(account)
+    def _signed_in(
+        self, account: Document, extra: list[Document] | None = None, *, strong: bool = False
+    ) -> dict:
+        response, writes = self._session(account, strong)
         try:
             self.store.commit([*writes, *(extra or [])])
         except Conflict:
             raise AuthenticationFailed("Account changed; sign in again") from None
         return response
 
-    def _by_name(self, name: str) -> Document | None:
-        """The account a sign-in name belongs to: a username first, then an email."""
+    def _named(self, name: str) -> Document | None:
+        """The account a sign-in name belongs to, in any state: a username first, then
+        an email."""
         index = self.store.get("username:" + _digest(name))
         if not index and _EMAIL.fullmatch(name):
             index = self.store.get("email:" + _digest(name))
             if index and index.data.get("released"):
                 index = None
-        account = self.store.get("account:" + index.data["account_id"]) if index else None
+        return self.store.get("account:" + index.data["account_id"]) if index else None
+
+    def _by_name(self, name: str) -> Document | None:
+        account = self._named(name)
         return account if account and account.data["status"] == "active" else None
+
+    def _password_matches(self, account: Document | None, password: str) -> bool:
+        """The account's password, or an unexpired temporary one, matches."""
+        temporary = (account.data.get("temporary_password") or {}) if account else {}
+        if temporary.get("expires_at", 0) > self._now():
+            with contextlib.suppress(ValueError):
+                if verify_password(password, temporary.get("hash"), temporary=True):
+                    return True
+        try:
+            matches = verify_password(
+                password, account.data.get("password_hash") if account else None
+            )
+        except ValueError:  # The wrong length to be anyone's password.
+            return False
+        return matches and account is not None
+
+    def _reserved(self, email: str) -> None:
+        """Addresses at the service's own domain are not for public sign-up: nobody can
+        claim admin@ or support@ before the operator does."""
+        host = (urlsplit(self.config.public_url).hostname or "").lower()
+        domain = email.rpartition("@")[2]
+        if (
+            host
+            and host not in ("localhost", "127.0.0.1")
+            and (domain == host or domain.endswith("." + host))
+        ):
+            raise ValueError(f"Addresses at {host} are reserved. Use your own email address.")
+
+    def switches(self) -> dict:
+        """Service-wide switches an admin can flip during an incident."""
+        document = self.store.get("configuration:admin")
+        data = document.data if document else {}
+        return {
+            "registration_paused": bool(data.get("registration_paused")),
+            "collection_paused": bool(data.get("collection_paused")),
+        }
 
     # Sign-up and sign-in.
 
     def register(self, email: str, password: str) -> dict:
         if self.config.registration_mode == "closed":
             raise ValueError("Sign-up is closed on this server")
+        if self.switches()["registration_paused"]:
+            raise ValueError("New sign-ups are paused for now. Please try again later.")
         email = _email(email)
+        self._reserved(email)
         _password(password)
         self._login_limit.consume("register-" + _digest(email))
         if self.store.get("username:" + _digest(email)) or self.store.get(
@@ -354,15 +415,26 @@ class Accounts:
         """A session, or, for an account with two-step sign-in, a short-lived
         ``two_factor_token`` to exchange with a code."""
         name = _username(username)
-        _password(password)
+        if not isinstance(password, str) or not 1 <= len(password) <= MAX_PASSWORD_LENGTH:
+            raise AuthenticationFailed("Incorrect email or password")
         self._login_limit.consume("login-" + _digest(name))
         failures = "login-failures-" + _digest(name)
         self._password_failures.check(failures)
         account = self._by_name(name)
-        stored = account.data.get("password_hash") if account else None
-        if not verify_password(password, stored) or account is None:
+        if not self._password_matches(account, password):
             self._password_failures.spend(failures)
+            named = None if account else self._named(name)
+            if (
+                named
+                and named.data.get("status") == "suspended"
+                and self._password_matches(named, password)
+            ):
+                raise AuthenticationFailed(
+                    "This account is suspended. Contact the operator if you think this is a "
+                    "mistake."
+                )
             raise AuthenticationFailed("Incorrect email or password")
+        assert account is not None
         if (account.data.get("totp") or {}).get("enabled"):
             token = secrets.token_urlsafe(32)
             expires = self._now() + _TWO_FACTOR_SECONDS
@@ -414,7 +486,9 @@ class Accounts:
                     ]
                 )
             raise AuthenticationFailed("That code is not correct") from None
-        return self._signed_in(account, [challenge.update({**challenge.data, "used": True})])
+        return self._signed_in(
+            account, [challenge.update({**challenge.data, "used": True})], strong=True
+        )
 
     def authenticate_session(self, token: str) -> dict | None:
         if not isinstance(token, str) or not _TOKEN.fullmatch(token):
@@ -435,7 +509,19 @@ class Accounts:
             "account": self._public(account),
             "csrf_token": _csrf(token),
             "expires_at": session.data["expires_at"],
+            "strong": bool(session.data.get("strong")),
+            "signed_in_at": session.data.get("created_at", 0),
         }
+
+    def _strengthen(self, token: object) -> None:
+        """Mark this browser's session as having proved a second factor: its owner has
+        just set one up with it, so asking them to sign in again would prove nothing."""
+        if not isinstance(token, str) or not _TOKEN.fullmatch(token):
+            return
+        session = self.store.get("session:" + _digest(token))
+        if session and not session.data["revoked"] and not session.data.get("strong"):
+            with contextlib.suppress(Conflict):
+                self.store.commit([session.update({**session.data, "strong": True})])
 
     def logout(self, token: str) -> None:
         if not isinstance(token, str) or not _TOKEN.fullmatch(token):
@@ -459,7 +545,7 @@ class Accounts:
 
     def passkey_login(self, challenge_id: object, credential: object) -> dict:
         account, used = self.passkeys.authenticate(challenge_id, credential, self._active)
-        return self._signed_in(account, [used])
+        return self._signed_in(account, [used], strong=True)
 
     def passkey_registration_options(self, tenant: str, password: str) -> dict:
         """A passkey signs in without the password or a code, so adding one asks for the
@@ -479,13 +565,21 @@ class Accounts:
                 continue
         raise Conflict("Your account changed in another window; try again")
 
-    def add_passkey(self, tenant: str, challenge_id: object, credential: object, name: object):
+    def add_passkey(
+        self,
+        tenant: str,
+        challenge_id: object,
+        credential: object,
+        name: object,
+        session_token: str | None = None,
+    ):
         account = self._account(tenant)
         passkey, updated = self.passkeys.register(account, challenge_id, credential, name)
         try:
             self.store.commit([passkey, updated])
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
+        self._strengthen(session_token)
         public = self.passkeys._public(passkey)
         self._notify(
             account,
@@ -530,6 +624,16 @@ class Accounts:
             return True
         log.warning("Account email budget reached; %s email not sent", kind)
         return False
+
+    def email_usage(self) -> dict:
+        """How much of each service-wide email budget is spent this hour and today."""
+        return {
+            kind: {
+                window: {"used": budget.used("email-" + kind), "limit": budget.per_minute}
+                for window, budget in zip(("hour", "day"), self._email_budgets, strict=True)
+            }
+            for kind in ("confirm", "reset", "notice")
+        }
 
     def _notify(self, account: Document, heading: str, lines: list[str], to: str | None = None):
         """Tell the account's confirmed address that something about it changed, so a
@@ -614,6 +718,7 @@ class Accounts:
 
     def change_email(self, tenant: str, password: str, email: str) -> dict:
         email = _email(email)
+        self._reserved(email)
         account = self._account(tenant)
         self._confirm_password(account, password, "email")
         # Each change mails the new address, so changes per account are budgeted too.
@@ -728,14 +833,19 @@ class Accounts:
         document, account = self._reset(token)
         self._code_limit.consume("reset-code-" + account.data["id"])
         self._new_password(new_password, account.data.get("email"), account.data["username"])
-        if (account.data.get("totp") or {}).get("enabled"):
+        two_step = bool((account.data.get("totp") or {}).get("enabled"))
+        if two_step:
             if not code:
                 raise IncorrectPassword("Enter a code from your authenticator app")
             account = self._second_factor(account, code)
-        updated = account.update(
-            {**account.data, "password_hash": hash_password(new_password), "session_ids": []}
+        data = {**account.data, "password_hash": hash_password(new_password), "session_ids": []}
+        data.pop("temporary_password", None)
+        data.pop("must_change_password", None)
+        return self._signed_in(
+            account.update(data),
+            [document.update({**document.data, "used": True})],
+            strong=two_step,
         )
-        return self._signed_in(updated, [document.update({**document.data, "used": True})])
 
     def issue_api_key(self, tenant: str, name: str, lifetime_seconds: int = 90 * 86400) -> dict:
         if (
@@ -843,11 +953,7 @@ class Accounts:
     def _confirm_password(self, account: Document, password: str, purpose: str) -> None:
         """Check the signed-in person's password before a sensitive account change."""
         self._login_limit.consume(purpose + "-" + _digest(account.data["id"]))
-        try:
-            confirmed = verify_password(password, account.data.get("password_hash"))
-        except ValueError:
-            confirmed = False  # Too short or too long to be this account's password.
-        if not confirmed:
+        if not self._password_matches(account, password):
             raise IncorrectPassword("That password is not correct")
 
     def change_password(
@@ -863,18 +969,12 @@ class Accounts:
         self._new_password(new_password, account.data.get("email"), account.data["username"])
         current = _digest(session_token) if isinstance(session_token, str) else ""
         kept = [current] if current in account.data.get("session_ids", []) else []
+        data = {**account.data, "password_hash": hash_password(new_password), "session_ids": kept}
+        # A temporary password from the command line or an admin is spent once replaced.
+        data.pop("temporary_password", None)
+        data.pop("must_change_password", None)
         try:
-            self.store.commit(
-                [
-                    account.update(
-                        {
-                            **account.data,
-                            "password_hash": hash_password(new_password),
-                            "session_ids": kept,
-                        }
-                    )
-                ]
-            )
+            self.store.commit([account.update(data)])
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
         self._notify(
@@ -892,15 +992,13 @@ class Accounts:
         then sign this browser back in. For a lost device or a leaked key."""
         account = self._account(tenant)
         self._confirm_password(account, password, "sign-out-everywhere")
-        updated = account.update(
-            {
-                **account.data,
-                "auth_epoch": account.data["auth_epoch"] + 1,
-                "session_ids": [],
-                "key_ids": [],
-            }
-        )
-        return self._signed_in(updated)
+        return self._signed_in(account.update(self._revoked(account.data)))
+
+    @staticmethod
+    def _revoked(data: dict) -> dict:
+        """Account data with every session, API key, connected application and Telegram
+        link revoked: all of them are bound to the authentication epoch."""
+        return {**data, "auth_epoch": data["auth_epoch"] + 1, "session_ids": [], "key_ids": []}
 
     # Two-step sign-in with an authenticator app.
 
@@ -979,7 +1077,7 @@ class Accounts:
             "issuer": self.config.product_name,
         }
 
-    def enable_two_factor(self, tenant: str, code: str) -> dict:
+    def enable_two_factor(self, tenant: str, code: str, session_token: str | None = None) -> dict:
         account = self._account(tenant)
         self._code_limit.consume("two-factor-setup-" + tenant)
         pending = account.data.get("totp_pending") or {}
@@ -1004,6 +1102,7 @@ class Accounts:
             self.store.commit([account.update(data)])
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
+        self._strengthen(session_token)
         return {"backup_codes": codes}
 
     def disable_two_factor(self, tenant: str, password: str, code: str) -> None:
@@ -1043,6 +1142,10 @@ class Accounts:
     def delete_account(self, tenant: str, password: str) -> dict:
         account = self._account(tenant)
         self._confirm_password(account, password, "delete")
+        return self._delete(account)
+
+    def _delete(self, account: Document) -> dict:
+        tenant = account.data["id"]
         customer = self.store.get("tenant:" + tenant)
         assert customer is not None
         # The primary fence makes sessions, grants, keys and future collection stop
@@ -1179,3 +1282,218 @@ class Accounts:
                     break
                 except Conflict:
                     continue
+
+    # Administration. The admin panel calls these after its own checks and records
+    # each one; making or unmaking an admin is only possible from the command line.
+
+    def account_document(self, tenant: object) -> Document | None:
+        """An account in any state, for the admin panel."""
+        if not isinstance(tenant, str) or not _ACCOUNT.fullmatch(tenant):
+            return None
+        return self.store.get("account:" + tenant)
+
+    def _change(
+        self,
+        tenant: str,
+        change: Callable[[dict], dict],
+        statuses: tuple[str, ...] = ("active", "suspended"),
+    ) -> Document:
+        for _ in range(5):
+            account = self.account_document(tenant)
+            if not account or account.data.get("status") not in statuses:
+                raise ValueError("Account not found")
+            updated = account.update(change(account.data))
+            try:
+                self.store.commit([updated])
+                return updated
+            except Conflict:
+                continue
+        raise Conflict("The account changed while it was being updated; try again")
+
+    def revoke_access(self, tenant: str) -> None:
+        """Sign an account out of every browser, API key, application and Telegram."""
+        self._change(tenant, self._revoked)
+
+    def suspend(self, tenant: str, reason: str) -> None:
+        """Stop an account from signing in or being alerted, and revoke its access.
+        Its flights stay, so reactivating it restores them."""
+        now = self._now()
+        self._change(
+            tenant,
+            lambda data: {
+                **self._revoked(data),
+                "status": "suspended",
+                "suspended_at": now,
+                "suspended_reason": reason,
+            },
+            statuses=("active",),
+        )
+
+    def reactivate(self, tenant: str) -> None:
+        def change(data: dict) -> dict:
+            data = {**data, "status": "active"}
+            data.pop("suspended_at", None)
+            data.pop("suspended_reason", None)
+            return data
+
+        self._change(tenant, change, statuses=("suspended",))
+
+    def reset_two_factor(self, tenant: str) -> None:
+        """Turn off two-step sign-in for someone who lost their authenticator and codes."""
+
+        def change(data: dict) -> dict:
+            if not (data.get("totp") or {}).get("enabled"):
+                raise ValueError("Two-step sign-in is already off for this account")
+            data = {**data}
+            data.pop("totp", None)
+            data.pop("totp_pending", None)
+            return data
+
+        updated = self._change(tenant, change)
+        self._notify(
+            updated,
+            "Two-step sign-in was turned off",
+            [
+                f"An administrator turned off two-step sign-in for your "
+                f"{self.config.product_name} account.",
+                "If you did not ask for this, change your password and turn it back on.",
+            ],
+        )
+
+    def set_temporary_password(
+        self, tenant: str, password: str | None = None, seconds: int = 86400
+    ) -> dict:
+        """Replace the password with a temporary one that must be changed at the next
+        sign-in. Every browser is signed out; the old password stops working."""
+        password = password or secrets.token_urlsafe(9)
+        hashed = hash_password(password, temporary=True)
+        expires = self._now() + seconds
+        updated = self._change(
+            tenant,
+            lambda data: {
+                **data,
+                "password_hash": None,
+                "session_ids": [],
+                "must_change_password": True,
+                "temporary_password": {"hash": hashed, "expires_at": expires},
+            },
+            statuses=("active",),
+        )
+        self._notify(
+            updated,
+            "A temporary password was set",
+            [
+                f"An administrator set a temporary password for your "
+                f"{self.config.product_name} account, and you will choose a new one when "
+                "you sign in.",
+                "If you did not ask for this, reply to the operator who helped you.",
+            ],
+        )
+        return {"temporary_password": password, "expires_at": expires}
+
+    def remove_account(self, tenant: str) -> dict:
+        """Delete an account without its password, for the admin panel."""
+        account = self.account_document(tenant)
+        if not account or account.data.get("status") not in ("active", "suspended"):
+            raise ValueError("Account not found")
+        return self._delete(account)
+
+    def admins(self) -> list[dict]:
+        return [
+            {**self._public(document), "status": document.data.get("status")}
+            for document in self.store.query("accounts")
+            if document.data.get("role") == "admin"
+        ]
+
+    def set_admin(self, name: str, admin: bool) -> dict:
+        """Grant or remove the admin role. Only the command line calls this."""
+        account = self._named(_username(name))
+        if not account or account.data.get("status") != "active":
+            raise ValueError("No active account uses that name")
+
+        def change(data: dict) -> dict:
+            data = {**data}
+            if admin:
+                data["role"] = "admin"
+            else:
+                data.pop("role", None)
+            return data
+
+        return self._public(self._change(account.data["id"], change, statuses=("active",)))
+
+    def create_admin(
+        self, email: str, temporary_password: str, seconds: int = 1800, *, reclaim: bool = False
+    ) -> dict:
+        """An admin account that signs in once with a temporary password and must then
+        choose a real one. An address already in use is only taken over with
+        ``reclaim``, which removes every credential the current holder had."""
+        email = _email(email)
+        hashed = hash_password(temporary_password, temporary=True)
+        now = self._now()
+        expires = now + seconds
+        temporary = {"hash": hashed, "expires_at": expires}
+        existing = self._named(email)
+        if existing:
+            if not reclaim:
+                raise ValueError(
+                    f"An account already uses {email}. Pass --reclaim to take it over: its "
+                    "sessions, API keys, passkeys and two-step sign-in are removed."
+                )
+            for key in existing.data.get("passkey_ids", []):
+                passkey = self.store.get(key)
+                if passkey and not passkey.data.get("removed"):
+                    self.store.commit([passkey.update({**passkey.data, "removed": True})])
+
+            def take_over(data: dict) -> dict:
+                data = {
+                    **self._revoked(data),
+                    "status": "active",
+                    "role": "admin",
+                    "password_hash": None,
+                    "passkey_ids": [],
+                    "must_change_password": True,
+                    "temporary_password": temporary,
+                }
+                for field in ("totp", "totp_pending", "suspended_at", "suspended_reason"):
+                    data.pop(field, None)
+                return data
+
+            account = self._change(existing.data["id"], take_over, statuses=("active", "suspended"))
+            return {"account": self._public(account), "expires_at": expires, "reclaimed": True}
+        tenant = "acct_" + uuid.uuid4().hex
+        account = Document(
+            "account:" + tenant,
+            "accounts",
+            {
+                "id": tenant,
+                "username": email,
+                "email": email,
+                "email_verified": False,
+                "created_at": now,
+                "status": "active",
+                "role": "admin",
+                "password_hash": None,
+                "must_change_password": True,
+                "temporary_password": temporary,
+                "auth_epoch": 1,
+                "key_ids": [],
+                "session_ids": [],
+                "passkey_ids": [],
+            },
+        )
+        self.store.commit(
+            [
+                account,
+                Document("username:" + _digest(email), "usernames", {"account_id": tenant}),
+                Document("email:" + _digest(email), "emails", {"account_id": tenant}),
+                Document("tenant:" + tenant, "tenants", {"monitors": 0, "webhooks": 0}),
+            ]
+        )
+        return {"account": self._public(account), "expires_at": expires, "reclaimed": False}
+
+    def set_temporary_password_by_name(self, name: str, password: str, seconds: int = 1800) -> dict:
+        """The command line's recovery path, for an admin locked out of their account."""
+        account = self._named(_username(name))
+        if not account or account.data.get("status") != "active":
+            raise ValueError("No active account uses that name")
+        return self.set_temporary_password(account.data["id"], password, seconds)

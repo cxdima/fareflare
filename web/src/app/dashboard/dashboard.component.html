@@ -1,4 +1,6 @@
-@if (session.account(); as account) {
+@if (session.account()?.must_change_password) {
+  <ff-password-required (changed)="passwordChanged($event)" />
+} @else if (session.account(); as account) {
   <div class="workspace-layout">
     <a href="#main-content" class="skip-link" (click)="$event.preventDefault(); focusMain()"
       >Skip to main content</a
@@ -13,8 +15,12 @@
           alt=""
         />Fareflare</a
       >
-      <nav class="nav flex-column" aria-label="Main navigation">
-        @for (item of navigation; track item.id) {
+      <nav
+        class="nav flex-column"
+        aria-label="Main navigation"
+        [class.nav-six]="navigation().length > 5"
+      >
+        @for (item of navigation(); track item.id) {
           <a
             class="nav-link"
             [href]="'/app#' + item.id"
@@ -74,18 +80,20 @@
           }}<span class="visually-hidden">. Open the system status page</span></a
         >
         <div class="topbar-actions">
-          <button
-            type="button"
-            class="btn btn-quiet refresh-button"
-            [attr.aria-label]="
-              workspace.refreshing() ? 'Refreshing dashboard' : 'Refresh dashboard'
-            "
-            [disabled]="workspace.refreshing()"
-            (click)="refresh()"
-          >
-            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
-            ><span>{{ workspace.refreshing() ? 'Refreshing…' : 'Refresh' }}</span>
-          </button>
+          @if (view() !== 'admin') {
+            <button
+              type="button"
+              class="btn btn-quiet refresh-button"
+              [attr.aria-label]="
+                workspace.refreshing() ? 'Refreshing dashboard' : 'Refresh dashboard'
+              "
+              [disabled]="workspace.refreshing()"
+              (click)="refresh()"
+            >
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i
+              ><span>{{ workspace.refreshing() ? 'Refreshing…' : 'Refresh' }}</span>
+            </button>
+          }
         </div>
       </header>
       <main class="workspace-main" id="main-content" tabindex="-1" #main>
@@ -110,6 +118,18 @@
             }
             @case ('settings') {
               <ff-settings />
+            }
+            @case ('admin') {
+              @if (account.admin) {
+                <!-- Its own bundle: people who are not admins never download it. -->
+                @defer {
+                  <ff-admin />
+                } @loading {
+                  <p role="status">Opening the admin panel…</p>
+                }
+              } @else {
+                <ff-monitors />
+              }
             }
             @default {
               <ff-monitors />

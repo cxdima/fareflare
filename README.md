@@ -229,6 +229,8 @@ fareflare/
 | **Two-step sign-in** | A 6-digit code from an authenticator app after the password. Setup shows a QR code (1Password can scan it from the screen) and the key to type; the code field is marked `one-time-code` so 1Password fills it. Ten single-use backup codes come with it. |
 | **Password reset** | A link sent through Amazon SES to a confirmed address. It works once, for 30 minutes, stops if the password changes first, asks for a code when two-step sign-in is on, and signs out other browsers. |
 | **Sign out everywhere** | Revokes every session, API key, connected application and Telegram link, and signs this browser back in. |
+| **Weak passwords and guessing** | New passwords must not be common, a run like `12345678`, built from the address, or found in Have I Been Pwned (only five characters of a hash leave the server). Wrong passwords and codes are capped per account, and account email has service-wide budgets. |
+| **Admin panel** | Accounts, flights, checks and switches for the operator, opened only with a second factor and never by an API key. The role is granted only from the command line, and every action is recorded. See [Admin panel](docs/FAREFLARE.md#admin-panel). |
 | **What is stored** | Passwords as scrypt hashes; sessions, API keys, reset links and backup codes as hashes; passkeys as public keys. Sessions are HttpOnly cookies with CSRF tokens, behind a strict content security policy. |
 
 Report vulnerabilities privately through [SECURITY.md](SECURITY.md).

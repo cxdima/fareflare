@@ -1,0 +1,156 @@
+<div class="toolbar">
+  <div class="toolbar-search">
+    <label class="form-label" for="admin-user-search">Find an account</label>
+    <div class="search-field">
+      <i class="bi bi-search" aria-hidden="true"></i
+      ><input
+        id="admin-user-search"
+        type="search"
+        class="form-control"
+        placeholder="Email or account ID"
+        autocomplete="off"
+        spellcheck="false"
+        [value]="query()"
+        (input)="search($any($event.target).value)"
+      />
+    </div>
+  </div>
+  <div>
+    <label class="form-label" for="admin-user-status">Show</label>
+    <select
+      id="admin-user-status"
+      class="form-select"
+      [value]="status()"
+      (change)="filter($any($event.target).value)"
+    >
+      <option value="all">All accounts</option>
+      <option value="active">Active</option>
+      <option value="suspended">Suspended</option>
+      <option value="admins">Admins</option>
+      <option value="deleted">Deleted</option>
+    </select>
+  </div>
+  <div>
+    <label class="form-label" for="admin-user-sort">Order</label>
+    <select
+      id="admin-user-sort"
+      class="form-select"
+      [value]="sort()"
+      (change)="order($any($event.target).value)"
+    >
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="last_sign_in">Recently signed in</option>
+      <option value="flights">Most flights</option>
+    </select>
+  </div>
+</div>
+
+@if (action.error()) {
+  <div class="alert alert-danger" role="alert">
+    {{ action.error() }}
+    <button type="button" class="btn btn-link" (click)="load()">Retry</button>
+  </div>
+}
+
+@if (page(); as current) {
+  @if (current.items.length) {
+    <section class="panel table-panel" [attr.aria-busy]="action.busy()">
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
+          <caption class="visually-hidden">
+            Accounts
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Account</th>
+              <th scope="col">State</th>
+              <th scope="col">Flights</th>
+              <th scope="col">Sign-in</th>
+              <th scope="col">Joined</th>
+              <th scope="col">Last sign-in</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of current.items; track row.id) {
+              <tr [class.row-dim]="row.status === 'deleted'">
+                <td class="cell-wide">
+                  <a
+                    class="cell-link"
+                    [href]="'/app#admin?tab=users&user=' + row.id"
+                    (click)="open($event, row)"
+                    >{{ row.email ?? 'Deleted account' }}</a
+                  >
+                  <span class="table-subtext">
+                    {{ row.id }}
+                    @if (row.admin) {
+                      · Admin
+                    }
+                    @if (row.email && !row.email_verified && row.status !== 'deleted') {
+                      · Email not confirmed
+                    }
+                  </span>
+                </td>
+                <td data-label="State">
+                  <span [class]="'status status-' + statusTone[row.status]">{{
+                    statusLabels[row.status]
+                  }}</span>
+                </td>
+                <td data-label="Flights">{{ row.flights }}</td>
+                <td data-label="Sign-in">{{ signIn(row) }}</td>
+                <td data-label="Joined">
+                  {{ row.created_at ? format.day(row.created_at) : '–' }}
+                </td>
+                <td data-label="Last sign-in">
+                  {{ row.last_sign_in_at ? format.ago(row.last_sign_in_at) : 'Never' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <div class="pager">
+      <p role="status">
+        {{ current.offset + 1 }}–{{ current.offset + current.items.length }} of
+        {{ current.total }}
+        @if (current.truncated) {
+          · only the first 10,000 accounts are searched
+        }
+      </p>
+      @if (current.total > current.limit) {
+        <div>
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            [disabled]="!current.offset || action.busy()"
+            (click)="turn(-1)"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            [disabled]="current.offset + current.limit >= current.total || action.busy()"
+            (click)="turn(1)"
+          >
+            Next
+          </button>
+        </div>
+      }
+    </div>
+  } @else {
+    <section class="panel empty-state">
+      <i class="bi bi-people" aria-hidden="true"></i>
+      <h2>No accounts match</h2>
+      <p>Search by part of an email address or an account ID, or show another group.</p>
+    </section>
+  }
+} @else if (action.busy()) {
+  <div class="admin-rows" aria-hidden="true">
+    @for (item of [1, 2, 3, 4, 5]; track item) {
+      <span></span>
+    }
+  </div>
+  <p class="visually-hidden" role="status">Loading accounts…</p>
+}
