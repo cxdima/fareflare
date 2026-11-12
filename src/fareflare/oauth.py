@@ -45,6 +45,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from fareflare.accounts import Accounts
 from fareflare.credentials import RateLimited, RateLimiter
+from fareflare.edge import client_address
 from fareflare.product_config import ProductConfig
 from fareflare.store import Conflict, Document, Store
 
@@ -586,7 +587,7 @@ class _OAuthRequestGuard:
         if request.method == "OPTIONS":
             await self.app(scope, receive, secure_send)
             return
-        peer = request.client.host if request.client else "unknown"
+        peer = client_address(request)
         try:
             await run_in_threadpool(self.limiter.consume, "oauth:" + _digest(peer))
             if route == "register":

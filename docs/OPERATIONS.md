@@ -79,6 +79,31 @@ time and resource use before choosing `worker_max_targets`,
 target and the default dispatch interval is five minutes. Dispatch frequency is
 not a guarantee of price freshness.
 
+## CDN (CloudFront)
+
+With `cdn_enabled=true` and an `edge_secret` of at least 32 random characters in the
+tfvars, the domain points at a CloudFront distribution (`infra/cdn.tf`) whose origin is
+the API Gateway custom domain, reached with the viewer's `Host` header. Scripts,
+styles, fonts and everything under `/assets/` and `/media/` are cached at the edge by
+path alone (cookies, headers and query strings never make a new cache entry, so the
+cache cannot be bypassed); pages, `/v1`, `/auth`, `/oauth`, `/mcp` and `/telegram` pass
+through uncached. Throttled or failed answers are never cached.
+
+Without it, every file is a Lambda invocation under API Gateway's account-wide throttle:
+one landing-page visit made about 190 requests and drew 429 and 503 answers.
+
+CloudFront adds `X-Fareflare-Edge: <edge_secret>` to every request it forwards. Only a
+request with that header may name the visitor (`CloudFront-Viewer-Address`) for the
+per-address sign-in and sign-up limits; anything else is limited by API Gateway's own
+source address.
+
+Fingerprinted files change name with each build. Files under `/assets/` keep their
+names and are cached for an hour, so after a release that changes artwork run:
+
+```bash
+aws cloudfront create-invalidation --distribution-id "$(terraform -chdir=infra output -raw cdn_distribution_id)" --paths '/assets/*'
+```
+
 ## Account email (Amazon SES)
 
 Password resets and address confirmation are sent through Amazon SES from the

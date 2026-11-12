@@ -94,7 +94,7 @@ resource "aws_lambda_function" "api" {
   architectures                  = ["arm64"]
   memory_size                    = 1024
   timeout                        = 29
-  reserved_concurrent_executions = 8
+  reserved_concurrent_executions = 16
   lifecycle {
     prevent_destroy = true
   }
@@ -111,6 +111,7 @@ resource "aws_lambda_function" "api" {
       FAREFLARE_MIN_INTERVAL                 = "900"
       FAREFLARE_GLOBAL_TARGET_LIMIT          = "20"
       FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
+      FAREFLARE_EDGE_SECRET                  = local.cdn_enabled ? var.edge_secret : ""
       FAREFLARE_EMAIL                        = local.email_enabled ? "ses" : "off"
       FAREFLARE_EMAIL_FROM                   = local.email_enabled ? local.email_from : ""
     }
@@ -133,15 +134,15 @@ resource "aws_apigatewayv2_integration" "api" {
 # shared by every caller, so it bounds what a botnet can make Fareflare do.
 locals {
   sensitive_routes = {
-    "POST /auth/register"         = { rate = 0.2, burst = 2 }
-    "POST /auth/password-reset"   = { rate = 0.2, burst = 2 }
-    "POST /auth/email"            = { rate = 0.2, burst = 2 }
-    "POST /auth/email/resend"     = { rate = 0.2, burst = 2 }
-    "POST /auth/login"            = { rate = 1, burst = 3 }
-    "POST /auth/login/two-factor" = { rate = 1, burst = 3 }
-    "POST /auth/passkey"          = { rate = 1, burst = 3 }
-    "POST /auth/password"         = { rate = 1, burst = 3 }
-    "POST /auth/passkeys/options" = { rate = 1, burst = 3 }
+    "POST /auth/register"         = { rate = 1, burst = 5 }
+    "POST /auth/password-reset"   = { rate = 0.5, burst = 5 }
+    "POST /auth/email"            = { rate = 0.5, burst = 5 }
+    "POST /auth/email/resend"     = { rate = 0.5, burst = 5 }
+    "POST /auth/login"            = { rate = 2, burst = 10 }
+    "POST /auth/login/two-factor" = { rate = 2, burst = 10 }
+    "POST /auth/passkey"          = { rate = 2, burst = 10 }
+    "POST /auth/password"         = { rate = 2, burst = 10 }
+    "POST /auth/passkeys/options" = { rate = 2, burst = 10 }
   }
 }
 
@@ -157,8 +158,9 @@ resource "aws_apigatewayv2_stage" "api" {
   name        = "$default"
   auto_deploy = true
   default_route_settings {
-    throttling_burst_limit = 20
-    throttling_rate_limit  = 10
+    # Pages and the API only: with the CDN on, files come from the edge cache.
+    throttling_burst_limit = 100
+    throttling_rate_limit  = 25
   }
   dynamic "route_settings" {
     for_each = var.api_image_uri == "" ? {} : local.sensitive_routes

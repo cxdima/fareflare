@@ -238,6 +238,15 @@ Notable changes to Fareflare. The format follows
 
 ### Fixed
 
+- **The website answered "Too Many Requests" and left out artwork.** Every file was a
+  Lambda invocation behind API Gateway's account-wide throttle; one visit to the
+  landing page made about 190 requests, and dozens came back 429 or 503 (the phone in
+  the hero among them). The site now sits behind CloudFront: files are cached at the
+  edge and only pages and the API reach Lambda. Per-address limits use the visitor's
+  address that CloudFront vouches for with a secret header. The hero image loads first,
+  artwork below the fold loads as it nears the screen, and a scroll-sequence frame that
+  fails is asked for once more. The global sign-up and sign-in limits at the gateway,
+  which let one sign-up through every five seconds for everyone, are looser.
 - **Artwork and fonts went out without their type.** The Lambda image's Python has
   no entry for WebP, WOFF or WOFF2, so the illustrations, scroll sequences and fonts
   were served as `application/octet-stream`. The portal now sends `image/webp`,

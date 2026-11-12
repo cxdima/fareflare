@@ -1,2 +1,10 @@
-<img class="seq-still" [src]="base() + '/poster.webp'" width="1440" height="813" alt="" />
+<img
+  class="seq-still"
+  [src]="base() + '/poster.webp'"
+  width="1440"
+  height="813"
+  alt=""
+  loading="lazy"
+  decoding="async"
+/>
 <canvas #canvas class="seq-canvas" width="1440" height="813" aria-hidden="true"></canvas>

@@ -83,7 +83,8 @@ export class ScrollSequenceComponent {
     return Math.round(this.current * (this.images.length - 1));
   }
 
-  private load(index: number): Promise<void> {
+  /** One frame. A frame that fails is asked for once more before it is left out. */
+  private load(index: number, retry = true): Promise<void> {
     if (this.images[index]) return Promise.resolve();
     return new Promise((resolve) => {
       const image = new Image();
@@ -92,7 +93,10 @@ export class ScrollSequenceComponent {
         this.images[index] = image;
         resolve();
       };
-      image.onerror = () => resolve();
+      image.onerror = () => {
+        if (!retry) return resolve();
+        setTimeout(() => void this.load(index, false).then(resolve), 1500);
+      };
       image.src = `${this.folder}/${String(index).padStart(3, '0')}.webp`;
     });
   }

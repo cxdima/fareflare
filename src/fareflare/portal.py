@@ -33,6 +33,7 @@ from fareflare.admin import ACTIONS, Admin, AdminDenied
 from fareflare.api import create_app
 from fareflare.api_reference import render_api_reference
 from fareflare.credentials import RateLimiter
+from fareflare.edge import client_address
 from fareflare.hosted_mcp import make_hosted_mcp
 from fareflare.oauth import OAuthProvider
 from fareflare.passkeys import PasskeyRejected
@@ -325,9 +326,9 @@ def create_portal(
 
     def auth_attempt(request: Request) -> None:
         check_origin(request)
-        # request.client comes from API Gateway's trusted request context in Lambda;
-        # forwarded headers never determine this rate-limit key.
-        address = request.client.host if request.client else "unknown"
+        # API Gateway's record of who connected, or, through CloudFront, the visitor it
+        # names alongside the edge secret. A bare forwarded header never decides this.
+        address = client_address(request)
         auth_limiter.consume("auth_" + hashlib.sha256(address.encode()).hexdigest())
 
     def signed_in(result: dict, response: Response) -> dict:
@@ -349,7 +350,7 @@ def create_portal(
     @app.post("/auth/register", status_code=201)
     def register(body: RegisterInput, request: Request, response: Response):
         auth_attempt(request)
-        address = request.client.host if request.client else "unknown"
+        address = client_address(request)
         signup_limiter.consume("signup_" + hashlib.sha256(address.encode()).hexdigest())
         return signed_in(accounts.register(body.email, body.password), response)
 

@@ -19,6 +19,15 @@ test('landing page has accessible navigation, loaded artwork, and a usable mobil
   await expect(page.locator(`a[href="${github}"]`).first()).toBeVisible();
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator('[style]')).toHaveCount(0);
+  // Artwork below the fold loads lazily: pass over the page so every image is asked for.
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight / 2) {
+      // The page scrolls smoothly; a test jumps.
+      scrollTo({ top: y, behavior: 'instant' });
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    scrollTo({ top: 0, behavior: 'instant' });
+  });
   await expect
     .poll(async () =>
       page

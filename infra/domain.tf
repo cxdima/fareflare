@@ -57,14 +57,28 @@ resource "aws_apigatewayv2_api_mapping" "public" {
   domain_name = aws_apigatewayv2_domain_name.public[0].id
   stage       = aws_apigatewayv2_stage.api.id
 }
+# The domain points at CloudFront when it is on (see cdn.tf), otherwise straight at
+# API Gateway. CloudFront also answers over IPv6.
 resource "aws_route53_record" "public" {
   count   = var.domain_name == "" ? 0 : 1
   zone_id = var.hosted_zone_id
   name    = var.domain_name
   type    = "A"
   alias {
-    name                   = aws_apigatewayv2_domain_name.public[0].domain_name_configuration[0].target_domain_name
-    zone_id                = aws_apigatewayv2_domain_name.public[0].domain_name_configuration[0].hosted_zone_id
+    name                   = local.cdn_enabled ? aws_cloudfront_distribution.public[0].domain_name : aws_apigatewayv2_domain_name.public[0].domain_name_configuration[0].target_domain_name
+    zone_id                = local.cdn_enabled ? aws_cloudfront_distribution.public[0].hosted_zone_id : aws_apigatewayv2_domain_name.public[0].domain_name_configuration[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "public_ipv6" {
+  count   = local.cdn_enabled ? 1 : 0
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+  alias {
+    name                   = aws_cloudfront_distribution.public[0].domain_name
+    zone_id                = aws_cloudfront_distribution.public[0].hosted_zone_id
     evaluate_target_health = false
   }
 }
