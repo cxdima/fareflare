@@ -131,9 +131,10 @@ resource "aws_cloudfront_distribution" "public" {
     }
   }
 
-  # A throttled or failed answer must never be served from the cache.
+  # A failed answer must never be served from the cache. (CloudFront does not cache a
+  # 429 in the first place, and does not accept it here.)
   dynamic "custom_error_response" {
-    for_each = [429, 500, 502, 503, 504]
+    for_each = [500, 502, 503, 504]
     content {
       error_code            = custom_error_response.value
       error_caching_min_ttl = 0
