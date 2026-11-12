@@ -95,6 +95,25 @@ rejects a message, the failure is logged and the person sees the same answer as
 for any address, so nothing about accounts is revealed. A DMARC record for the
 domain is not created; add one if the domain has none.
 
+SES reputation belongs to the whole AWS account, including other domains that send
+from it, so the application keeps its own email within budgets: 60 an hour and 300 a
+day for each kind (confirmations, resets, security notices), and five address
+changes or confirmation resends per account per day. When a budget runs out the
+message is skipped and `Account email budget reached` is logged; the
+`<name>-email-budget-reached` alarm counts those lines. The `<name>-ses-bounce-rate`
+(above 3%) and `<name>-ses-complaint-rate` (above 0.05%) alarms watch the account's
+SES reputation; AWS reviews an account at 5% and 0.1%. The gateway also gives every
+email-sending and credential-checking route its own slower limit (`sensitive_routes`
+in `infra/api.tf`).
+
+### Alarm notifications
+
+Every alarm publishes to the `<name>-alarms` SNS topic. Set `alarm_email` in the
+production tfvars to receive them by email; AWS sends one confirmation message that
+must be accepted before notifications arrive. Without it, alarms still change state
+in CloudWatch but nobody is told. The collection-failure alarm is not routed there:
+Google's own error pages make some failures routine.
+
 ## Accounts and capacity
 
 The hosted release uses `registration_mode="open"` and `billing_enabled=false`.

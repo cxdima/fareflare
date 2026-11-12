@@ -103,14 +103,22 @@ and collection status.
 ## Sign-in and account security
 
 - **Sign-up** takes an email address and a password of 8 to 128 characters.
-  Fareflare sends one email to confirm the address. Accounts created before email
+  A new password (at sign-up, on a change or a reset) is refused when it is one of
+  the most common passwords, a run or repeat like `12345678`, mostly the email
+  address or the product's name, or found in Have I Been Pwned's breach corpus.
+  The breach check sends only the first five characters of the password's SHA-1
+  and asks for a padded answer, so the password never leaves Fareflare; if the
+  service cannot be reached, the password is allowed and the local rules still
+  apply. Fareflare sends one email to confirm the address. Accounts created before email
   was required keep signing in with their username and can add an address in
   **Account settings → Security**.
 - **Passkeys** sign in with a fingerprint, face or device PIN, from the browser,
   1Password, iCloud Keychain, Google Password Manager or a security key. Every
   passkey is discoverable and requires user verification, so it replaces both the
-  password and the second step. Add, rename and remove them in Security. Password
-  managers find that page through `/.well-known/passkey-endpoints`.
+  password and the second step. Adding one asks for the password first, so a
+  browser left signed in is not enough to plant one. Rename and remove them in
+  Security. Password managers find that page through
+  `/.well-known/passkey-endpoints`.
 - **Two-step sign-in** adds a 6-digit code from an authenticator app (RFC 6238,
   SHA-1, 30 seconds). Setup shows a QR code and the key to type, and the code
   field is marked `autocomplete="one-time-code"` so 1Password fills it. Turning it
@@ -120,7 +128,19 @@ and collection status.
   two-step sign-in on, a reset also asks for a code. A reset signs out every other
   browser; API keys, connected applications and Telegram stay.
 - **Sign out everywhere** revokes every session, API key, connected application and
-  Telegram link, then signs the current browser back in.
+  Telegram link, then signs the current browser back in. Passkeys stay; remove one
+  separately if its device is lost.
+- **Security notices.** A confirmed address hears about each change to how the
+  account signs in: a new password, a new passkey, two-step sign-in turned off,
+  and (at the old address) a new email address.
+
+Guessing is capped as well as rate limited. Each sign-in name allows 30 wrong
+passwords an hour, whether or not an account uses it. Each account allows 10 wrong
+codes an hour and 20 a day across every new sign-in, which keeps someone who has a
+password from working through six-digit codes. Account email has service-wide
+budgets (60 an hour and 300 a day for each kind: confirmations, resets and
+notices), and one account can trigger at most five address changes or confirmation
+resends a day, so sign-up and address changes cannot be used to mail strangers.
 
 Reset, confirmation and backup codes are stored only as hashes. An authenticator
 secret is kept so its codes can be checked; passkeys are stored as public keys.
@@ -134,6 +154,7 @@ secret is kept so its codes can be checked; passkeys are stored as public keys.
 | `FAREFLARE_REGISTRATION_MODE` | `open` | `open` lets anyone sign up; `closed` stops new accounts |
 | `FAREFLARE_EMAIL` | `off` (Lambda), `file` (local) | `ses` sends account email through Amazon SES; `file` writes it to `FAREFLARE_EMAIL_DIRECTORY` |
 | `FAREFLARE_EMAIL_FROM` | Required with `ses` | Sender, for example `Fareflare <no-reply@example.com>` |
+| `FAREFLARE_PASSWORD_BREACH_CHECK` | `on` | `off` skips the Have I Been Pwned lookup for new passwords (the local rules still apply) |
 | `FAREFLARE_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
 | `FAREFLARE_MONITOR_LIMIT` | `3` | Monitors per account |

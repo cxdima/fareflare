@@ -175,6 +175,7 @@ resource "aws_lambda_permission" "schedule" {
 resource "aws_cloudwatch_metric_alarm" "worker_errors" {
   count               = var.image_uri == "" ? 0 : 1
   alarm_name          = "${var.name}-errors"
+  alarm_actions       = local.alarm_actions
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"

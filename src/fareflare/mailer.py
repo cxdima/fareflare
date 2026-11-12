@@ -144,6 +144,18 @@ def password_reset(product: str, to: str, link: str, minutes: int) -> Message:
     return Message(to, f"Reset your {product} password", text, html)
 
 
+def security_notice(product: str, to: str, heading: str, lines: list[str], link: str) -> Message:
+    text, html = _render(
+        product,
+        heading,
+        lines,
+        "Review your security settings",
+        link,
+        "You get this email for every change to how your account signs in.",
+    )
+    return Message(to, f"{heading} · {product}", text, html)
+
+
 def email_confirmation(product: str, to: str, link: str) -> Message:
     text, html = _render(
         product,

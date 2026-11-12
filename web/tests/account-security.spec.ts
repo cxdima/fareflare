@@ -176,7 +176,17 @@ test('passkeys are added, renamed and removed from the security page', async ({ 
   const list = page.locator('.passkey-list');
   await expect(list).toContainText('No passkeys yet.');
   await page.getByRole('button', { name: 'Add a passkey', exact: true }).click();
+  // A signed-in browser alone cannot add one: the password comes first.
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByText('Enter your password.', { exact: true })).toBeVisible();
+  await expect(page.locator('#passkey-password')).toBeFocused();
+  expect(calls.some((call) => call.path === '/auth/passkeys/options')).toBe(false);
+  await page.locator('#passkey-password').fill('a-long-private-password');
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(list.getByRole('heading', { name: '1Password', exact: true })).toBeVisible();
+  await expect(page.locator('#passkey-drawer')).not.toHaveClass(/drawer-open/);
+  const options = calls.find((call) => call.path === '/auth/passkeys/options')!;
+  expect(options.body).toEqual({ password: 'a-long-private-password' });
   await expect(
     page.getByRole('status').filter({ hasText: 'Passkey added: 1Password' }),
   ).toBeVisible();

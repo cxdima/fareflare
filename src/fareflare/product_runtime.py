@@ -10,6 +10,7 @@ from mangum import Mangum
 from fareflare.accounts import Accounts
 from fareflare.link_resolver import GoogleLinkResolver
 from fareflare.mailer import mailer_from_env
+from fareflare.passwords import breach_check_from_env
 from fareflare.portal import create_portal
 from fareflare.product_config import ProductConfig
 from fareflare.product_telegram import build_telegram
@@ -33,7 +34,7 @@ def build_application():
         min_interval_seconds=config.min_interval_seconds,
         global_target_limit=config.global_target_limit,
     )
-    accounts = Accounts(store, config, mailer=mailer_from_env())
+    accounts = Accounts(store, config, mailer=mailer_from_env(), breached=breach_check_from_env())
     telegram = build_telegram(store, accounts, config.public_url, service=service)
     return create_portal(
         service,

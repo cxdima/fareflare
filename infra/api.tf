@@ -128,8 +128,25 @@ resource "aws_apigatewayv2_integration" "api" {
   timeout_milliseconds   = 29000
 }
 
+# Routes that send email or check a credential get their own, slower gateway limit on
+# top of the application's per-account and per-address limits. The gateway limit is
+# shared by every caller, so it bounds what a botnet can make Fareflare do.
+locals {
+  sensitive_routes = {
+    "POST /auth/register"         = { rate = 0.2, burst = 2 }
+    "POST /auth/password-reset"   = { rate = 0.2, burst = 2 }
+    "POST /auth/email"            = { rate = 0.2, burst = 2 }
+    "POST /auth/email/resend"     = { rate = 0.2, burst = 2 }
+    "POST /auth/login"            = { rate = 1, burst = 3 }
+    "POST /auth/login/two-factor" = { rate = 1, burst = 3 }
+    "POST /auth/passkey"          = { rate = 1, burst = 3 }
+    "POST /auth/password"         = { rate = 1, burst = 3 }
+    "POST /auth/passkeys/options" = { rate = 1, burst = 3 }
+  }
+}
+
 resource "aws_apigatewayv2_route" "api" {
-  for_each  = var.api_image_uri == "" ? toset([]) : toset(["$default", "POST /auth/register", "POST /auth/login", "POST /auth/recover"])
+  for_each  = var.api_image_uri == "" ? toset([]) : toset(concat(["$default"], keys(local.sensitive_routes)))
   api_id    = aws_apigatewayv2_api.public.id
   route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.api[0].id}"
@@ -144,11 +161,11 @@ resource "aws_apigatewayv2_stage" "api" {
     throttling_rate_limit  = 10
   }
   dynamic "route_settings" {
-    for_each = var.api_image_uri == "" ? [] : ["POST /auth/register", "POST /auth/login", "POST /auth/recover"]
+    for_each = var.api_image_uri == "" ? {} : local.sensitive_routes
     content {
-      route_key              = route_settings.value
-      throttling_burst_limit = route_settings.value == "POST /auth/register" ? 2 : 3
-      throttling_rate_limit  = route_settings.value == "POST /auth/register" ? 0.2 : 1
+      route_key              = route_settings.key
+      throttling_burst_limit = route_settings.value.burst
+      throttling_rate_limit  = route_settings.value.rate
     }
   }
   depends_on = [aws_apigatewayv2_route.api]
@@ -166,6 +183,7 @@ resource "aws_lambda_permission" "api" {
 resource "aws_cloudwatch_metric_alarm" "api_errors" {
   count               = var.api_image_uri == "" ? 0 : 1
   alarm_name          = "${var.name}-api-errors"
+  alarm_actions       = local.alarm_actions
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"

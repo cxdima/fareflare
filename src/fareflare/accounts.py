@@ -1,8 +1,10 @@
 """Sign-up, sign-in, sessions, two-step codes, passkeys, password resets and API keys.
 
-Passwords use the OWASP scrypt baseline. Session, API, reset and confirmation
-credentials are stored only as hashes. Email is sent only to reset a password or
-confirm an address, and a reset link goes only to a confirmed address.
+Passwords use the OWASP scrypt baseline, and a new one must not be common, breached
+or built from the account's name. Session, API, reset and confirmation credentials
+are stored only as hashes. Email is sent only to confirm an address, reset a
+password, or tell a confirmed address about a change to the account, within
+per-account and service-wide budgets; a reset link goes only to a confirmed address.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import uuid
 from collections.abc import Callable
 
 from fareflare import mailer as mail
-from fareflare import totp
+from fareflare import passwords, totp
 from fareflare.credentials import Credentials, RateLimiter
 from fareflare.passkeys import Passkeys
 from fareflare.product_config import ProductConfig
@@ -41,6 +43,11 @@ _TWO_FACTOR_SECONDS = 300
 _TWO_FACTOR_ATTEMPTS = 5
 _SETUP_SECONDS = 900
 _EMAIL_COOLDOWN = 60
+# Service-wide email budgets. Real use is a handful a day; the budgets stop anyone
+# from using sign-up or address changes to make Fareflare mail strangers, which
+# would cost the sending reputation that password resets depend on.
+_EMAIL_PER_HOUR = 60
+_EMAIL_PER_DAY = 300
 MAX_USERNAME_LENGTH = 254
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
@@ -142,13 +149,50 @@ class Accounts:
         config: ProductConfig | None = None,
         clock: Callable[[], float] = time.time,
         mailer: mail.Mailer | None = None,
+        breached: Callable[[str], bool] | None = None,
     ):
         self.store, self.config, self.clock = store, config or ProductConfig(), clock
         self.mailer = mailer
+        # Whether a new password appears in a breach corpus; see passwords.BreachedPasswords.
+        self.breached = breached
         self._credentials = Credentials(store, clock)
         self._login_limit = RateLimiter(store, clock, per_minute=10)
         self._code_limit = RateLimiter(store, clock, per_minute=6)
         self._email_limit = RateLimiter(store, clock, per_minute=5)
+        hour, day = 3600, 86400
+        # Wrong passwords per sign-in name, and wrong codes per account. Counted only
+        # when they fail, so they cap guessing without slowing the real person down.
+        self._password_failures = RateLimiter(
+            store,
+            clock,
+            per_minute=30,
+            window_seconds=hour,
+            message="Too many incorrect passwords for this account. Wait an hour, sign in "
+            "with a passkey, or reset your password.",
+        )
+        self._code_failures = [
+            RateLimiter(store, clock, per_minute=limit, window_seconds=window, message=message)
+            for limit, window, message in (
+                (10, hour, "Too many incorrect codes. Wait an hour, or sign in with a passkey."),
+                (
+                    20,
+                    day,
+                    "Too many incorrect codes today. Try again tomorrow, or sign in "
+                    "with a passkey.",
+                ),
+            )
+        ]
+        self._email_budgets = [
+            RateLimiter(store, clock, per_minute=_EMAIL_PER_HOUR, window_seconds=hour),
+            RateLimiter(store, clock, per_minute=_EMAIL_PER_DAY, window_seconds=day),
+        ]
+        self._account_email = RateLimiter(
+            store,
+            clock,
+            per_minute=5,
+            window_seconds=day,
+            message="That is enough email for this account today. Try again tomorrow.",
+        )
         self.passkeys = Passkeys(
             store,
             self.config.public_url or "http://localhost",
@@ -202,6 +246,17 @@ class Accounts:
     @property
     def email_enabled(self) -> bool:
         return self.mailer is not None and bool(self.config.public_url)
+
+    def _new_password(self, password: str, *names: str | None) -> None:
+        """Refuse a new password that is the wrong length, easy to guess, or breached."""
+        _password(password)
+        problem = passwords.weakness(
+            password, [name for name in (*names, self.config.product_name) if name]
+        )
+        if problem:
+            raise ValueError(problem)
+        if self.breached is not None and self.breached(password):
+            raise ValueError(passwords.BREACHED)
 
     def _session(self, account: Document) -> tuple[dict, list[Document]]:
         token, expires = secrets.token_urlsafe(32), self._now() + _SESSION_LIFETIME
@@ -259,6 +314,7 @@ class Accounts:
             "email:" + _digest(email)
         ):
             raise ValueError("An account already uses that email. Sign in, or reset your password.")
+        self._new_password(password, email)
         tenant = "acct_" + uuid.uuid4().hex
         account = Document(
             "account:" + tenant,
@@ -300,9 +356,12 @@ class Accounts:
         name = _username(username)
         _password(password)
         self._login_limit.consume("login-" + _digest(name))
+        failures = "login-failures-" + _digest(name)
+        self._password_failures.check(failures)
         account = self._by_name(name)
         stored = account.data.get("password_hash") if account else None
         if not verify_password(password, stored) or account is None:
+            self._password_failures.spend(failures)
             raise AuthenticationFailed("Incorrect email or password")
         if (account.data.get("totp") or {}).get("enabled"):
             token = secrets.token_urlsafe(32)
@@ -402,7 +461,10 @@ class Accounts:
         account, used = self.passkeys.authenticate(challenge_id, credential, self._active)
         return self._signed_in(account, [used])
 
-    def passkey_registration_options(self, tenant: str) -> dict:
+    def passkey_registration_options(self, tenant: str, password: str) -> dict:
+        """A passkey signs in without the password or a code, so adding one asks for the
+        password again: a browser left signed in is not enough to plant one."""
+        self._confirm_password(self._account(tenant), password, "passkey")
         for _ in range(5):
             account = self._account(tenant)
             options, new_handle = self.passkeys.registration_options(account)
@@ -424,7 +486,18 @@ class Accounts:
             self.store.commit([passkey, updated])
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
-        return self.passkeys._public(passkey)
+        public = self.passkeys._public(passkey)
+        self._notify(
+            account,
+            "A passkey was added",
+            [
+                f"A passkey named {public['name']} can now sign in to your "
+                f"{self.config.product_name} account.",
+                "If you did not add it, remove it in your security settings and change "
+                "your password.",
+            ],
+        )
+        return public
 
     def list_passkeys(self, tenant: str) -> list[dict]:
         return self.passkeys.list(self._account(tenant))
@@ -451,6 +524,22 @@ class Accounts:
         except Exception:
             log.exception("Account email could not be sent")
 
+    def _within_budget(self, kind: str) -> bool:
+        """Spend one from the service-wide email budget for this kind of message."""
+        if all(budget.spend("email-" + kind) for budget in self._email_budgets):
+            return True
+        log.warning("Account email budget reached; %s email not sent", kind)
+        return False
+
+    def _notify(self, account: Document, heading: str, lines: list[str], to: str | None = None):
+        """Tell the account's confirmed address that something about it changed, so a
+        change the owner did not make is noticed. Never blocks the change itself."""
+        address = to or (account.data.get("email") if account.data.get("email_verified") else None)
+        if not self.email_enabled or not address or not self._within_budget("notice"):
+            return
+        link = self.config.public_url.rstrip("/") + "/app#settings?section=security"
+        self._send(mail.security_notice(self.config.product_name, address, heading, lines, link))
+
     def _cooldown(self, key: str) -> bool:
         """True when a message of this kind may be sent to this address now."""
         existing = self.store.get(key)
@@ -470,6 +559,8 @@ class Accounts:
         if not self.email_enabled or not email or account.data.get("email_verified"):
             return
         if not self._cooldown("confirm-cooldown:" + _digest(email)):
+            return
+        if not self._within_budget("confirm"):
             return
         token, expires = secrets.token_urlsafe(32), self._now() + _CONFIRM_SECONDS
         self.store.commit(
@@ -497,6 +588,7 @@ class Accounts:
         if not account.data.get("email"):
             raise ValueError("Add an email address first")
         self._email_limit.consume("confirm-" + tenant)
+        self._account_email.consume("account-email-" + tenant)
         self._send_confirmation(account)
 
     def confirm_email(self, token: str) -> dict:
@@ -524,6 +616,8 @@ class Accounts:
         email = _email(email)
         account = self._account(tenant)
         self._confirm_password(account, password, "email")
+        # Each change mails the new address, so changes per account are budgeted too.
+        self._account_email.consume("account-email-" + tenant)
         if account.data.get("email") == email:
             self._send_confirmation(account)
             return self._public(account)
@@ -549,6 +643,18 @@ class Accounts:
             self.store.commit(writes)
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
+        if previous and account.data.get("email_verified"):
+            self._notify(
+                account,
+                "Your email address was changed",
+                [
+                    f"The email address for your {self.config.product_name} account was "
+                    f"changed from this one to {email}.",
+                    "If you did not do this, reset your password from this address now and "
+                    "sign out everywhere.",
+                ],
+                to=previous,
+            )
         self._send_confirmation(writes[0])
         return self._public(writes[0])
 
@@ -568,6 +674,7 @@ class Accounts:
             or account.data.get("email") != email
             or not account.data.get("email_verified")
             or not self._cooldown("reset-cooldown:" + _digest(email))
+            or not self._within_budget("reset")
         ):
             return
         token = secrets.token_urlsafe(32)
@@ -620,6 +727,7 @@ class Accounts:
         _password(new_password)
         document, account = self._reset(token)
         self._code_limit.consume("reset-code-" + account.data["id"])
+        self._new_password(new_password, account.data.get("email"), account.data["username"])
         if (account.data.get("totp") or {}).get("enabled"):
             if not code:
                 raise IncorrectPassword("Enter a code from your authenticator app")
@@ -752,6 +860,7 @@ class Accounts:
         _password(new_password)
         account = self._account(tenant)
         self._confirm_password(account, current_password, "password")
+        self._new_password(new_password, account.data.get("email"), account.data["username"])
         current = _digest(session_token) if isinstance(session_token, str) else ""
         kept = [current] if current in account.data.get("session_ids", []) else []
         try:
@@ -768,6 +877,15 @@ class Accounts:
             )
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
+        self._notify(
+            account,
+            "Your password was changed",
+            [
+                f"The password for your {self.config.product_name} account was just changed, "
+                "and other browsers were signed out.",
+                "If you did not do this, reset your password from this address now.",
+            ],
+        )
 
     def sign_out_everywhere(self, tenant: str, password: str) -> dict:
         """Revoke every session, API key, connected application and Telegram link,
@@ -792,6 +910,17 @@ class Accounts:
         settings = account.data.get("totp") or {}
         if not settings.get("enabled") or not isinstance(code, str):
             raise IncorrectPassword("That code is not correct")
+        failures = "code-failures-" + account.data["id"]
+        for limit in self._code_failures:
+            limit.check(failures)
+        try:
+            return self._check_code(account, settings, code)
+        except IncorrectPassword:
+            for limit in self._code_failures:
+                limit.spend(failures)
+            raise
+
+    def _check_code(self, account: Document, settings: dict, code: str) -> Document:
         step = totp.matching_step(
             settings["secret"], code, self.clock(), settings.get("last_step", -1)
         )
@@ -888,6 +1017,15 @@ class Accounts:
             self.store.commit([account.update(data)])
         except Conflict:
             raise Conflict("Your account changed in another window; try again") from None
+        self._notify(
+            account,
+            "Two-step sign-in was turned off",
+            [
+                f"Your {self.config.product_name} account no longer asks for a code after "
+                "the password.",
+                "If you did not do this, change your password and turn it back on.",
+            ],
+        )
 
     def new_backup_codes(self, tenant: str, password: str, code: str) -> dict:
         account = self._account(tenant)

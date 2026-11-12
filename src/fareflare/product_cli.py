@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fareflare.accounts import Accounts
 from fareflare.mailer import FileMailer, mailer_from_env
+from fareflare.passwords import breach_check_from_env
 from fareflare.product_config import ProductConfig
 from fareflare.store import SQLiteStore
 
@@ -76,7 +77,7 @@ def main(argv: list[str] | None = None) -> None:
     # Without a configured provider, account email (resets and confirmations) is
     # written to private files in .fareflare/outbox so the links can be opened.
     mailer = mailer_from_env() or FileMailer(args.database.parent / "outbox")
-    accounts = Accounts(store, config, mailer=mailer)
+    accounts = Accounts(store, config, mailer=mailer, breached=breach_check_from_env())
     uvicorn.run(
         create_portal(service, config, accounts, static_dir=args.static_dir),
         host="127.0.0.1",

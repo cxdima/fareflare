@@ -429,8 +429,10 @@ def create_portal(
         return accounts.new_backup_codes(identity["account"]["id"], body.password, body.code)
 
     @app.post("/auth/passkeys/options")
-    def new_passkey_options(identity: Annotated[dict, Depends(session)]):
-        return accounts.passkey_registration_options(identity["account"]["id"])
+    def new_passkey_options(
+        body: PasswordConfirmation, identity: Annotated[dict, Depends(session)]
+    ):
+        return accounts.passkey_registration_options(identity["account"]["id"], body.password)
 
     @app.post("/auth/passkeys", status_code=201)
     def add_passkey(body: NewPasskeyInput, identity: Annotated[dict, Depends(session)]):

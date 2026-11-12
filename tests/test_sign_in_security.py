@@ -304,7 +304,7 @@ def test_reset_requests_are_rate_limited_and_need_email_set_up(store, clock, acc
 
 def add_passkey(accounts, tenant, passkey=None, name=None):
     passkey = passkey or SoftPasskey(ORIGIN, "app.example.com")
-    options = accounts.passkey_registration_options(tenant)
+    options = accounts.passkey_registration_options(tenant, PASSWORD)
     created = accounts.add_passkey(
         tenant, options["challenge_id"], passkey.create(options["options"]), name
     )
@@ -321,7 +321,7 @@ def sign_in(accounts, passkey, **kwargs):
 def test_a_passkey_signs_in_on_its_own_and_is_named_after_its_provider(accounts, clock):
     tenant = confirmed(accounts, accounts.mailer)["account"]["id"]
     with_two_factor(accounts, tenant, clock)  # A passkey stands in for both steps.
-    options = accounts.passkey_registration_options(tenant)["options"]
+    options = accounts.passkey_registration_options(tenant, PASSWORD)["options"]
     assert options["rp"] == {"id": "app.example.com", "name": "Fareflare"}
     assert options["authenticatorSelection"]["residentKey"] == "required"
     assert options["authenticatorSelection"]["userVerification"] == "required"
@@ -336,14 +336,16 @@ def test_a_passkey_signs_in_on_its_own_and_is_named_after_its_provider(accounts,
     renamed = accounts.rename_passkey(tenant, listed[0]["id"], "Work laptop")
     assert renamed["name"] == "Work laptop"
     # Adding the same passkey twice is refused, and the next request excludes it.
-    excluded = accounts.passkey_registration_options(tenant)["options"]["excludeCredentials"]
+    excluded = accounts.passkey_registration_options(tenant, PASSWORD)["options"][
+        "excludeCredentials"
+    ]
     assert excluded[0]["id"] == listed[0]["credential_id"]
 
 
 def test_a_passkey_response_is_refused_from_another_site_or_without_verification(accounts):
     tenant = accounts.register("alice@example.com", PASSWORD)["account"]["id"]
     passkey = SoftPasskey(ORIGIN, "app.example.com")
-    options = accounts.passkey_registration_options(tenant)
+    options = accounts.passkey_registration_options(tenant, PASSWORD)
     with pytest.raises(PasskeyRejected):
         accounts.add_passkey(
             tenant,
@@ -351,7 +353,7 @@ def test_a_passkey_response_is_refused_from_another_site_or_without_verification
             passkey.create(options["options"], origin="https://evil.example"),
             None,
         )
-    options = accounts.passkey_registration_options(tenant)
+    options = accounts.passkey_registration_options(tenant, PASSWORD)
     with pytest.raises(PasskeyRejected):
         accounts.add_passkey(
             tenant,
@@ -378,7 +380,7 @@ def test_a_passkey_challenge_works_once_and_for_one_purpose(accounts, clock):
     assert accounts.passkey_login(options["challenge_id"], response)
     with pytest.raises(PasskeyRejected, match="expired"):
         accounts.passkey_login(options["challenge_id"], response)
-    registration = accounts.passkey_registration_options(tenant)
+    registration = accounts.passkey_registration_options(tenant, PASSWORD)
     with pytest.raises(PasskeyRejected, match="expired"):
         accounts.passkey_login(registration["challenge_id"], passkey.get(registration["options"]))
     late = accounts.passkey_login_options()
@@ -404,10 +406,11 @@ def test_a_removed_passkey_or_a_deleted_account_cannot_sign_in(accounts):
         sign_in(accounts, second)
 
 
-def test_an_account_keeps_at_most_ten_passkeys(accounts):
+def test_an_account_keeps_at_most_ten_passkeys(accounts, clock):
     tenant = accounts.register("alice@example.com", PASSWORD)["account"]["id"]
     for _ in range(MAX_PASSKEYS):
         add_passkey(accounts, tenant)
+        clock[0] += 60  # Each addition confirms the password, which is rate limited.
     with pytest.raises(ValueError, match="up to 10"):
         add_passkey(accounts, tenant)
     with pytest.raises(ValueError, match="60 characters"):
@@ -490,8 +493,11 @@ def test_the_portal_adds_and_signs_in_with_a_passkey(portal):
         "/auth/register", json={"email": "alice@example.com", "password": PASSWORD}
     )
     csrf = {"X-CSRF-Token": created.json()["csrf_token"]}
-    assert client.post("/auth/passkeys/options").status_code == 403  # No CSRF token.
-    options = client.post("/auth/passkeys/options", headers=csrf).json()
+    body = {"password": PASSWORD}
+    assert client.post("/auth/passkeys/options", json=body).status_code == 403  # No CSRF.
+    wrong = client.post("/auth/passkeys/options", headers=csrf, json={"password": "not it at all"})
+    assert wrong.status_code == 403  # A signed-in browser alone cannot add a passkey.
+    options = client.post("/auth/passkeys/options", headers=csrf, json=body).json()
     passkey = SoftPasskey(ORIGIN, "app.example.com")
     added = client.post(
         "/auth/passkeys",

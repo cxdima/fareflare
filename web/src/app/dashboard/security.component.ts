@@ -25,7 +25,8 @@ import { ActionState } from './shared/action-state';
 import { DialogComponent } from './shared/dialog.component';
 import { QrCodeComponent } from './shared/qr-code.component';
 
-type Drawer = '' | 'email' | 'password' | 'two-factor' | 'backup-codes' | 'turn-off' | 'sign-out';
+type Drawer =
+  '' | 'email' | 'password' | 'passkey' | 'two-factor' | 'backup-codes' | 'turn-off' | 'sign-out';
 type Setup = { secret: string; uri: string; account: string; issuer: string };
 
 const emailRule =
@@ -75,6 +76,11 @@ export class SecurityComponent implements OnInit {
 
   // Passkeys
   readonly passkeyAction = new ActionState();
+  // A passkey signs in on its own, so adding one asks for the password first.
+  readonly passkeyModel = signal({ password: '' });
+  readonly passkeyForm = form(this.passkeyModel, (path) =>
+    required(path.password, { message: 'Enter your password.' }),
+  );
   readonly renaming = signal('');
   readonly renameModel = signal({ name: '' });
   readonly renameForm = form(this.renameModel, (path) => {
@@ -136,12 +142,19 @@ export class SecurityComponent implements OnInit {
   toggle(drawer: Drawer): void {
     this.open.set(this.open() === drawer ? '' : drawer);
     this.note.set('');
-    for (const action of [this.emailAction, this.passwordAction, this.setupAction, this.codeAction])
+    for (const action of [
+      this.emailAction,
+      this.passwordAction,
+      this.passkeyAction,
+      this.setupAction,
+      this.codeAction,
+    ])
       action.error.set('');
     if (drawer !== 'two-factor') this.setup.set(null);
     // reset() also forgets which fields were touched, so a closed drawer shows no errors.
     this.emailForm().reset({ email: this.state()?.email ?? '', password: '' });
     this.passwordForm().reset({ current: '', next: '' });
+    this.passkeyForm().reset({ password: '' });
     this.setupForm().reset({ password: '', code: '' });
     this.codeForm().reset({ password: '', code: '' });
     this.signOutForm().reset({ password: '' });
@@ -200,11 +213,19 @@ export class SecurityComponent implements OnInit {
       this.passwordForm().errorSummary()[0]?.fieldTree().focusBoundControl();
   }
 
-  async addPasskey(): Promise<void> {
+  async addPasskey(event: Event): Promise<void> {
+    event.preventDefault();
     this.note.set('');
+    await submit(this.passkeyForm, () => this.createPasskey());
+    if (this.open() === 'passkey')
+      this.passkeyForm().errorSummary()[0]?.fieldTree().focusBoundControl();
+  }
+
+  private async createPasskey(): Promise<void> {
     await this.passkeyAction.run(async () => {
       const request = await this.api.request<PasskeyOptions>('/auth/passkeys/options', {
         method: 'POST',
+        body: this.passkeyModel(),
       });
       let credential;
       try {
@@ -222,6 +243,7 @@ export class SecurityComponent implements OnInit {
         body: { challenge_id: request.challenge_id, credential },
       });
       await this.reload();
+      this.toggle('');
       this.note.set(
         `Passkey added: ${added.name}. Next time, sign in with it instead of a password.`,
       );

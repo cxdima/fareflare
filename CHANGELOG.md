@@ -267,6 +267,39 @@ Notable changes to Fareflare. The format follows
   starts a new browser once in that case, with its own empty profile, as it
   already did for a failed start. The worker reports `browser_restarts`.
 
+### Security
+
+From a full review of how someone could hurt an account holder or the operator:
+
+- **Common and breached passwords are refused.** A new password is checked against
+  the most common passwords, runs and repeats (`12345678`, `aaaaaaaa`), the
+  account's own email address and the product's name, and Have I Been Pwned's
+  breach corpus. Only the first five characters of the password's SHA-1 are sent,
+  with padded answers; if the lookup is unreachable the password is allowed.
+  `FAREFLARE_PASSWORD_BREACH_CHECK=off` skips the lookup.
+- **Guessing is capped, not only slowed.** 30 wrong passwords an hour per sign-in
+  name, and 10 wrong codes an hour and 20 a day per account. Before, someone who
+  had a password could start a fresh sign-in every few tries and keep guessing
+  six-digit codes indefinitely.
+- **Fareflare can no longer be used to mail strangers.** Changing the account's
+  address sends a confirmation, and nothing limited how many addresses one account
+  could cycle through; the only ceiling was the gateway's request rate. Account
+  email now has service-wide budgets per kind (60 an hour, 300 a day), each
+  account can trigger five address changes or resends a day, and every
+  email-sending route has its own gateway limit. This protects the SES
+  account's sending reputation, which other domains in the same AWS account share.
+- **Adding a passkey asks for the password.** A passkey signs in without the
+  password or a code, so a browser left signed in was enough to plant one that
+  survived a password change.
+- **Security notices.** A confirmed address is told when the password changes,
+  a passkey is added, two-step sign-in is turned off, or (at the old address) the
+  email address changes.
+- **Alarms can reach someone.** Alarms publish to an SNS topic, with an optional
+  `alarm_email` subscription. New alarms cover the SES bounce and complaint rates
+  and the email budget running out. The gateway's per-route limits named a route
+  that no longer existed (`/auth/recover`); they now cover sign-up, sign-in, the
+  second step, passkey sign-in, resets and address changes.
+
 ### Removed
 
 - **Invitations.** Sign-up is open to anyone; `FAREFLARE_REGISTRATION_MODE` is now

@@ -209,16 +209,67 @@
       @if (passkeysSupported) {
         <button
           type="button"
-          class="btn btn-primary"
-          [disabled]="passkeyAction.busy()"
-          (click)="addPasskey()"
+          [class]="open() === 'passkey' ? 'btn btn-outline-primary' : 'btn btn-primary'"
+          aria-controls="passkey-drawer"
+          [attr.aria-expanded]="open() === 'passkey'"
+          (click)="toggle('passkey')"
         >
-          <i class="bi bi-plus-lg" aria-hidden="true"></i>
-          {{ passkeyAction.busy() ? 'Waiting for your passkey…' : 'Add a passkey' }}
+          @if (open() !== 'passkey') {
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          }
+          {{ open() === 'passkey' ? 'Cancel' : 'Add a passkey' }}
         </button>
       }
     </div>
-    @if (passkeyAction.error()) {
+    <div
+      id="passkey-drawer"
+      class="drawer"
+      [class.drawer-open]="open() === 'passkey'"
+      [attr.inert]="open() === 'passkey' ? null : ''"
+    >
+      <div class="drawer-body">
+        <form class="security-form form-stack" novalidate (submit)="addPasskey($event)">
+          <input
+            class="visually-hidden"
+            type="text"
+            autocomplete="username"
+            readonly
+            tabindex="-1"
+            aria-hidden="true"
+            [value]="security.email ?? session.account()?.username ?? ''"
+          />
+          @if (passkeyAction.error()) {
+            <div class="alert alert-danger" role="alert">{{ passkeyAction.error() }}</div>
+          }
+          <div>
+            <label class="form-label" for="passkey-password">Your password</label
+            ><input
+              id="passkey-password"
+              type="password"
+              class="form-control"
+              [formField]="passkeyForm.password"
+              autocomplete="current-password"
+              [class.is-invalid]="error(passkeyForm.password())"
+              [attr.aria-invalid]="error(passkeyForm.password()) ? 'true' : null"
+              aria-describedby="passkey-password-help"
+            />
+            @if (error(passkeyForm.password()); as message) {
+              <p class="field-error">{{ message }}</p>
+            } @else {
+              <p class="form-text" id="passkey-password-help">
+                A passkey signs in without your password, so confirm it is you first.
+              </p>
+            }
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary" [disabled]="passkeyAction.busy()">
+              {{ passkeyAction.busy() ? 'Waiting for your passkey…' : 'Continue' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    @if (passkeyAction.error() && open() !== 'passkey') {
       <div class="alert alert-danger" role="alert">{{ passkeyAction.error() }}</div>
     }
     @if (!passkeysSupported) {

@@ -58,21 +58,58 @@ class Credentials:
 
 
 class RateLimiter:
-    def __init__(self, store: Store, clock: Callable[[], float] = time.time, per_minute: int = 120):
+    """A fixed-window counter shared through the store.
+
+    ``per_minute`` is the allowance per window; the window is a minute unless
+    ``window_seconds`` says otherwise (an hour or a day for slower budgets).
+    """
+
+    def __init__(
+        self,
+        store: Store,
+        clock: Callable[[], float] = time.time,
+        per_minute: int = 120,
+        *,
+        window_seconds: int = 60,
+        message: str = "Request limit reached; retry next minute",
+    ):
         self.store, self.clock, self.per_minute = store, clock, per_minute
+        self.window, self.message = window_seconds, message
+
+    def _key(self, tenant: str, now: int) -> str:
+        if self.window == 60:
+            return f"rate:{tenant}:{now // 60}"
+        return f"rate:{tenant}:w{self.window}:{now // self.window}"
+
+    def exhausted(self, tenant: str) -> bool:
+        """True when the current window is used up, without spending from it."""
+        doc = self.store.get(self._key(tenant, int(self.clock())))
+        return bool(doc and doc.data["count"] >= self.per_minute)
+
+    def check(self, tenant: str) -> None:
+        if self.exhausted(tenant):
+            raise RateLimited(self.message)
 
     def consume(self, tenant: str) -> None:
         now = int(self.clock())
-        key = f"rate:{tenant}:{now // 60}"
+        key = self._key(tenant, now)
         for _ in range(5):
             doc = self.store.get(key) or Document(
-                key, "rate_limits", {"count": 0}, expires_at=now + 120
+                key, "rate_limits", {"count": 0}, expires_at=now + 2 * self.window
             )
             if doc.data["count"] >= self.per_minute:
-                raise RateLimited("Request limit reached; retry next minute")
+                raise RateLimited(self.message)
             try:
                 self.store.commit([doc.update({"count": doc.data["count"] + 1})])
                 return
             except Conflict:
                 continue
         raise RateLimited("Request limit busy; retry next minute")
+
+    def spend(self, tenant: str) -> bool:
+        """Take one from the window if any is left; never raises for an empty one."""
+        try:
+            self.consume(tenant)
+        except RateLimited:
+            return False
+        return True
