@@ -8,11 +8,21 @@ variable "hosted_zone_id" {
   default = ""
 }
 variable "monitor_limit" {
-  type    = number
-  default = 20
+  description = "Flights each account may watch."
+  type        = number
+  default     = 100
   validation {
     condition     = var.monitor_limit >= 1 && var.monitor_limit <= 100 && floor(var.monitor_limit) == var.monitor_limit
     error_message = "Use an integer monitor limit from 1 to 100."
+  }
+}
+variable "global_target_limit" {
+  description = "Distinct itineraries the whole deployment checks. The worker manages about four checks a minute, so past about 60 itineraries on 15-minute intervals each is checked less often than asked."
+  type        = number
+  default     = 100
+  validation {
+    condition     = var.global_target_limit >= 1 && var.global_target_limit <= 1000 && floor(var.global_target_limit) == var.global_target_limit
+    error_message = "Use an integer global target limit from 1 to 1000."
   }
 }
 locals {

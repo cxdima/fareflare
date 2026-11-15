@@ -4,7 +4,7 @@ The public application is https://fareflare.dev. Registration needs an email add
 password, and is open to anyone. The address is confirmed by email and is where a
 password-reset link goes; passkeys and two-step sign-in are available in account
 settings. Billing
-remains disabled. Each account may track 20 flights. Collection is shared and has
+remains disabled. Each account may track 100 flights. Collection is shared and has
 an independent deployment capacity ceiling; reaching it rejects additional targets
 rather than starting unbounded browser work. Polling remains periodic.
 

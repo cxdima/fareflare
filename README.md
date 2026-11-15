@@ -51,7 +51,7 @@ and MCP, so an AI assistant can work with them too.
 - **Recorded, never predicted.** Every price carries the time it was seen, and a check
   that recorded nothing stays a gap instead of being filled in.
 - **Free and open.** The hosted service at [fareflare.dev](https://fareflare.dev) is
-  free with open sign-up (20 flights per account); the code is MIT and runs on your
+  free with open sign-up (100 flights per account); the code is MIT and runs on your
   own AWS account.
 
 > [!NOTE]
@@ -281,9 +281,9 @@ Run `make help` for every command.
 | `FAREFLARE_REGISTRATION_MODE` | `open` | `open` lets anyone sign up; `closed` stops new accounts |
 | `FAREFLARE_EMAIL` · `FAREFLARE_EMAIL_FROM` | `off` | `ses` sends account email through Amazon SES; `file` writes it to a folder |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Admit the constrained route searches |
-| `FAREFLARE_MONITOR_LIMIT` | `20` | Flights per account |
+| `FAREFLARE_MONITOR_LIMIT` | `100` | Flights per account |
 | `FAREFLARE_MIN_INTERVAL` | `900` | Minimum requested check interval, in seconds |
-| `FAREFLARE_GLOBAL_TARGET_LIMIT` | `20` | Distinct targets the deployment will collect |
+| `FAREFLARE_GLOBAL_TARGET_LIMIT` | `100` | Distinct targets the deployment will collect |
 | `FAREFLARE_BILLING_ENABLED` | `false` | Must stay `false`: billing refuses to start until a payment integration exists |
 
 </details>

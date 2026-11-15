@@ -9,7 +9,7 @@ for the preceding bot release. Actual Telegram receipt has not been verified.
 
 ## Public domain release
 
-The service is now https://fareflare.dev with public signup and 20 monitors per
+The service is now https://fareflare.dev with public signup and 100 monitors per
 account. Terraform manages Route 53, ACM and the Regional custom domain. The
 Python package and environment keys use `fareflare`/`FAREFLARE_`. Signup-specific
 and account-route rate limits supplement existing gateway and API protections.
@@ -89,8 +89,8 @@ within that budget; identity, currency, and fare checks still apply. This improv
 handling of page updates without expanding supported flight coverage or raising
 the configured polling frequency.
 
-The hosted configuration allows 20 monitors per account, a 900-second minimum
-requested interval, and 20 shared collection targets. These limits constrain work;
+The hosted configuration allows 100 monitors per account, a 900-second minimum
+requested interval, and 100 shared collection targets. These limits constrain work;
 they do not guarantee a polling deadline or zero infrastructure cost. See
 [setup](FAREFLARE.md) for exact flight coverage.
 

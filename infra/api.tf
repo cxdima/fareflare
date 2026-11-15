@@ -109,7 +109,7 @@ resource "aws_lambda_function" "api" {
       FAREFLARE_SEARCH_ENABLED               = tostring(var.search_enabled)
       FAREFLARE_MONITOR_LIMIT                = tostring(var.monitor_limit)
       FAREFLARE_MIN_INTERVAL                 = "900"
-      FAREFLARE_GLOBAL_TARGET_LIMIT          = "20"
+      FAREFLARE_GLOBAL_TARGET_LIMIT          = tostring(var.global_target_limit)
       FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN = var.customer_telegram_secret_arn
       FAREFLARE_EDGE_SECRET                  = local.cdn_enabled ? var.edge_secret : ""
       FAREFLARE_EMAIL                        = local.email_enabled ? "ses" : "off"

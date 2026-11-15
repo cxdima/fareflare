@@ -186,9 +186,9 @@ works, and then sets up a second factor.
 | `FAREFLARE_PASSWORD_BREACH_CHECK` | `on` | `off` skips the Have I Been Pwned lookup for new passwords (the local rules still apply) |
 | `FAREFLARE_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
-| `FAREFLARE_MONITOR_LIMIT` | `3` | Monitors per account |
+| `FAREFLARE_MONITOR_LIMIT` | `100` | Monitors per account |
 | `FAREFLARE_MIN_INTERVAL` | `900` | Minimum requested interval in seconds |
-| `FAREFLARE_GLOBAL_TARGET_LIMIT` | `20` | Shared collection capacity |
+| `FAREFLARE_GLOBAL_TARGET_LIMIT` | `100` | Shared collection capacity |
 
 Billing deliberately refuses startup when enabled until a payment integration is
 implemented. Identical target identities share collection; subscriptions and alert

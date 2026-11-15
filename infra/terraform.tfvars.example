@@ -18,4 +18,5 @@ worker_schedule_minutes  = 5
 # Route 53 custom domain (optional for self-hosting)
 domain_name = "fareflare.dev"
 hosted_zone_id = "YOUR_HOSTED_ZONE_ID"
-monitor_limit = 20
+monitor_limit = 100
+global_target_limit = 100

@@ -156,7 +156,7 @@ def test_open_signup_is_bounded_by_peer_not_spoofed_forwarded_headers(store, clo
     accounts = Accounts(store, config, lambda: clock[0])
     app = create_portal(service, config, accounts)
     with TestClient(app, base_url=config.public_url) as client:
-        assert client.get("/v1/config").json()["limits"]["monitors"] == 20
+        assert client.get("/v1/config").json()["limits"]["monitors"] == 100
         for index in range(3):
             response = client.post(
                 "/auth/register",
@@ -202,16 +202,16 @@ def test_old_browser_origin_redirects_but_api_and_webhook_paths_remain_available
         assert client.get("/", headers={"Host": "attacker.example.com"}).status_code == 400
 
 
-def test_twenty_monitor_quota_rejects_twenty_first_and_releases_on_stop(store, clock, flight_url):
-    service = MonitoringService(
-        store, lambda: clock[0], monitor_limit=ProductConfig().monitor_limit
-    )
+def test_hundred_monitor_quota_rejects_one_more_and_releases_on_stop(store, clock, flight_url):
+    limit = ProductConfig().monitor_limit
+    assert limit == 100
+    service = MonitoringService(store, lambda: clock[0], monitor_limit=limit)
     monitors = [
         service.create_monitor("quotauser", flight_url, f"quota-request-{index}")
-        for index in range(20)
+        for index in range(limit)
     ]
     with pytest.raises(ValueError, match="quota"):
         service.create_monitor("quotauser", flight_url, "quota-request-over")
     service.set_status("quotauser", monitors[0]["id"], "cancelled")
     service.create_monitor("quotauser", flight_url, "quota-request-replacement")
-    assert store.get("tenant:quotauser").data["monitors"] == 20
+    assert store.get("tenant:quotauser").data["monitors"] == limit

@@ -22,7 +22,7 @@ def test_application_composition_loads_product_limits_and_built_assets(
     app = product_runtime.build_application()
     with TestClient(app, base_url="https://app.example.com") as client:
         config = client.get("/v1/config").json()
-        assert config["limits"]["monitors"] == 20 and config["billing_enabled"] is False
+        assert config["limits"]["monitors"] == 100 and config["billing_enabled"] is False
         assert client.get("/").status_code == 200
         assert client.get("/").headers["cache-control"] == "no-store"
         assert "immutable" in client.get("/assets/app-deadbeef.js").headers["cache-control"]

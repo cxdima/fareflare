@@ -134,6 +134,10 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
+- **Each account can watch 100 flights, up from 20.** The shared limit on distinct
+  itineraries the service checks rose from 20 to 100 with it (otherwise no account
+  could get past 20), and is now a Terraform variable, `global_target_limit`, instead
+  of a fixed value.
 - **Passwords need 8 characters, not 15.** Sign-up, password changes and resets
   accept 8 to 128 characters, and the `passwordrules` hint that password managers
   read says the same. Existing passwords are unaffected.

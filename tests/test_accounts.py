@@ -37,7 +37,7 @@ def test_default_product_is_free_open_and_bounded():
         "billing_enabled": False,
         "capabilities": {"route_searches": False},
         "registration_mode": "open",
-        "limits": {"monitors": 20, "min_interval_seconds": 900, "global_targets": 20},
+        "limits": {"monitors": 100, "min_interval_seconds": 900, "global_targets": 100},
     }
     assert ProductConfig.from_env({"FAREFLARE_SEARCH_ENABLED": "true"}).search_enabled is True
     with pytest.raises(ValueError):

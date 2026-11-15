@@ -15,9 +15,9 @@ class ProductConfig:
     public_url: str = ""
     registration_mode: str = "open"
     billing_enabled: bool = False
-    monitor_limit: int = 20
+    monitor_limit: int = 100
     min_interval_seconds: int = 900
-    global_target_limit: int = 20
+    global_target_limit: int = 100
     search_enabled: bool = False
     additional_hosts: tuple[str, ...] = ()
 
@@ -78,9 +78,9 @@ class ProductConfig:
                 public_url=values.get("FAREFLARE_PUBLIC_URL", "").rstrip("/"),
                 registration_mode=values.get("FAREFLARE_REGISTRATION_MODE", "open"),
                 billing_enabled=billing == "true",
-                monitor_limit=int(values.get("FAREFLARE_MONITOR_LIMIT", "20")),
+                monitor_limit=int(values.get("FAREFLARE_MONITOR_LIMIT", "100")),
                 min_interval_seconds=int(values.get("FAREFLARE_MIN_INTERVAL", "900")),
-                global_target_limit=int(values.get("FAREFLARE_GLOBAL_TARGET_LIMIT", "20")),
+                global_target_limit=int(values.get("FAREFLARE_GLOBAL_TARGET_LIMIT", "100")),
                 search_enabled=search == "true",
                 additional_hosts=tuple(
                     filter(None, values.get("FAREFLARE_ADDITIONAL_HOSTS", "").split(","))
