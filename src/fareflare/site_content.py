@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from html import escape
 
 from fareflare.product_config import ProductConfig
@@ -769,4 +770,41 @@ def feed(config: ProductConfig) -> str:
         + "<language>en-US</language>"
         + items
         + "</channel></rss>"
+    )
+
+
+def llms_txt(config: ProductConfig) -> str:
+    """The llms.txt summary (https://llmstxt.org): what the site is and where to read
+    more, for assistants that read the web on someone's behalf."""
+    origin = config.public_url.rstrip("/")
+    pages = public_pages(config)
+
+    def links(selected) -> str:
+        return "".join(
+            f"- [{page.headline}]({origin}{page.path}): {page.description}\n" for page in selected
+        )
+
+    home = next(page for page in pages if page.path == "/")
+    return (
+        f"# {config.product_name}\n\n> {home.description}\n\n"
+        f"Accounts are free. Each one can watch {config.monitor_limit} flights. The same "
+        f"monitors are available in the dashboard, the REST API ({origin}/docs) and the MCP "
+        f"server ({origin}/mcp, OAuth or an API key). The source is MIT-licensed: {GITHUB_URL}\n\n"
+        "## Guides\n\n"
+        + links(page for page in pages if page.kind == "guide")
+        + "\n## Pages\n\n"
+        + links(page for page in pages if page.kind != "guide" and page.path != "/")
+    )
+
+
+def security_txt(config: ProductConfig, now: float) -> str:
+    """RFC 9116. Reports go to GitHub's private advisories, so no inbox is published."""
+    expires = datetime.fromtimestamp(now + 180 * 86400, UTC).strftime("%Y-%m-%dT00:00:00Z")
+    origin = config.public_url.rstrip("/")
+    return (
+        f"Contact: {GITHUB_URL}/security/advisories/new\n"
+        f"Expires: {expires}\n"
+        f"Policy: {GITHUB_URL}/security/policy\n"
+        "Preferred-Languages: en\n"
+        f"Canonical: {origin}/.well-known/security.txt\n"
     )

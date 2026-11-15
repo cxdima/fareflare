@@ -64,9 +64,14 @@ Docker to that registry, push both images, and retrieve their ECR image digests.
 Set `api_image_uri` and `image_uri` to `REPOSITORY@sha256:DIGEST`. Record the source
 revision, browser base, new digests, and previous digests privately.
 
+With the CDN on, upload the website's files to S3 before the new API image goes live,
+so every script a new page names is already there (see [CDN](#cdn-cloudfront)):
+
 ```bash
 docker push "$FAREFLARE_API_REPOSITORY:$FAREFLARE_RELEASE"
 docker push "$FAREFLARE_WORKER_REPOSITORY:$FAREFLARE_RELEASE"
+python -m fareflare.publish_web --bucket "$(terraform -chdir=infra output -raw web_bucket)" \
+  --distribution "$(terraform -chdir=infra output -raw cdn_distribution_id)"
 terraform -chdir=infra plan -out=../.fareflare/fareflare.tfplan
 terraform -chdir=infra apply ../.fareflare/fareflare.tfplan
 ```
@@ -82,12 +87,40 @@ not a guarantee of price freshness.
 ## CDN (CloudFront)
 
 With `cdn_enabled=true` and an `edge_secret` of at least 32 random characters in the
-tfvars, the domain points at a CloudFront distribution (`infra/cdn.tf`) whose origin is
-the API Gateway custom domain, reached with the viewer's `Host` header. Scripts,
-styles, fonts and everything under `/assets/` and `/media/` are cached at the edge by
-path alone (cookies, headers and query strings never make a new cache entry, so the
-cache cannot be bypassed); pages, `/v1`, `/auth`, `/oauth`, `/mcp` and `/telegram` pass
-through uncached. Throttled or failed answers are never cached.
+tfvars, the domain points at a CloudFront distribution (`infra/cdn.tf`) with two
+origins:
+
+- **Website files** (scripts, styles, fonts, icons, everything under `/assets/` and
+  `/media/`) come from a private S3 bucket that only this distribution can read
+  (`web_bucket` output). They are cached at the edge by path alone: cookies, headers
+  and query strings never make a new cache entry, so the cache cannot be bypassed. The
+  edge adds `nosniff`, HSTS, `X-Frame-Options` and a script-free CSP to them.
+- **Pages and everything dynamic** (`/v1`, `/auth`, `/oauth`, `/mcp`, `/telegram`) go
+  to the application through the API Gateway custom domain with the viewer's `Host`
+  header, uncached. Pages carry a fresh CSP nonce each time, so they cannot be cached.
+
+Throttled or failed answers are never cached.
+
+Files used to come from the application too. A cache miss is common on a quiet site
+(each edge location misses once per file and drops files nobody asks for), and a miss
+then meant a Lambda invocation that might start cold: a second or more for a font or
+script. From S3 a miss costs tens of milliseconds.
+
+`python -m fareflare.publish_web` uploads `web/dist` with the same allowlist, content
+types and `Cache-Control` the application uses (`fareflare/static_files.py`). It skips
+unchanged files, never deletes (a visitor with the previous release open keeps loading
+its scripts), and invalidates changed `/assets/` files in CloudFront when given
+`--distribution`. `--dry-run` lists what it would upload.
+
+**Cold starts.** The API keeps one instance ready: EventBridge invokes it every five
+minutes with `{"fareflare": "warm-up"}`, which the handler answers without touching
+the application (about $0 a month). The application is built during Lambda's init
+phase, so an instance AWS starts ahead of demand is ready before its first visitor,
+and the function has 2048 MB (twice the CPU of 1024 MB) because starting is CPU-bound.
+
+**`www`.** `www.<domain>` answers with a 301 to the domain, path and query kept, from
+a CloudFront Function on its own small distribution and certificate (`infra/www.tf`,
+`redirect_www`).
 
 Without it, every file is a Lambda invocation under API Gateway's account-wide throttle:
 one landing-page visit made about 190 requests and drew 429 and 503 answers.
@@ -98,7 +131,8 @@ per-address sign-in and sign-up limits; anything else is limited by API Gateway'
 source address.
 
 Fingerprinted files change name with each build. Files under `/assets/` keep their
-names and are cached for an hour, so after a release that changes artwork run:
+names and are cached for an hour; `publish_web --distribution` invalidates the ones that
+changed. To do it by hand:
 
 ```bash
 aws cloudfront create-invalidation --distribution-id "$(terraform -chdir=infra output -raw cdn_distribution_id)" --paths '/assets/*'

@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import re
 import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -21,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
 
+from fareflare import static_files
 from fareflare.accounts import (
     MAX_PASSWORD_LENGTH,
     MAX_USERNAME_LENGTH,
@@ -44,23 +44,16 @@ from fareflare.site_content import (
     Page,
     content_document,
     feed,
+    llms_txt,
     private_page,
     public_pages,
     render_document,
+    security_txt,
     sitemap,
 )
 
 if TYPE_CHECKING:
     from fareflare.telegram_accounts import TelegramConnections
-
-# Python 3.12's built-in type table, which is all the Lambda image has, does not know
-# these, so they would go out as application/octet-stream.
-MEDIA_TYPES = {
-    ".webp": "image/webp",
-    ".avif": "image/avif",
-    ".woff2": "font/woff2",
-    ".woff": "font/woff",
-}
 
 
 class LoginInput(BaseModel):
@@ -511,6 +504,10 @@ def create_portal(
         # Password managers and browsers open this to take someone to the right page.
         return RedirectResponse("/app#settings?section=security", status_code=302)
 
+    @app.get("/.well-known/security.txt", include_in_schema=False)
+    def security_contact():
+        return PlainTextResponse(security_txt(config, service.clock()))
+
     @app.get("/v1/account")
     def account(identity: Annotated[dict, Depends(session)]):
         return {"account": identity["account"], "csrf_token": identity["csrf_token"]}
@@ -682,32 +679,7 @@ def create_portal(
     if static_dir and static_dir.is_dir():
         shell = (static_dir / "index.html").read_text()
         pages = {page.path: page for page in public_pages(config)}
-        # Only packaged public assets are reachable. Never expose source maps,
-        # dotfiles, deployment configuration, or a path outside the build root.
-        root = static_dir.resolve()
-        allowed_suffixes = {
-            ".js",
-            ".css",
-            ".svg",
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".webp",
-            ".avif",
-            ".ico",
-            ".woff",
-            ".woff2",
-            ".ttf",
-            ".webmanifest",
-        }
-        files = {
-            "/" + path.relative_to(static_dir).as_posix(): path
-            for path in static_dir.rglob("*")
-            if path.is_file()
-            and (path.suffix.lower() in allowed_suffixes or path.name == "3rdpartylicenses.txt")
-            and not any(part.startswith(".") for part in path.relative_to(static_dir).parts)
-            and path.resolve().is_relative_to(root)
-        }
+        files = static_files.public_files(static_dir)
 
         @app.get("/site-content.json", include_in_schema=False)
         def site_content():
@@ -721,6 +693,10 @@ def create_portal(
         def site_feed():
             return Response(feed(config), media_type="application/rss+xml")
 
+        @app.get("/llms.txt", response_class=PlainTextResponse, include_in_schema=False)
+        def llms():
+            return PlainTextResponse(llms_txt(config), media_type="text/markdown; charset=utf-8")
+
         @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
         def robots():
             # Account HTML is crawlable so crawlers can observe its noindex
@@ -732,16 +708,11 @@ def create_portal(
             path = "/" + site_path
             if path in files:
                 asset = files[path]
-                fingerprinted = re.search(r"[.-](?:[A-Z0-9]{8,}|[a-f0-9]{8,})\.[^.]+$", asset.name)
-                cache = (
-                    "public, max-age=31536000, immutable"
-                    if fingerprinted
-                    else "public, max-age=3600"
-                )
+                cache = static_files.cache_control(asset)
                 request.state.asset_cache = cache
                 return FileResponse(
                     asset,
-                    media_type=MEDIA_TYPES.get(asset.suffix.lower()),
+                    media_type=static_files.media_type(asset),
                     headers={"Cache-Control": cache},
                 )
             secret_query = any(

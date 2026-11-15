@@ -27,6 +27,8 @@ def public_site(store, clock, tmp_path):
     (tmp_path / "assets" / "plane.webp").write_bytes(b"RIFF\x00\x00\x00\x00WEBP")
     (tmp_path / "media").mkdir()
     (tmp_path / "media" / "font-ABC12345.woff2").write_bytes(b"font")
+    (tmp_path / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
+    (tmp_path / "site.webmanifest").write_text('{"name": "Fareflare"}')
     (tmp_path / ".env").write_text("DO_NOT_SERVE=private")
     (tmp_path / "main-ABC12345.js.map").write_text("private sources")
     (tmp_path / "secret.json").write_text('{"secret":"private"}')
@@ -160,6 +162,27 @@ def test_sitemap_and_feed_only_list_real_public_pages(public_site):
     assert all(item.findtext("link").startswith(config.public_url + "/guides/") for item in items)
 
 
+def test_llms_txt_and_security_txt(public_site, clock):
+    client, config = public_site
+    summary = client.get("/llms.txt")
+    assert summary.headers["content-type"].startswith("text/markdown")
+    assert summary.text.startswith("# Fareflare\n\n> ")
+    for page in public_pages(config):
+        if page.path != "/":
+            assert f"]({config.public_url}{page.path})" in summary.text
+    assert "/app" not in summary.text and "invite" not in summary.text
+    contact = client.get("/.well-known/security.txt")
+    assert contact.headers["content-type"].startswith("text/plain")
+    fields = dict(line.split(": ", 1) for line in contact.text.strip().splitlines())
+    assert fields["Contact"].startswith("https://github.com/") and "@" not in contact.text
+    assert fields["Canonical"] == config.public_url + "/.well-known/security.txt"
+    # RFC 9116: always in the future, and less than a year away.
+    from datetime import datetime
+
+    expires = datetime.fromisoformat(fields["Expires"].replace("Z", "+00:00")).timestamp()
+    assert clock[0] + 150 * 86400 < expires < clock[0] + 365 * 86400
+
+
 def test_static_cache_matches_asset_names_and_does_not_capture_api(public_site):
     client, _ = public_site
     for path in (
@@ -174,6 +197,8 @@ def test_static_cache_matches_asset_names_and_does_not_capture_api(public_site):
         client.get("/assets/fareflare-mark.png").headers["cache-control"] == "public, max-age=3600"
     )
     assert client.get("/favicon.svg").status_code == 200
+    assert client.get("/favicon.ico").headers["content-type"] == "image/x-icon"
+    assert client.get("/site.webmanifest").headers["content-type"] == "application/manifest+json"
     assert client.get("/v1/account").status_code == 401
     assert client.get("/v1/config").json()["product_name"] == "Fareflare"
     assert client.head("/about").status_code == 200 and not client.head("/about").content

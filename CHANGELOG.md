@@ -134,6 +134,25 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
+- **Faster first visits.**
+  - **Website files come from S3 through CloudFront**, not the application. A cache
+    miss (common on a quiet site: every edge location misses once per file) used to
+    be a Lambda invocation that might start cold, a second or more for a font or
+    script; now it is an S3 read. Upload them with `python -m fareflare.publish_web`
+    before applying a release (docs/OPERATIONS.md).
+  - **Fewer and shorter cold starts.** One API instance is kept ready by a ping every
+    five minutes. The application is built while Lambda starts the instance instead
+    of on its first request, so instances AWS starts ahead of demand are ready, and
+    the function has twice the memory (and so twice the CPU) to start faster.
+  - **A lighter landing page.** The app ships the 60 icons it uses instead of all of
+    Bootstrap Icons: the icon font went from 135 KB to 5.5 KB and the render-blocking
+    stylesheet from 48 KB to 29 KB compressed (`web/scripts/subset-icons.py`; a test
+    fails when an icon is used without regenerating). The scroll animation's frames
+    load at low priority, after the page has finished loading.
+- **`www.fareflare.dev` redirects to fareflare.dev** (it did not resolve before).
+- **Discovery.** A `favicon.ico`, an Apple touch icon, a web app manifest,
+  `/llms.txt` (what the site is and where to read more, for AI assistants) and
+  `/.well-known/security.txt` (reports go to GitHub's private security advisories).
 - **Each account can watch 100 flights, up from 20.** The shared limit on distinct
   itineraries the service checks rose from 20 to 100 with it (otherwise no account
   could get past 20), and is now a Terraform variable, `global_target_limit`, instead

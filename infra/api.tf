@@ -86,13 +86,16 @@ resource "aws_iam_role_policy" "api" {
 }
 
 resource "aws_lambda_function" "api" {
-  count                          = var.api_image_uri == "" ? 0 : 1
-  function_name                  = "${var.name}-api"
-  role                           = aws_iam_role.api.arn
-  package_type                   = "Image"
-  image_uri                      = var.api_image_uri
-  architectures                  = ["arm64"]
-  memory_size                    = 1024
+  count         = var.api_image_uri == "" ? 0 : 1
+  function_name = "${var.name}-api"
+  role          = aws_iam_role.api.arn
+  package_type  = "Image"
+  image_uri     = var.api_image_uri
+  architectures = ["arm64"]
+  # CPU scales with memory. Starting an instance is mostly CPU-bound Python imports, so
+  # twice the memory roughly halves a cold start; requests take a few milliseconds
+  # either way, so the bill barely moves.
+  memory_size                    = 2048
   timeout                        = 29
   reserved_concurrent_executions = 16
   lifecycle {
@@ -171,6 +174,32 @@ resource "aws_apigatewayv2_stage" "api" {
     }
   }
   depends_on = [aws_apigatewayv2_route.api]
+}
+
+# One instance kept ready between visitors. On a quiet site most page loads would
+# otherwise start an instance before the page can be rendered. The handler answers
+# this event without touching the application (fareflare.product_runtime.WARM_UP).
+resource "aws_cloudwatch_event_rule" "api_warm" {
+  count               = var.api_image_uri == "" ? 0 : 1
+  name                = "${var.name}-api-warm"
+  description         = "Keep one ${var.product_name} API instance ready"
+  schedule_expression = "rate(5 minutes)"
+}
+
+resource "aws_cloudwatch_event_target" "api_warm" {
+  count = var.api_image_uri == "" ? 0 : 1
+  rule  = aws_cloudwatch_event_rule.api_warm[0].name
+  arn   = aws_lambda_function.api[0].arn
+  input = jsonencode({ fareflare = "warm-up" })
+}
+
+resource "aws_lambda_permission" "api_warm" {
+  count         = var.api_image_uri == "" ? 0 : 1
+  statement_id  = "AllowWarmUpSchedule"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.api_warm[0].arn
 }
 
 resource "aws_lambda_permission" "api" {

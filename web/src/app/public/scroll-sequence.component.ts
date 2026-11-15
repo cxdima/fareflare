@@ -70,7 +70,9 @@ export class ScrollSequenceComponent {
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         near.disconnect();
-        void this.loadAll();
+        // A hundred-odd frames never compete with the page's own fonts, styles and art.
+        if (document.readyState === 'complete') void this.loadAll();
+        else addEventListener('load', () => void this.loadAll(), { once: true });
       },
       { rootMargin: '150% 0px' },
     );
@@ -89,6 +91,7 @@ export class ScrollSequenceComponent {
     return new Promise((resolve) => {
       const image = new Image();
       image.decoding = 'async';
+      image.fetchPriority = 'low';
       image.onload = () => {
         this.images[index] = image;
         resolve();

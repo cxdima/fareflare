@@ -52,7 +52,8 @@
   font-stretch: 75% 125%;
   font-display: swap;
 }
-@import 'bootstrap-icons/font/bootstrap-icons.css';
+// Only the icons the app uses; regenerate with web/scripts/subset-icons.py.
+@import './icons/bootstrap-icons-subset.css';
 
 /*
  * Fareflare: the baggage tag.

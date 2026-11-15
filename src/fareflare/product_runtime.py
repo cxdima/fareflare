@@ -48,9 +48,25 @@ def build_application():
 
 _adapter = None
 
+# The scheduled ping (infra/api.tf) that keeps one instance ready between visitors.
+WARM_UP = {"fareflare": "warm-up"}
 
-def handler(event, context):
+
+def _application() -> Mangum:
     global _adapter
     if _adapter is None:
         _adapter = Mangum(build_application(), lifespan="off")
-    return _adapter(event, context)
+    return _adapter
+
+
+def handler(event, context):
+    if event == WARM_UP:
+        _application()
+        return {"warm": True}
+    return _application()(event, context)
+
+
+# On Lambda, build during the init phase rather than on the first request: an
+# instance AWS starts ahead of demand is then ready before its first visitor.
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    _application()

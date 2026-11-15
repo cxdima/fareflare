@@ -29,7 +29,12 @@ complete record.
 | Asset | Path | Use |
 | --- | --- | --- |
 | Wing-shaped F mark | `web/public/assets/fareflare-mark.png` (256 × 256) | Navigation, sign-in, footer, structured data |
-| Favicon | `web/public/favicon.svg` | Browser tab |
+| Favicon | `web/public/favicon.ico` (16, 32, 48) and the mark PNG, both linked from `index.html` | Browser tab, search results |
+| Home-screen icon | `web/public/apple-touch-icon.png` (180 × 180, the mark on a solid ink tile) | iOS home screen |
+| App icon | `web/public/assets/icon-192.png` and the mark, listed in `web/public/site.webmanifest` | Installed web app |
+| Legacy favicon | `web/public/favicon.svg` (the earlier plane) | Not linked; kept for old bookmarks |
+
+The icons were cut from the mark with Pillow; the ink tile is the disc's own colour.
 
 The mark is the wing-shaped F drawn for the project on November 5, 2026. It was
 not regenerated: the same shape was recoloured in code to a lime mark

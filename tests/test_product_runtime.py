@@ -30,6 +30,20 @@ def test_application_composition_loads_product_limits_and_built_assets(
         assert client.get("/assets/../../.env").status_code == 404
 
 
+def test_the_warm_up_ping_builds_the_application_without_a_request(store, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAREFLARE_PUBLIC_URL", "https://app.example.com")
+    monkeypatch.setenv("FAREFLARE_TABLE", "fareflare-tests")
+    monkeypatch.setenv("LAMBDA_TASK_ROOT", str(tmp_path))
+    monkeypatch.delenv("FAREFLARE_CUSTOMER_TELEGRAM_SECRET_ARN", raising=False)
+    monkeypatch.setattr(product_runtime, "DynamoStore", lambda *args, **kwargs: store)
+    monkeypatch.setattr(product_runtime, "_adapter", None)
+    assert product_runtime.handler({"fareflare": "warm-up"}, None) == {"warm": True}
+    built = product_runtime._adapter
+    assert built is not None
+    assert product_runtime.handler(dict(product_runtime.WARM_UP), None) == {"warm": True}
+    assert product_runtime._adapter is built  # Built once, then reused.
+
+
 def test_customer_worker_defaults_to_durable_inbox_without_a_bot_secret(store, monkeypatch):
     monkeypatch.setenv("FAREFLARE_TABLE", "fareflare-tests")
     monkeypatch.setenv("FAREFLARE_DELIVERY", "product")
