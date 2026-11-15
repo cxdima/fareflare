@@ -305,8 +305,11 @@ def create_portal(
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # Pages and static files too, not only the API: a response is only ever what its
+        # declared type says, never re-guessed as HTML or script by the browser.
+        response.headers["X-Content-Type-Options"] = "nosniff"
         if secure:
-            response.headers["Strict-Transport-Security"] = "max-age=31536000"
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         if response.status_code == 200 and getattr(request.state, "asset_cache", None):
             response.headers["Cache-Control"] = request.state.asset_cache
         if request.url.path.startswith("/v1/admin/"):

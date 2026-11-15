@@ -38,6 +38,9 @@ def test_signup_cookie_csrf_key_and_logout(portal, flight_url):
     response = signup(client, accounts)
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=lax" in cookie
+    # __Host-: only this exact host, over HTTPS, at Path=/; no subdomain can set or read it.
+    assert cookie.startswith("__Host-fareflare_session=") and "Path=/" in cookie
+    assert "domain=" not in cookie.lower()
     assert "session_token" not in response.json()
     csrf = response.json()["csrf_token"]
     assert client.get("/v1/account").json()["csrf_token"] == csrf
@@ -90,7 +93,10 @@ def test_security_headers_host_and_cross_origin_signup(portal):
     assert "'unsafe-inline'" not in response.headers["content-security-policy"]
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-store"
-    assert "max-age=" in response.headers["strict-transport-security"]
+    assert response.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+    # Every response, pages and errors included, not only the API's.
+    for path in ("/v1/config", "/", "/login", "/no-such-page"):
+        assert client.get(path).headers["x-content-type-options"] == "nosniff", path
     assert client.get("/v1/config", headers={"host": "attacker.example"}).status_code == 400
     assert (
         client.post(

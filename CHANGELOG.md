@@ -325,6 +325,8 @@ From a full review of how someone could hurt an account holder or the operator:
   and the email budget running out. The gateway's per-route limits named a route
   that no longer existed (`/auth/recover`); they now cover sign-up, sign-in, the
   second step, passkey sign-in, resets and address changes.
+- **`X-Content-Type-Options: nosniff` on every response**, not only the API's:
+  pages, static files and error pages too. HSTS now includes subdomains.
 
 ### Removed
 
