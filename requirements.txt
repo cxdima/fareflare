@@ -1,6 +1,6 @@
 # Fareflare API and browser-worker runtime dependencies.
-boto3==1.43.126
-fastapi==0.162.0
+boto3==1.43.127
+fastapi==0.162.2
 httpx==0.28.1
 mcp==2.3.0
 protobuf==7.36.2
