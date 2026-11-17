@@ -133,7 +133,7 @@ def test_connected_accounts_get_quiet_alerts_and_notices(connected, service, fli
     service.set_preferences(tenant, diagnostics=True, quiet_hours="20:00-06:00")
     service.create_monitor(tenant, flight_url, "quiet-notice")
     clock[0] = at("2026-11-02T21:00:00")
-    fail(service, clock, code="challenge")
+    fail(service, clock, code="unsupported_itinerary")
     clock[0] = at("2026-11-03T02:00:00")
     sent.clear()
     assert service.deliver_notices(RoutedSink(service.webhooks, connections)) == 1

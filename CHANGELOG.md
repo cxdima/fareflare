@@ -134,6 +134,17 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
+- **Google's robot check no longer stops a flight.** A `challenge`, and Google's
+  consent and sign-in pages (`consent_required`, `login_required`), used to stop a
+  flight after one occurrence until someone chose **Retry collection**, though
+  nobody could clear them and they pass within minutes. They are now retried like
+  any failed check, only later: 15 to 30 minutes after the first, twice as long
+  after each further failure in a row, and at most one to two hours apart. The run
+  that meets one checks nothing else. Diagnostic notices come after five failed
+  checks in a row, as for other failures. Only `unsupported_itinerary` still stops
+  a flight. Each refusal is logged with fixed labels for what Google showed, the
+  collector step and how soon (`Public browser refused code=challenge
+  signal=sorry_page phase=summary elapsed_ms=1840`), never the address or page.
 - **Faster first visits.**
   - **Website files come from S3 through CloudFront**, not the application. A cache
     miss (common on a quiet site: every edge location misses once per file) used to
@@ -378,6 +389,8 @@ From a full review of how someone could hurt an account holder or the operator:
   `telegram_style` to `detailed` or `compact` for affected accounts first.
 - A queued alert created before this release has no comparison data; it is
   delivered without the "was" figures and its webhook body is unchanged.
+- A flight stopped by `challenge`, `consent_required` or `login_required` before
+  this release stays stopped until **Retry collection** is chosen for it once.
 
 ## 2.0.0
 

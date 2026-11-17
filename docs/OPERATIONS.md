@@ -415,6 +415,33 @@ an occasional `provider_error` is the normal picture.
 local run of `python -m fareflare.cli quote <link>` before changing anything,
 because the cause is on Google's side.
 
+When Google turns the browser away, the check fails as `challenge` (its robot
+check: the `/sorry` page, or "unusual traffic" on a flights page),
+`consent_required` or `login_required`. Nobody can clear these for the worker's
+browser, and they pass by themselves: on 2026-11-16 two flights met a challenge,
+and the same worker environments checked other flights normally a few minutes
+before and after. So a refusal never stops a flight. It is retried like any
+failed check, only later: 15 to 30 minutes after the first refusal, twice as long
+after each further failure in a row, and at most one to two hours apart. The run
+that met the refusal checks nothing else, and the flights still due wait for the
+next run. Accounts with diagnostic notices hear about it after five failed checks
+in a row, as with any failure, and again when a price is recorded. Only
+`unsupported_itinerary` stops a flight until someone chooses **Retry collection**,
+because checking again cannot change that answer.
+
+Each refusal is logged with fixed labels, never the address or the page:
+
+```text
+Public browser refused code=challenge signal=sorry_page phase=summary elapsed_ms=1840
+```
+
+`signal` is `sorry_page`, `unusual_traffic`, `consent_page` or `sign_in_page`, and
+`phase` is the collector step that saw it. `elapsed_ms` counts from the start of the
+check, browser start included, so a second or two means Google refused before the
+flight page loaded. Route searches log the same line as `Public search refused`.
+Many refusals in a day mean Google is turning the worker away in general, not that
+a flight is wrong; they show as `challenge` in the run's `failure_codes`.
+
 In Lambda, Chromium runs with `--no-sandbox` and `--no-zygote` and keeps its
 renderers in their own processes. It used to run with `--single-process`, and the
 first Chromium started in an environment crashed two to three seconds after it

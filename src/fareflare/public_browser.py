@@ -206,14 +206,28 @@ def anonymous_browser(chrome_binary: str | None = None, chromedriver: str | None
                     driver.quit()
 
 
+class _Refused(QuoteUnavailable):
+    """Google turned the browser away; ``signal`` is a fixed name for what showed it."""
+
+    def __init__(self, code: str, signal: str):
+        super().__init__(code)
+        self.signal = signal
+
+
+def _check_text(text: str) -> None:
+    """Google's robot check can also arrive as text on a flights address."""
+    if "unusual traffic" in text.lower():
+        raise _Refused("challenge", "unusual_traffic")
+
+
 def _check_page(driver) -> None:
     parts = urlsplit(driver.current_url)
     if parts.hostname == "consent.google.com":
-        raise QuoteUnavailable("consent_required")
+        raise _Refused("consent_required", "consent_page")
     if parts.hostname == "accounts.google.com":
-        raise QuoteUnavailable("login_required")
+        raise _Refused("login_required", "sign_in_page")
     if parts.path.startswith("/sorry"):
-        raise QuoteUnavailable("challenge")
+        raise _Refused("challenge", "sorry_page")
     if (
         parts.scheme != "https"
         or parts.hostname not in ("google.com", "www.google.com")
@@ -227,8 +241,12 @@ class _CollectionDeadline:
     """Keep all page waits within the collector's 120-second durable lease."""
 
     def __init__(self):
+        self.started = time.monotonic()
         # Leave time for browser cleanup and committing the observation.
-        self.expires_at = time.monotonic() + 100
+        self.expires_at = self.started + 100
+
+    def elapsed_ms(self) -> int:
+        return max(0, int((time.monotonic() - self.started) * 1000))
 
     def remaining(self, maximum: float = 100) -> float:
         budget = self.expires_at - time.monotonic()
@@ -330,8 +348,7 @@ class PublicGoogleFlightsProvider:
                 nonlocal shown
                 _check_page(browser)
                 text = shown = browser.find_element(By.TAG_NAME, "body").text
-                if "unusual traffic" in text.lower():
-                    raise QuoteUnavailable("challenge")
+                _check_text(text)
                 # Insights and unrelated offers can still be loading after
                 # the selected fare is ready. Validate that fare below.
                 return (
@@ -357,8 +374,7 @@ class PublicGoogleFlightsProvider:
                 _check_page(browser)
                 browser.set_script_timeout(deadline.remaining(10))
                 snapshot = PageEvidence(**browser.execute_script(_SNAPSHOT))
-                if "unusual traffic" in snapshot.body.lower():
-                    raise QuoteUnavailable("challenge")
+                _check_text(snapshot.body)
                 if len(snapshot.flight_numbers) < len(target["segments"]):
                     return False
                 try:
@@ -372,6 +388,16 @@ class PublicGoogleFlightsProvider:
             reading = deadline.wait(driver, expanded)
             deadline.remaining()
             return reading
+        except _Refused as exc:
+            # Which sign Google gave and how soon, never the address or the page.
+            log.warning(
+                "Public browser refused code=%s signal=%s phase=%s elapsed_ms=%d",
+                exc.code,
+                exc.signal,
+                phase,
+                deadline.elapsed_ms(),
+            )
+            raise
         except QuoteUnavailable:
             raise
         except TimeoutException:
@@ -419,8 +445,7 @@ class PublicGoogleFlightsProvider:
 
             def page_ready(browser):
                 _check_page(browser)
-                if "unusual traffic" in browser.find_element(By.TAG_NAME, "body").text.lower():
-                    raise QuoteUnavailable("challenge")
+                _check_text(browser.find_element(By.TAG_NAME, "body").text)
                 return [
                     button
                     for button in browser.find_elements(
@@ -516,8 +541,7 @@ class PublicGoogleFlightsProvider:
             def booking_ready(browser):
                 _check_page(browser)
                 body = browser.find_element(By.TAG_NAME, "body").text
-                if "unusual traffic" in body.lower():
-                    raise QuoteUnavailable("challenge")
+                _check_text(body)
                 return (
                     "Lowest total price" in body and "Cheapest option matching your search" in body
                 )
@@ -540,8 +564,7 @@ class PublicGoogleFlightsProvider:
                 _check_page(browser)
                 driver.set_script_timeout(deadline.remaining(10))
                 evidence = PageEvidence(**browser.execute_script(_SNAPSHOT))
-                if "unusual traffic" in evidence.body.lower():
-                    raise QuoteUnavailable("challenge")
+                _check_text(evidence.body)
                 if not evidence.flight_numbers:
                     return False
                 try:
@@ -556,6 +579,15 @@ class PublicGoogleFlightsProvider:
             reading = wait_for(expanded)
             deadline.remaining()
             return reading
+        except _Refused as exc:
+            log.warning(
+                "Public search refused code=%s signal=%s phase=%s elapsed_ms=%d",
+                exc.code,
+                exc.signal,
+                phase,
+                deadline.elapsed_ms(),
+            )
+            raise
         except QuoteUnavailable:
             raise
         except TimeoutException:

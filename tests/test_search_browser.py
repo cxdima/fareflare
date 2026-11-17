@@ -251,7 +251,7 @@ def test_search_price_change_is_not_recorded_without_agreement_with_results(
     driver.quit.assert_called_once()
 
 
-def test_search_challenge_after_selection_stops_before_booking_capture(search_browser):
+def test_search_challenge_after_selection_stops_before_booking_capture(search_browser, caplog):
     data, target, driver, _, _, select, _, _ = search_browser
 
     def challenge_after_selection():
@@ -263,3 +263,7 @@ def test_search_challenge_after_selection_stops_before_booking_capture(search_br
         PublicGoogleFlightsProvider().collect(target)
     assert driver.execute_script.call_count == 2
     driver.quit.assert_called_once()
+    assert (
+        "Public search refused code=challenge signal=unusual_traffic phase=search_booking"
+        in caplog.text
+    )

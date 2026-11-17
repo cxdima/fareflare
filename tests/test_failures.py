@@ -101,7 +101,7 @@ def test_a_raising_notice_channel_is_logged_without_its_message(service, flight_
     service.set_preferences("alice", diagnostics=True)
     service.create_monitor("alice", flight_url, "raising-notice")
     provider = Mock()
-    provider.collect.side_effect = CollectionFailure("challenge")
+    provider.collect.side_effect = CollectionFailure("unsupported_itinerary")
     assert service.collect_due(provider)["failed"] == 1
     channel = Mock()
     channel.notify.side_effect = RuntimeError(SECRET)

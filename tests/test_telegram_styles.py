@@ -464,7 +464,9 @@ def test_diagnostic_notices_use_plain_words_and_name_the_code_once():
     )
     assert "could not finish because Google Flights showed an error page." in google.text
     blocked = collection_notice(
-        {"kind": "collection_blocked", "code": "challenge", "failures": 1}, flight, Preferences()
+        {"kind": "collection_blocked", "code": "unsupported_itinerary", "failures": 1},
+        flight,
+        Preferences(),
     )
     assert "have stopped" in blocked.text and "Retry collection" in blocked.text
     assert blocked.reply_markup is None

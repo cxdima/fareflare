@@ -37,6 +37,11 @@ _NOTICE_LIFETIME = 2 * 86400
 _NOTICE_ATTEMPTS = 3
 _MAX_NOTICES = 50
 _CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
+# After Google turns the browser away (CollectionFailure.REFUSED) a flight waits 15 to
+# 30 minutes, twice as long after each further failure in a row, and at most one to
+# two hours. Any other failure is tried again within seconds to an hour.
+REFUSAL_RETRY_SECONDS = 15 * 60
+REFUSAL_RETRY_LIMIT_SECONDS = 3600
 
 
 class NotFound(LookupError):
@@ -45,6 +50,14 @@ class NotFound(LookupError):
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def retry_delay(code: str, failures: int) -> int:
+    """Seconds before a failed check runs again; ``failures`` includes this one."""
+    if code in CollectionFailure.REFUSED:
+        wait = min(REFUSAL_RETRY_SECONDS * 2 ** min(failures - 1, 6), REFUSAL_RETRY_LIMIT_SECONDS)
+        return random.randint(wait, 2 * wait)
+    return random.randint(30, min(60 * 2 ** min(failures, 6), 3600))
 
 
 @dataclass(frozen=True)
@@ -700,14 +713,17 @@ class MonitoringService:
                                 current.update(
                                     data,
                                     partition="targets" if failure.retryable else "targets_blocked",
-                                    due=self._now()
-                                    + random.randint(30, min(60 * 2 ** min(failures, 6), 3600)),
+                                    due=self._now() + retry_delay(failure.code, failures),
                                 ),
                                 *notices,
                             ]
                         )
                 counts["failed"] += 1
                 codes[failure.code] = codes.get(failure.code, 0) + 1
+                if failure.code in CollectionFailure.REFUSED:
+                    # Google has just turned this browser away; due flights wait for
+                    # the next run instead of asking it again straight away.
+                    break
         return CollectionBatch(counts, tuple(event_ids), codes)
 
     def process_events(self, limit: int = 100) -> int:
