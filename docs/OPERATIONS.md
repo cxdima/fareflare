@@ -392,31 +392,43 @@ empty shell; `lowest_total` without `cheapest_match` means the layout the
 collector waits for has changed. A failed check is retried after 30 seconds to a
 few minutes, so a run of timeouts delays a price rather than losing it.
 
-Google Flights sometimes answers a valid link with its own error page: "Oops,
-something went wrong." above a Reload button. It is not a challenge and does not
-depend on the flight; it comes and goes by the hour, and before it was handled it
-ended about one check in four as a `timeout`. The page appears within a second
-and stays, so the collector does not wait it out. It loads the same validated
-link again, at most twice with a one-second pause, and presses nothing on the
-page. `page_reloads` in the worker log line and the `health:worker` record counts
-those loads for the run. A page that still fails is recorded as `provider_error`,
-retried later like any other failed check, and logged as:
+Google Flights often answers a valid link with its own error page: "Oops,
+something went wrong." above a Reload button. Before it was handled it ended
+about one check in four as a `timeout`. The page appears within a second and
+stays, so the collector does not wait it out. It loads the same validated link
+again, at most twice with a one-second pause, and presses nothing on the page.
+`page_reloads` in the worker log line and the `health:worker` record counts those
+loads for the run. A page that still fails is recorded as `provider_error` and
+logged as:
 
 ```text
 Public browser provider error page reloads=2
 ```
 
-The page comes in spells of a few minutes in which about half of all loads show
-it, with clean stretches between. In a local trial of 30 checks that began in
-such a spell, 13 met the page, 10 of those recovered by reloading, and the 3
-that did not failed in five seconds instead of 28. So `page_reloads` rising with
-an occasional `provider_error` is the normal picture.
-`provider_error` on most checks means reloading has stopped helping. Compare a
-local run of `python -m fareflare.cli quote <link>` before changing anything,
-because the cause is on Google's side.
+The error page is a refusal, not an outage, as measured on 2026-11-17. The page
+itself loads normally; then its one request for the booking options,
+`FlightsFrontendService/GetBookingResults`, comes back as HTTP 200 holding no
+fares, only RPC status 13 (`INTERNAL`, detail `travel.frontend.flights.ErrorResponse`,
+no reason), produced in about 50 ms. The collector's browser got that on every load
+of two different flights, from a Lambda environment and from a home connection
+alike, while an ordinary Chrome on the same computer and connection loaded the
+same flight with all its fares in the same minutes. What differs is the visitor:
+an automated, headless browser with no cookies. In fresh Lambda environments the
+same visitor also met the robot check below on its first request.
+
+Over Nov 10 to 17 the page showed on 38% of page loads. Reloading rescued 73% of
+the checks that met it, and 8.6% of all checks ended as `provider_error`. It is
+sticky: after one error page the next load showed it 47% of the time, after two
+57%, so a flight can fail many checks in a row. It varies by hour, from about 19%
+of loads in the early afternoon (Central time) to 46-55% from 9 PM to midnight,
+and by worker environment, from 14% to 65%. So `page_reloads` rising with an
+occasional `provider_error` is the normal picture. A local
+`python -m fareflare.cli quote <link>` uses the same kind of browser and can fail
+the same way; to tell a refusal from an outage, open the link in a normal browser.
 
 When Google turns the browser away, the check fails as `challenge` (its robot
-check: the `/sorry` page, or "unusual traffic" on a flights page),
+check: the `/sorry` page, which arrives as HTTP 429 with a reCAPTCHA, or "unusual
+traffic" on a flights page), `provider_error` (the error page above),
 `consent_required` or `login_required`. Nobody can clear these for the worker's
 browser, and they pass by themselves: on 2026-11-16 two flights met a challenge,
 and the same worker environments checked other flights normally a few minutes
@@ -429,7 +441,8 @@ in a row, as with any failure, and again when a price is recorded. Only
 `unsupported_itinerary` stops a flight until someone chooses **Retry collection**,
 because checking again cannot change that answer.
 
-Each refusal is logged with fixed labels, never the address or the page:
+`provider_error` keeps its own log line above. Every other refusal is logged with
+fixed labels, never the address or the page:
 
 ```text
 Public browser refused code=challenge signal=sorry_page phase=summary elapsed_ms=1840
@@ -440,7 +453,8 @@ Public browser refused code=challenge signal=sorry_page phase=summary elapsed_ms
 check, browser start included, so a second or two means Google refused before the
 flight page loaded. Route searches log the same line as `Public search refused`.
 Many refusals in a day mean Google is turning the worker away in general, not that
-a flight is wrong; they show as `challenge` in the run's `failure_codes`.
+a flight is wrong; they show as `challenge` or `provider_error` in the run's
+`failure_codes`.
 
 In Lambda, Chromium runs with `--no-sandbox` and `--no-zygote` and keeps its
 renderers in their own processes. It used to run with `--single-process`, and the

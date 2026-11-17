@@ -84,7 +84,8 @@ def test_a_run_of_refusals_backs_off_reports_once_and_recovers(service, flight_u
     assert view["collection_status"] == "ready" and view["collection_failures"] == 0
 
 
-def test_a_refusal_ends_the_run_but_other_failures_do_not(service, flight_url, clock):
+@pytest.mark.parametrize("code", sorted(CollectionFailure.REFUSED))
+def test_a_refusal_ends_the_run_but_other_failures_do_not(service, flight_url, clock, code):
     service.create_monitor("alice", flight_url, "first-flight")
     service.create_monitor("alice", SECOND_FLIGHT, "second-flight")
     timing_out = refusing("timeout")
@@ -92,7 +93,7 @@ def test_a_refusal_ends_the_run_but_other_failures_do_not(service, flight_url, c
     assert timing_out.collect.call_count == 2
     clock[0] += 3700
 
-    refused = refusing()
+    refused = refusing(code)
     assert service.collect_due(refused) == {"collected": 0, "failed": 1, "skipped": 0}
     assert refused.collect.call_count == 1
     # The flight left waiting is checked by the next run.
@@ -105,13 +106,14 @@ def test_a_refusal_ends_the_run_but_other_failures_do_not(service, flight_url, c
 def test_refusals_wait_longer_than_other_failures_and_the_wait_is_capped(monkeypatch, end):
     monkeypatch.setattr(service_module.random, "randint", lambda low, high: (low, high)[end])
     scale = 1 + end  # The longest wait is twice the shortest.
-    assert [retry_delay("challenge", failures) for failures in (1, 2, 3, 4, 50)] == [
-        900 * scale,
-        1800 * scale,
-        3600 * scale,
-        3600 * scale,
-        3600 * scale,
-    ]
+    for code in ("challenge", "provider_error"):
+        assert [retry_delay(code, failures) for failures in (1, 2, 3, 4, 50)] == [
+            900 * scale,
+            1800 * scale,
+            3600 * scale,
+            3600 * scale,
+            3600 * scale,
+        ]
     assert [retry_delay("timeout", failures) for failures in (1, 3, 50)] == [
         (30, 120)[end],
         (30, 480)[end],

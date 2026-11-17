@@ -116,10 +116,12 @@ class CollectionFailure(ValueError):
     # Only an itinerary the collector cannot read stops its checks until someone
     # chooses Retry collection: checking again cannot change that answer.
     BLOCKING = frozenset({"unsupported_itinerary"})
-    # Google turned the anonymous browser away: its robot check, a consent page or a
-    # sign-in page. Nobody can clear these for the worker's browser and they pass by
-    # themselves, so they are retried like any failure, only after a longer wait.
-    REFUSED = frozenset({"challenge", "consent_required", "login_required"})
+    # Google turned the anonymous browser away: its robot check, its error page (the
+    # booking options answered with an internal error while a normal browser gets
+    # fares), a consent page or a sign-in page. Nobody can clear these for the worker's
+    # browser and they pass by themselves, so they are retried like any failure, only
+    # after a longer wait.
+    REFUSED = frozenset({"challenge", "provider_error", "consent_required", "login_required"})
     CODES = (
         BLOCKING
         | REFUSED
@@ -134,7 +136,6 @@ class CollectionFailure(ValueError):
                 "unrecognized_fare",
                 "price_disagreement",
                 "timeout",
-                "provider_error",
                 "browser_start_failed",
                 "browser_failed",
                 "collection_failed",

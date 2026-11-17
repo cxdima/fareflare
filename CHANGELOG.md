@@ -145,6 +145,15 @@ Notable changes to Fareflare. The format follows
   a flight. Each refusal is logged with fixed labels for what Google showed, the
   collector step and how soon (`Public browser refused code=challenge
   signal=sorry_page phase=summary elapsed_ms=1840`), never the address or page.
+- **Google's error page waits like its robot check.** "Oops, something went wrong"
+  turned out to be a refusal too: the booking page loads, but its request for the
+  booking options comes back with an internal error instead of fares, while a normal
+  browser gets the fares at the same moment. It shows on about 38% of page loads,
+  most in the evening. A check that still meets it after two reloads
+  (`provider_error`) now waits 15 to 30 minutes, doubling, like a robot check, instead
+  of trying again within seconds, and the run that met it checks nothing else. The
+  worker asks Google less often while it is refusing, and "Price checks are failing"
+  comes only after hours of refusals instead of about half an hour.
 - **Faster first visits.**
   - **Website files come from S3 through CloudFront**, not the application. A cache
     miss (common on a quiet site: every edge location misses once per file) used to
