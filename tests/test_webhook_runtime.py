@@ -101,7 +101,7 @@ def test_runtime_delivery_mode_preserves_explicit_destination(
     if telegram_requests:
         assert telegram_monitors == [legacy_monitor["id"]]
         assert telegram_requests[0]["chat_id"] == "111"
-        assert "USD 309.00" in telegram_requests[0]["text"]
+        assert "<b>$309</b>" in telegram_requests[0]["text"]
 
 
 def test_invalid_runtime_delivery_mode_fails_before_secret_or_network_access(store, monkeypatch):

@@ -17,18 +17,35 @@ from zoneinfo import ZoneInfo
 
 from fareflare.airlines import airline_name
 from fareflare.links import import_link
-from fareflare.message_templates import DIRECTIONAL, Rendered, Run, Value, render
+from fareflare.message_templates import (
+    DIRECTIONAL,
+    Lines,
+    Rendered,
+    Run,
+    Value,
+    plain_text,
+    render,
+    telegram_html,
+)
 from fareflare.preferences import (
     Preferences,
+    clock_range,
     clock_time,
     observed_time,
     regional_date,
     regional_price,
     short_date,
+    short_dates,
     short_price,
 )
 from fareflare.product_config import ProductConfig
-from fareflare.telegram_templates import ALERT_KEYS, PRESETS, VOCABULARY, templates_for
+from fareflare.telegram_templates import (
+    ALERT_KEYS,
+    DEFAULT_STYLE,
+    PRESETS,
+    VOCABULARY,
+    templates_for,
+)
 
 STATUS_LABELS = {
     "pending": "Awaiting check",
@@ -41,9 +58,10 @@ STATUS_LABELS = {
 _ALERT_WORDING = {
     # reason: (emoji, short headline, full reason)
     "tracking_started": ("✈️", "Now tracking", "Tracking started"),
-    "new_low": ("📉", "New low!", "New observed low"),
+    # The same mark the flight list puts on a price that is the lowest recorded.
+    "new_low": ("🔥", "New low", "New observed low"),
     "below_price": ("🎯", "Target reached", "Price threshold reached"),
-    "rebound": ("📈", "Rebounding", "Price rose from its low"),
+    "rebound": ("📈", "Price rose", "Price rose from its low"),
 }
 # Plain-language explanations; the codes themselves are shown only on request.
 _FAILURE_MEANING = {
@@ -63,7 +81,13 @@ _SAMPLE_URL = (
 PREVIEW_KINDS = (*ALERT_KEYS, "flight_list")
 _HHMM = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d\Z")
 # Telegram limits the visible text; this bounds the request when links repeat.
+_MAX_TEXT = 4096
 _MAX_MARKUP = 16_384
+# One entry of a flight list, so a page always holds several of them.
+_MAX_LIST_ENTRY = 600
+# An alert normally arrives within a minute of its check. One that arrives later than
+# this says when the price was recorded, so an old price is never read as a new one.
+LATE_SECONDS = 10 * 60
 
 
 @dataclass(frozen=True)
@@ -77,7 +101,7 @@ class TelegramMessage:
     def payload(self) -> dict:
         # Telegram applies its limit after parsing entities. Count UTF-16 units
         # conservatively so supplementary characters cannot exceed that bound.
-        if not self.text.strip() or _utf16_length(self.text) > 4096:
+        if not self.text.strip() or utf16_length(self.text) > _MAX_TEXT:
             raise ValueError("Telegram messages must contain 1–4096 characters")
         result = {
             "text": self.html if self.html is not None else self.text,
@@ -90,7 +114,8 @@ class TelegramMessage:
         return result
 
 
-def _utf16_length(text: str) -> int:
+def utf16_length(text: str) -> int:
+    """Length as Telegram counts it: in UTF-16 code units."""
     return len(text.encode("utf-16-le")) // 2
 
 
@@ -139,12 +164,13 @@ def _shows(preferences: Preferences, enabled: bool) -> bool:
     return enabled or preferences.telegram_style == "custom"
 
 
-def _local_year(seconds: int, preferences: Preferences) -> int:
+def local_date(seconds: float, preferences: Preferences) -> date:
+    """The reader's calendar day at a moment, which decides whether a date needs its year."""
     zone = ZoneInfo(preferences.time_zone or "UTC")
-    return datetime.fromtimestamp(seconds, UTC).astimezone(zone).year
+    return datetime.fromtimestamp(seconds, UTC).astimezone(zone).date()
 
 
-def _flight_numbers(segments: list[dict]) -> list[str]:
+def flight_numbers(segments: list[dict]) -> list[str]:
     return [
         single_line(f"{leg['airline']} {leg['number']}", 20)
         for segment in segments
@@ -160,14 +186,14 @@ def _airlines(segments: list[dict]) -> str:
     return ", ".join(single_line(airline_name(code), 40) for code in codes)
 
 
-def _party(adults: object) -> str:
+def party(adults: object) -> str:
     if type(adults) is not int or adults < 1:
         return ""
     return f"{adults} adult" + ("s" if adults > 1 else "")
 
 
 def _trip_values(
-    segments: list[dict], preferences: Preferences, reference_year: int | None
+    segments: list[dict], preferences: Preferences, today: date | None
 ) -> dict[str, Value]:
     if not segments:
         return {}
@@ -181,7 +207,8 @@ def _trip_values(
         "origin": origin,
         "destination": destination,
         "date": regional_date(departure, preferences.locale),
-        "date_short": short_date(departure, reference_year),
+        "date_short": short_date(departure, today),
+        "dates_short": short_dates(departure, None, today),
         "dates": " / ".join(
             regional_date(date.fromisoformat(segment["date"]), preferences.locale)
             for segment in segments
@@ -190,7 +217,8 @@ def _trip_values(
     if len(segments) > 1:
         returning = date.fromisoformat(last["date"])
         values["return_date"] = regional_date(returning, preferences.locale)
-        values["return_date_short"] = short_date(returning, reference_year)
+        values["return_date_short"] = short_date(returning, today)
+        values["dates_short"] = short_dates(departure, returning, today)
     return values
 
 
@@ -223,11 +251,14 @@ def _time_values(times: list[dict], preferences: Preferences) -> dict[str, Value
         departs = clock_time(item["departs"], preferences)
         arrives = clock_time(item["arrives"], preferences)
         later = item.get("arrival_day_offset")
-        if type(later) is int and 0 < later <= 3:
-            arrives += f" +{later}"
+        # An arrival on a later day says how many days later.
+        days = f" +{later}" if type(later) is int and 0 < later <= 3 else ""
         values[prefix + "depart_time"] = departs
-        values[prefix + "arrive_time"] = arrives
-        values[prefix + "times"] = f"{departs} → {arrives}"
+        values[prefix + "arrive_time"] = arrives + days
+        values[prefix + "times"] = f"{departs} → {arrives}{days}"
+        values[prefix + "times_short"] = (
+            clock_range(item["departs"], item["arrives"], preferences) + days
+        )
         if duration := _duration(item.get("duration_minutes")):
             values[prefix + "duration"] = duration
     return values
@@ -252,7 +283,7 @@ def _itinerary(
         legs = segment["legs"]
         route = single_line(f"{legs[0]['origin']} → {legs[-1]['destination']}", 80)
         context = " · " + regional_date(date.fromisoformat(segment["date"]), preferences.locale)
-        numbers = ", ".join(_flight_numbers([segment])) if flights else ""
+        numbers = ", ".join(flight_numbers([segment])) if flights else ""
         if numbers:
             context += " · " + numbers
         if clocks:
@@ -295,7 +326,10 @@ def _comparison(delivery: dict, preferences: Preferences) -> dict[str, Value]:
     return values
 
 
-def alert_values(delivery: dict, preferences: Preferences) -> dict[str, Value]:
+def alert_values(
+    delivery: dict, preferences: Preferences, now: float | None = None
+) -> dict[str, Value]:
+    """Placeholder values for an alert. ``now`` is when it is being sent, if it is."""
     observation = delivery["observation"]
     itinerary = delivery.get("itinerary", {})
     segments = itinerary.get("segments", [])
@@ -316,16 +350,19 @@ def alert_values(delivery: dict, preferences: Preferences) -> dict[str, Value]:
         "price_short": short_price(
             observation["amount_minor"], observation["currency"], preferences.locale
         ),
-        "passengers": _party(itinerary.get("adults")),
+        "passengers": party(itinerary.get("adults")),
         "airline": _airlines(segments),
-        "flights": ", ".join(_flight_numbers(segments)) if flights else "",
+        "flights": ", ".join(flight_numbers(segments)) if flights else "",
         "itinerary": _itinerary(segments, preferences, flights, times),
-        **_trip_values(segments, preferences, _local_year(observation["observed_at"], preferences)),
+        **_trip_values(segments, preferences, local_date(observation["observed_at"], preferences)),
         **_time_values(times, preferences),
         **_comparison(delivery, preferences),
     }
     if values["passengers"] and observation.get("price_basis") == "total":
         values["total"] = f"Total for {values['passengers']}"
+        # One traveller needs no reminder; a party should know the price covers all of them.
+        if itinerary.get("adults") != 1:
+            values["party_note"] = f"for {values['passengers']}"
     if _shows(preferences, preferences.telegram_show_fare) and observation.get("fare_name"):
         values["fare"] = single_line(observation["fare_name"])
     values["details"] = " · ".join(
@@ -333,34 +370,47 @@ def alert_values(delivery: dict, preferences: Preferences) -> dict[str, Value]:
         for part in (values.get("total"), f"Fare: {values['fare']}" if "fare" in values else "")
         if isinstance(part, str) and part
     )
-    if _shows(preferences, preferences.telegram_show_observed_time):
+    checked = observed_time(observation["observed_at"], preferences, zone_label=False)
+    late = now is not None and now - observation["observed_at"] >= LATE_SECONDS
+    # The time of the check can be left out of an alert, but never out of a late one.
+    if late or _shows(preferences, preferences.telegram_show_observed_time):
         values["observed"] = observed_time(observation["observed_at"], preferences)
-        values["observed_short"] = observed_time(
-            observation["observed_at"], preferences, zone_label=False
-        )
+        values["observed_short"] = checked
+    if late:
+        values["late_note"] = "Checked " + checked
     if flight_url := safe_flight_url(itinerary.get("url")):
         values["link"] = (Run("Open in Google Flights", href=flight_url),)
     return values
 
 
 def _render(key: str, preferences: Preferences, values: dict[str, Value]) -> Rendered:
-    """Render the account's template, falling back to a preset if it says nothing."""
+    """Render an alert in the account's wording, or the default if that says nothing or too much."""
     templates = templates_for(preferences.telegram_style, preferences.telegram_templates)
     rendered = render(templates[key], values, VOCABULARY[key])
     if (
         rendered.text.strip()
-        and _utf16_length(rendered.text) <= 4096
+        and utf16_length(rendered.text) <= _MAX_TEXT
         and len(rendered.html) <= _MAX_MARKUP
     ):
         return rendered
-    return render(PRESETS["detailed"][key], values, VOCABULARY[key])
+    return render(PRESETS[DEFAULT_STYLE][key], values, VOCABULARY[key])
 
 
 def alert_message(
-    delivery: dict, preferences: Preferences, public_url: str | None = None
+    delivery: dict,
+    preferences: Preferences,
+    public_url: str | None = None,
+    *,
+    now: float | None = None,
 ) -> TelegramMessage:
     """Render a price alert in the account's chosen style."""
-    rendered = _render(delivery["reason"], preferences, alert_values(delivery, preferences))
+    return _alert(delivery, preferences, public_url, now)[1]
+
+
+def _alert(
+    delivery: dict, preferences: Preferences, public_url: str | None, now: float | None
+) -> tuple[Lines, TelegramMessage]:
+    rendered = _render(delivery["reason"], preferences, alert_values(delivery, preferences, now))
     buttons = []
     if preferences.telegram_show_buttons:
         itinerary = delivery.get("itinerary", {})
@@ -369,9 +419,10 @@ def alert_message(
             buttons.append({"text": "View flight", "url": url, "style": "primary"})
         if dashboard_url := safe_dashboard_url(public_url):
             buttons.append({"text": "Open Fareflare", "url": dashboard_url})
-    return TelegramMessage(
+    message = TelegramMessage(
         rendered.text, rendered.html, {"inline_keyboard": [buttons]} if buttons else None
     )
+    return rendered.lines, message
 
 
 def monitor_segments(monitor: dict) -> list[dict]:
@@ -398,22 +449,26 @@ def _needs_attention(monitor: dict) -> bool:
 
 
 def flight_row_values(
-    monitor: dict, preferences: Preferences, reference_year: int | None = None
+    monitor: dict, preferences: Preferences, today: date | None = None
 ) -> dict[str, Value]:
+    """Placeholder values for one flight of a list.
+
+    The "include in alerts" choices do not apply here: in a list, the flight number
+    and its times are what tell one flight from the next.
+    """
     target, latest = monitor["target"], monitor.get("latest")
     segments = monitor_segments(monitor)
     currency, locale = target["currency"], preferences.locale
     status = STATUS_LABELS.get(monitor["status"], "Unknown")
-    numbers = _flight_numbers(segments)
+    numbers = flight_numbers(segments)
     values: dict[str, Value] = {
-        **_trip_values(target["segments"], preferences, reference_year),
+        **_trip_values(target["segments"], preferences, today),
+        **_time_values(monitor_times(monitor), preferences),
         "flights": ", ".join(numbers) or ("Route search" if target.get("kind") == "search" else ""),
         "airline": _airlines(segments),
-        "passengers": _party(target.get("adults")),
+        "passengers": party(target.get("adults")),
         "status": status,
     }
-    if _shows(preferences, preferences.telegram_show_times):
-        values.update(_time_values(monitor_times(monitor), preferences))
     if monitor["status"] == "active":
         values["status_note"] = "Check delayed" if _needs_attention(monitor) else ""
     else:
@@ -429,51 +484,88 @@ def flight_row_values(
         values["checked"] = observed_time(latest["observed_at"], preferences)
         if low is not None and amount <= low:
             values["low_note"] = "🔥 at the low"
-            values["low_status"] = "At its lowest observed price"
+            values["low_status"] = "🔥 At its lowest"
         elif low is not None:
             values["low_note"] = f"(low {values['low_short']})"
-            values["low_status"] = f"Lowest observed {values['low']}"
+            values["low_status"] = f"Lowest {values['low_short']}"
     return values
 
 
+def flight_order(monitor: dict) -> tuple[str, ...]:
+    """Sort key for a list of flights.
+
+    Day, route and return day come first, because flights that share them share a
+    heading. Within those, the earliest departure leads and a flight with no recorded
+    time comes last; the flight number and identifier keep the order the same every time.
+    """
+    segments = monitor["target"]["segments"]
+    legs = segments[0]["legs"]
+    return (
+        segments[0]["date"],
+        f"{legs[0]['origin']} {legs[-1]['destination']}",
+        segments[-1]["date"] if len(segments) > 1 else "",
+        next((item["departs"] for item in monitor_times(monitor)), "99:99"),
+        " ".join(flight_numbers(monitor_segments(monitor))),
+        str(monitor.get("id", "")),
+    )
+
+
 def flight_list(
-    monitors: list[dict], preferences: Preferences, reference_year: int | None = None
-) -> tuple[list[str], list[str]]:
-    """Plain and HTML lines for a list of monitors, grouped under shared headings."""
+    monitors: list[dict],
+    preferences: Preferences,
+    today: date | None = None,
+    *,
+    budget: int | None = None,
+) -> tuple[Lines, int]:
+    """A list of monitors under shared headings, and how many of them it holds.
+
+    With a ``budget`` (UTF-16 units of text) the list stops before the flight that
+    would exceed it, but always holds the first one. A list whose own wording leaves
+    a flight without a usable row is written in the default style instead, heading
+    and rows together, so no row is separated from the heading that names its route.
+    """
+    flights = [flight_row_values(monitor, preferences, today) for monitor in monitors]
     templates = templates_for(preferences.telegram_style, preferences.telegram_templates)
-    plain: list[str] = []
-    markup: list[str] = []
-    heading = None
+    entries = _entries(flights, templates)
+    if not all(
+        row.text.strip() and utf16_length(group.text + row.text) <= _MAX_LIST_ENTRY
+        for group, row in entries
+    ):
+        templates = PRESETS[DEFAULT_STYLE]
+        entries = _entries(flights, templates)
+    lines: list[tuple[Run, ...]] = []
+    heading, size, count = None, 0, 0
     # Multi-line rows need air between them; one-line rows read best as a list.
     spaced = "\n" in templates["flight_row"]
-    for monitor in monitors:
-        values = flight_row_values(monitor, preferences, reference_year)
-        row = _render("flight_row", preferences, values)
-        group = (
-            render(templates["flight_group"], values, VOCABULARY["flight_group"])
-            if templates["flight_group"]
-            else None
-        )
-        if group is not None and group.text.strip():
+    for group, row in entries:
+        entry: list[tuple[Run, ...]] = []
+        if group.text.strip():
             if group.text != heading:
-                if plain:
-                    plain.append("")
-                    markup.append("")
-                plain.append(group.text)
-                markup.append(group.html)
-                heading = group.text
-        elif plain and spaced:
-            plain.append("")
-            markup.append("")
-        plain.extend(row.text.split("\n"))
-        markup.extend(row.html.split("\n"))
-    return plain, markup
+                entry += [()] if lines else []
+                entry += group.lines
+        elif lines and spaced:
+            entry.append(())
+        entry += row.lines
+        added = utf16_length(plain_text(tuple(entry))) + 1
+        if budget is not None and count and size + added > budget:
+            break
+        lines += entry
+        size, count = size + added, count + 1
+        heading = group.text if group.text.strip() else None
+    return tuple(lines), count
 
 
-def flight_list_page_size(preferences: Preferences) -> int:
-    """Short rows fit more flights into one message than multi-line rows."""
-    templates = templates_for(preferences.telegram_style, preferences.telegram_templates)
-    return 5 if templates["flight_row"].count("\n") >= 2 else 8
+def _entries(
+    flights: list[dict[str, Value]], templates: dict[str, str]
+) -> list[tuple[Rendered, Rendered]]:
+    """Each flight's heading and row, as one set of templates words them."""
+    return [
+        (
+            render(templates["flight_group"], values, VOCABULARY["flight_group"]),
+            render(templates["flight_row"], values, VOCABULARY["flight_row"]),
+        )
+        for values in flights
+    ]
 
 
 def failure_meaning(code: object) -> str:
@@ -591,19 +683,30 @@ def _sample_monitor(number: str, amount: int, low: int, status: str, now: int) -
     }
 
 
+@dataclass(frozen=True)
+class Preview:
+    """Sample data rendered for an editor: the styled lines and the message they make."""
+
+    lines: Lines
+    message: TelegramMessage
+
+
 def preview_message(
     kind: str, preferences: Preferences, public_url: str | None, now: int
-) -> TelegramMessage:
+) -> Preview:
     """Sample data rendered with the given preferences; nothing is sent or saved."""
     if kind not in PREVIEW_KINDS:
         raise ValueError("Choose a message to preview")
     if kind != "flight_list":
-        return alert_message(_sample_delivery(kind, now), preferences, public_url)
+        return Preview(*_alert(_sample_delivery(kind, now), preferences, public_url, now))
     # In departure order, the way the bot lists a day of flights.
-    samples = [
-        _sample_monitor("1565", 21400, 21400, "active", now),
-        _sample_monitor("414", 26900, 21900, "active", now),
-        _sample_monitor("1832", 26900, 19900, "paused", now),
-    ]
-    plain, markup = flight_list(samples, preferences, _local_year(now, preferences))
-    return TelegramMessage("\n".join(plain), "\n".join(markup))
+    samples = sorted(
+        (
+            _sample_monitor("1565", 21400, 21400, "active", now),
+            _sample_monitor("414", 26900, 21900, "active", now),
+            _sample_monitor("1832", 26900, 19900, "paused", now),
+        ),
+        key=flight_order,
+    )
+    lines, _ = flight_list(samples, preferences, local_date(now, preferences))
+    return Preview(lines, TelegramMessage(plain_text(lines), telegram_html(lines)))

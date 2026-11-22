@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { mock, monitor, observation } from './fixtures';
+import { messagePreview, mock, monitor, observation, templateCatalog } from './fixtures';
 import type { Preferences } from '../src/app/core/types';
 
 test.use({ timezoneId: 'America/Chicago' });
@@ -11,7 +11,7 @@ const defaults: Preferences = {
   time_zone: null,
   locale: 'en-US',
   hour_cycle: 'auto',
-  telegram_style: 'detailed',
+  telegram_style: 'compact',
   telegram_templates: {},
   telegram_show_flight_numbers: true,
   telegram_show_times: true,
@@ -52,6 +52,18 @@ async function showSection(page: Page, name: SettingsSection) {
   await expect(button).toHaveAttribute('aria-pressed', 'true');
 }
 
+/** One option of the message style switch. */
+function styleButton(page: Page, name: 'Compact' | 'Detailed' | 'Custom') {
+  return page
+    .getByRole('group', { name: 'Message style' })
+    .getByRole('button', { name, exact: true });
+}
+
+/** The message inside the preview's chat bubble. */
+function previewText(page: Page) {
+  return page.locator('.telegram-preview .bubble-text');
+}
+
 test('actual account preferences persist and preview does not save or send', async ({
   page,
 }, info) => {
@@ -81,35 +93,43 @@ test('actual account preferences persist and preview does not save or send', asy
   await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('Asia/Tokyo');
   await expect(page.getByLabel('Clock', { exact: true })).toHaveValue('h23');
   await showSection(page, 'Notifications');
-  await page.getByLabel('Message style').selectOption('compact');
+  // The preview appears by itself, in the saved region and clock, and follows every change.
+  await expect(styleButton(page, 'Compact')).toHaveAttribute('aria-pressed', 'true');
+  const preview = previewText(page);
+  await expect(preview.locator('.bubble-line')).toHaveText([
+    '🔥 New low · 191 $ (was 199 $)',
+    'DEN → DFW · Mar 14 · UA 414',
+    '15:50 → 18:54',
+  ]);
+  await expect(preview.locator('.run-bold')).toHaveText(['New low', '191 $']);
+  await expect(preview).not.toContainText('USD');
   await page.getByLabel('Flight numbers', { exact: true }).uncheck();
-  await page.getByLabel('Fare name', { exact: true }).uncheck();
-  await page.getByLabel('Send silently', { exact: true }).check();
-  await page.getByRole('button', { name: 'Preview message' }).click();
-  const preview = page.locator('.telegram-preview pre');
-  await expect(preview).toContainText('Example alert');
-  await expect(preview).toContainText('USD 191,00');
-  await expect(preview).toContainText('Asia/Tokyo (UTC+09:00)');
   await expect(preview).not.toContainText('UA 414');
-  await expect(preview).not.toContainText('Fare:');
+  // Each style offers only the details it shows.
+  await expect(page.getByLabel('Fare name', { exact: true })).toHaveCount(0);
+  await styleButton(page, 'Detailed').click();
+  await expect(preview).toContainText('191 $ (was 199 $, −8 $ · −4%)');
+  await expect(preview).toContainText('United · Economy · Total for 1 adult');
+  await expect(preview).toContainText('Checked');
+  await page.getByLabel('Fare name', { exact: true }).uncheck();
+  await expect(preview).not.toContainText('Economy');
+  await page.getByLabel('Send silently', { exact: true }).check();
+  await expect(page.locator('.bubble-meta')).toContainText('Silent');
   const exampleButtons = page.getByRole('group', { name: 'Example Telegram buttons' });
   await expect(exampleButtons).toContainText('View flight');
   await expect(exampleButtons).toContainText('Open Fareflare');
   await expect(exampleButtons.getByRole('link')).toHaveCount(0);
   saved = await (await page.request.get('/v1/preferences')).json();
-  expect(saved.telegram_style).toBe('detailed');
+  expect(saved.telegram_style).toBe('compact');
   expect(saved.telegram_silent).toBe(false);
-  // The classic style and the flight list are rendered by the real service too.
-  await page.getByLabel('Message style').selectOption('classic');
-  await page.getByRole('button', { name: 'Preview message' }).click();
-  await expect(preview).toContainText('New low!');
-  await expect(preview).toContainText('191 $ (was 199 $, −8 $ · −4%)');
-  await expect(exampleButtons).not.toContainText('View flight');
+  expect(saved.telegram_show_flight_numbers).toBe(true);
+  // The flight list is rendered by the real service too, and has no buttons.
+  await styleButton(page, 'Compact').click();
   await page.getByLabel('Show an example of').selectOption('flight_list');
-  await page.getByRole('button', { name: 'Preview message' }).click();
-  await expect(preview).toContainText('Example flight list');
+  await expect(preview.locator('.bubble-line').first()).toHaveText('🛫 DEN → DFW · Mar 14');
   await expect(preview).toContainText('🔥 at the low');
-  await page.getByLabel('Message style').selectOption('compact');
+  await expect(preview.locator('.run-code').first()).toHaveText('UA 1565');
+  await expect(exampleButtons).toHaveCount(0);
   await page.getByRole('button', { name: 'Save Telegram settings' }).click();
   await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
   await page.getByLabel('Mute all notifications').check();
@@ -276,7 +296,8 @@ test('pending saves protect draft edits and failed saves retain input for retry'
     await expect(page.getByLabel('Time zone', { exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Use device time zone' })).toBeDisabled();
     await showSection(page, 'Notifications');
-    await expect(page.getByLabel('Message style')).toBeDisabled();
+    await expect(styleButton(page, 'Detailed')).toBeDisabled();
+    await expect(page.getByLabel('Send silently', { exact: true })).toBeDisabled();
     await expect(page.getByLabel('Mute all notifications')).toBeDisabled();
     await showSection(page, 'Display');
   } finally {
@@ -290,7 +311,7 @@ test('pending saves protect draft edits and failed saves retain input for retry'
   expect(attempts).toBe(2);
 });
 
-test('preview ignores an old response when draft options change and renders provider text literally', async ({
+test('preview follows the draft, ignores an out-of-date answer and renders provider text literally', async ({
   page,
 }) => {
   const state = await preferencesMock(page);
@@ -298,39 +319,113 @@ test('preview ignores an old response when draft options change and renders prov
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  let attempts = 0;
+  const requests: Partial<Preferences>[] = [];
+  const literal = '<b>literal text</b>';
   await page.route('**/v1/preferences/telegram-preview*', async (route) => {
-    if (++attempts === 1) {
+    requests.push(route.request().postDataJSON());
+    if (requests.length === 1) {
       await gate;
-      return route.fulfill({
-        json: { text: 'Old detailed example', silent: false, time_zone: 'UTC' },
-      });
+      // The page has stopped waiting for this answer, so sending it may fail.
+      return route
+        .fulfill({
+          json: { ...messagePreview, lines: [[{ ...messagePreview.lines[1][0], text: 'Old' }]] },
+        })
+        .catch(() => undefined);
     }
     return route.fulfill({
       json: {
-        text: 'Example compact <b>literal text</b>',
-        silent: false,
-        time_zone: 'UTC',
+        ...messagePreview,
+        lines: [[{ ...messagePreview.lines[1][0], text: literal, bold: true }]],
         buttons: [{ text: '<img src=x onerror=alert(1)>', url: 'javascript:alert(1)' }],
       },
     });
   });
   await page.goto('/app#settings');
   await showSection(page, 'Notifications');
-  await page.getByRole('button', { name: 'Preview message' }).click();
+  // Nothing needs to be pressed: opening the section asks for the preview.
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({ telegram_style: 'compact', quiet_hours: null });
   try {
-    await page.getByLabel('Message style').selectOption('compact');
+    await styleButton(page, 'Detailed').click();
+    await expect(previewText(page)).toHaveText(literal);
   } finally {
     release();
   }
-  await expect(page.getByRole('button', { name: 'Preview message' })).toBeEnabled();
-  await expect(page.getByText('Old detailed example')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Preview message' }).click();
-  await expect(page.locator('.telegram-preview pre')).toContainText('<b>literal text</b>');
+  expect(requests[1]).toMatchObject({ telegram_style: 'detailed' });
+  await expect(page.getByText('Old', { exact: true })).toHaveCount(0);
+  await expect(previewText(page).locator('.run-bold')).toHaveText(literal);
   await expect(page.locator('.telegram-preview b')).toHaveCount(0);
   await expect(page.locator('.preview-actions')).toContainText('<img src=x onerror=alert(1)>');
   await expect(page.locator('.preview-actions img, .preview-actions a')).toHaveCount(0);
+  // Several quick changes are answered once, with the last of them.
+  const before = requests.length;
+  for (const label of ['Flight numbers', 'Fare name', 'Send silently']) {
+    await page.getByLabel(label, { exact: true }).click();
+  }
+  await expect.poll(() => requests.length).toBe(before + 1);
+  expect(requests.at(-1)).toMatchObject({
+    telegram_show_flight_numbers: false,
+    telegram_show_fare: false,
+    telegram_silent: true,
+  });
   expect(state.writes).toEqual([]);
+});
+
+test('a preview that cannot be made says why and keeps the last one', async ({ page }) => {
+  await preferencesMock(page);
+  let broken = false;
+  await page.route('**/v1/preferences/telegram-preview*', (route) =>
+    broken
+      ? route.fulfill({
+          status: 422,
+          json: {
+            detail: [
+              {
+                loc: ['body', 'telegram_templates'],
+                msg: 'Value error, New low: Unknown placeholder {nope}',
+                type: 'value_error',
+              },
+            ],
+          },
+        })
+      : route.fulfill({ json: messagePreview }),
+  );
+  await page.goto('/app#settings');
+  await showSection(page, 'Notifications');
+  await expect(previewText(page)).toContainText('New low · $191');
+  await styleButton(page, 'Custom').click();
+  broken = true;
+  await page.getByLabel('New low message', { exact: true }).fill('{nope}');
+  const problem = page.locator('.telegram-preview').getByRole('alert');
+  await expect(problem).toHaveText('New low: Unknown placeholder {nope}');
+  await expect(previewText(page)).toContainText('New low · $191');
+  // Fixing the wording clears the message.
+  broken = false;
+  await page.getByLabel('New low message', { exact: true }).fill('{price_short}');
+  await expect(problem).toHaveCount(0);
+});
+
+test('message styles that cannot load offer a retry and leave other settings usable', async ({
+  page,
+}) => {
+  const state = await preferencesMock(page);
+  let attempts = 0;
+  await page.route('**/v1/preferences/telegram-templates', (route) =>
+    ++attempts === 1
+      ? route.fulfill({ status: 503, json: { detail: 'Message styles are unavailable.' } })
+      : route.fulfill({ json: templateCatalog }),
+  );
+  await page.goto('/app#settings');
+  await showSection(page, 'Notifications');
+  await expect(page.getByRole('alert')).toContainText('Message styles are unavailable.');
+  // Muting does not depend on message styles.
+  await page.getByLabel('Mute all notifications').check();
+  await page.getByRole('button', { name: 'Save preferences', exact: true }).click();
+  await expect(page.getByText('Notification preferences saved.')).toBeVisible();
+  expect(state.writes).toEqual([{ muted: true, muted_routes: [] }]);
+  await page.getByRole('button', { name: 'Retry message styles' }).click();
+  await expect(styleButton(page, 'Compact')).toHaveAttribute('aria-pressed', 'true');
+  await expect(previewText(page)).toBeVisible();
 });
 
 test('settings sections work with the keyboard and retain unsaved drafts until saved', async ({
@@ -339,7 +434,7 @@ test('settings sections work with the keyboard and retain unsaved drafts until s
   const state = await preferencesMock(page);
   await page.goto('/app#settings');
   await expect(sectionButton(page, 'Display')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Message style')).toBeHidden();
+  await expect(page.getByRole('group', { name: 'Message style' })).toBeHidden();
   await page.getByLabel('Time zone', { exact: true }).fill('Asia/Tokyo');
   await page.getByLabel('Regional format', { exact: true }).selectOption('de-DE');
 
@@ -348,7 +443,14 @@ test('settings sections work with the keyboard and retain unsaved drafts until s
   await expect(sectionButton(page, 'Notifications')).toHaveAttribute('aria-pressed', 'true');
   await expect(sectionButton(page, 'Display')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByLabel('Time zone', { exact: true })).toBeHidden();
-  await page.getByLabel('Message style').selectOption('compact');
+  // The style switch is a group of buttons, each reachable and operable from the keyboard.
+  await styleButton(page, 'Detailed').focus();
+  await page.keyboard.press('Enter');
+  await expect(styleButton(page, 'Detailed')).toHaveAttribute('aria-pressed', 'true');
+  await expect(styleButton(page, 'Compact')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#telegram-style-help')).toHaveText(
+    'Adds the airline, flight length, fare and time of the check.',
+  );
   await page.getByLabel('Send silently', { exact: true }).check();
   await page.getByLabel('Mute all notifications').check();
   await page.getByLabel('Muted routes').fill('DEN-DFW');
@@ -357,7 +459,7 @@ test('settings sections work with the keyboard and retain unsaved drafts until s
   await page.keyboard.press('Space');
   await expect(sectionButton(page, 'Connections')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Connected applications' })).toBeVisible();
-  await expect(page.getByLabel('Message style')).toBeHidden();
+  await expect(page.getByRole('group', { name: 'Message style' })).toBeHidden();
   await showSection(page, 'Security');
   await expect(page.getByRole('button', { name: 'Delete my account' })).toBeVisible();
 
@@ -368,14 +470,14 @@ test('settings sections work with the keyboard and retain unsaved drafts until s
   await page.getByRole('button', { name: 'Save display settings' }).click();
   await expect(page.getByText('Display settings saved.')).toBeVisible();
   await showSection(page, 'Notifications');
-  await expect(page.getByLabel('Message style')).toHaveValue('compact');
+  await expect(styleButton(page, 'Detailed')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Send silently', { exact: true })).toBeChecked();
   await expect(page.getByLabel('Mute all notifications')).toBeChecked();
   await expect(page.getByLabel('Muted routes')).toHaveValue('DEN-DFW');
   expect(state.value()).toMatchObject({
     time_zone: 'Asia/Tokyo',
     locale: 'de-DE',
-    telegram_style: 'detailed',
+    telegram_style: 'compact',
     telegram_silent: false,
     muted: false,
     muted_routes: [],
@@ -384,22 +486,13 @@ test('settings sections work with the keyboard and retain unsaved drafts until s
   await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
   await expect(page.getByLabel('Mute all notifications')).toBeChecked();
   await expect(page.getByLabel('Muted routes')).toHaveValue('DEN-DFW');
-  expect(state.value()).toMatchObject({ telegram_style: 'compact', telegram_silent: true });
+  expect(state.value()).toMatchObject({ telegram_style: 'detailed', telegram_silent: true });
   expect(state.value().muted).toBe(false);
   expect(state.writes).toHaveLength(2);
 });
 
 test('personal settings remain accessible and usable on desktop and mobile', async ({ page }) => {
   await preferencesMock(page, { time_zone: 'America/Chicago' });
-  await page.route('**/v1/preferences/telegram-preview*', (route) =>
-    route.fulfill({
-      json: {
-        text: 'Example alert — sample data\n\nNew observed low: USD 191.00\nDEN → DFW · 03/14/2027 · UA414\nTotal for 1 adult\nFare: Economy\nObserved 11/06/2026 1:30 AM America/Chicago (UTC-06:00)\nhttps://www.google.com/travel/flights',
-        silent: false,
-        time_zone: 'America/Chicago',
-      },
-    }),
-  );
   for (const [name, viewport] of [
     ['desktop', { width: 1440, height: 1000 }],
     ['mobile', { width: 375, height: 812 }],
@@ -411,8 +504,21 @@ test('personal settings remain accessible and usable on desktop and mobile', asy
       if (section === 'Display') {
         await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('America/Chicago');
       } else if (section === 'Notifications') {
-        await page.getByRole('button', { name: 'Preview message' }).click();
-        await expect(page.locator('.telegram-preview pre')).toBeVisible();
+        await expect(previewText(page)).toContainText('New low · $191 (was $199)');
+        // On a narrow screen the preview sits directly under the style it illustrates.
+        const [style, preview, switches] = await Promise.all(
+          ['.style-field', '.telegram-preview', '.telegram-settings'].map(async (selector) => {
+            const box = await page.locator(selector).boundingBox();
+            return box!;
+          }),
+        );
+        if (name === 'mobile') {
+          expect(preview.y).toBeGreaterThan(style.y + style.height - 1);
+          expect(switches.y).toBeGreaterThan(preview.y + preview.height - 1);
+        } else {
+          expect(preview.x).toBeGreaterThan(style.x + style.width - 1);
+          expect(Math.abs(preview.y - style.y)).toBeLessThan(2);
+        }
       } else if (section === 'Connections') {
         await expect(
           page.getByRole('button', { name: 'Revoke access for Travel helper', exact: true }),
@@ -437,49 +543,10 @@ test('personal settings remain accessible and usable on desktop and mobile', asy
   }
 });
 
-const catalog = {
-  templates: [
-    { key: 'tracking_started', label: 'Tracking started', optional: false },
-    { key: 'new_low', label: 'New low', optional: false },
-    { key: 'below_price', label: 'Target reached', optional: false },
-    { key: 'rebound', label: 'Price rebound', optional: false },
-    { key: 'flight_group', label: 'Flight list heading', optional: true },
-    { key: 'flight_row', label: 'Flight list row', optional: false },
-  ],
-  placeholders: Object.fromEntries(
-    ['tracking_started', 'new_low', 'below_price', 'rebound', 'flight_group', 'flight_row'].map(
-      (key) => [
-        key,
-        [
-          { name: 'route', description: 'Airports', example: 'DFW → DEN' },
-          { name: 'price_short', description: 'Price with a symbol', example: '$246' },
-        ],
-      ],
-    ),
-  ),
-  presets: Object.fromEntries(
-    ['detailed', 'compact', 'classic'].map((style) => [
-      style,
-      {
-        tracking_started: `${style} started {route}`,
-        new_low: `${style} low {route}`,
-        below_price: `${style} target {route}`,
-        rebound: `${style} rebound {route}`,
-        flight_group: style === 'classic' ? '🛫 {route}' : '',
-        flight_row: `${style} row {route}`,
-      },
-    ]),
-  ),
-  limits: { characters: 800, lines: 20, placeholders: 40 },
-};
-
 test('custom wording starts from a style, inserts details and previews before saving', async ({
   page,
 }) => {
   const state = await preferencesMock(page);
-  await page.route('**/v1/preferences/telegram-templates', (route) =>
-    route.fulfill({ json: catalog }),
-  );
   const previews: { message: string | null; body: Partial<Preferences> }[] = [];
   await page.route('**/v1/preferences/telegram-preview*', (route) => {
     const request = route.request();
@@ -487,20 +554,20 @@ test('custom wording starts from a style, inserts details and previews before sa
       message: new URL(request.url()).searchParams.get('message'),
       body: request.postDataJSON(),
     });
-    return route.fulfill({
-      json: { text: 'Example flight list — sample data', silent: false, time_zone: 'UTC' },
-    });
+    return route.fulfill({ json: messagePreview });
   });
   await page.goto('/app#settings');
   await showSection(page, 'Notifications');
-  await page.getByLabel('Message style').selectOption('classic');
+  await styleButton(page, 'Detailed').click();
   await expect(page.getByLabel('Message to edit')).toHaveCount(0);
-  await page.getByLabel('Message style').selectOption('custom');
+  await expect(page.getByLabel('Fare name', { exact: true })).toBeVisible();
+  await styleButton(page, 'Custom').click();
   // A first draft continues from the style that was selected before it.
   const newLow = page.getByLabel('New low message', { exact: true });
-  await expect(newLow).toHaveValue('classic low {route}');
-  await expect(page.getByLabel('Flight numbers', { exact: true })).toBeDisabled();
-  await expect(page.getByLabel('Departure and arrival times', { exact: true })).toBeDisabled();
+  await expect(newLow).toHaveValue('detailed low {route}');
+  // A custom message says exactly what its wording says, so there is nothing to switch off.
+  await expect(page.getByRole('group', { name: 'Include in alerts' })).toHaveCount(0);
+  await expect(page.getByLabel('Flight numbers', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Buttons under alerts', { exact: true })).toBeEnabled();
 
   await page.getByLabel('Start from a style').selectOption('compact');
@@ -511,24 +578,33 @@ test('custom wording starts from a style, inserts details and previews before sa
   await expect(newLow).toBeHidden();
   const row = page.getByLabel('Flight list row message', { exact: true });
   await row.fill('Now ');
-  await page
-    .getByRole('group', { name: 'Details you can add to the Flight list row message' })
-    .getByRole('button', { name: '{price_short}', exact: true })
-    .click();
+  // Details are listed under headings, each with an example of what it shows.
+  const details = page.getByRole('group', {
+    name: 'Details you can add to the Flight list row message',
+  });
+  await expect(details.locator('.placeholder-group-name')).toHaveText(['Price', 'Trip']);
+  // The name a screen reader announces is the text on the button; its title explains it.
+  const price = details.getByRole('button', { name: '{price_short} $246', exact: true });
+  await expect(price).toHaveAttribute('title', 'Price with a symbol');
+  await price.click();
   await expect(row).toHaveValue('Now {price_short}');
   await expect(row).toBeFocused();
   await expect(page.locator('#template-help-flight_row')).toContainText('17 of 800 characters.');
-  // Editing a list template previews the list it belongs to.
+  // Editing a list template previews the list it belongs to, with the draft as it stands.
   await expect(page.getByLabel('Show an example of')).toHaveValue('flight_list');
-  await page.getByRole('button', { name: 'Preview message' }).click();
-  await expect(page.locator('.telegram-preview pre')).toContainText('Example flight list');
-  expect(previews).toHaveLength(1);
-  expect(previews[0].message).toBe('flight_list');
-  expect(previews[0].body.telegram_templates).toMatchObject({
-    new_low: 'compact low {route}',
-    flight_row: 'Now {price_short}',
-    flight_group: '',
-  });
+  await expect
+    .poll(() => previews.at(-1))
+    .toMatchObject({
+      message: 'flight_list',
+      body: {
+        telegram_style: 'custom',
+        telegram_templates: {
+          new_low: 'compact low {route}',
+          flight_row: 'Now {price_short}',
+          flight_group: '🛫 {route}',
+        },
+      },
+    });
   expect(state.writes).toEqual([]);
 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -553,9 +629,6 @@ test('custom wording starts from a style, inserts details and previews before sa
 
 test('a template mistake is explained in plain words and the draft is kept', async ({ page }) => {
   await mock(page);
-  await page.route('**/v1/preferences/telegram-templates', (route) =>
-    route.fulfill({ json: catalog }),
-  );
   await page.route('**/v1/preferences', (route) =>
     route.request().method() === 'PUT'
       ? route.fulfill({
@@ -574,7 +647,7 @@ test('a template mistake is explained in plain words and the draft is kept', asy
   );
   await page.goto('/app#settings');
   await showSection(page, 'Notifications');
-  await page.getByLabel('Message style').selectOption('custom');
+  await styleButton(page, 'Custom').click();
   const newLow = page.getByLabel('New low message', { exact: true });
   await newLow.fill('{nope}');
   await page.getByRole('button', { name: 'Save Telegram settings' }).click();

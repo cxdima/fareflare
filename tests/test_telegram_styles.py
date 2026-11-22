@@ -1,38 +1,48 @@
 """Message styles: built-in presets, account templates and the values they can show."""
 
+from datetime import date
 from html.parser import HTMLParser
 
 import pytest
 from pydantic import ValidationError
 
 from fareflare.links import import_link
-from fareflare.message_templates import TemplateError, parse_template
+from fareflare.message_templates import TemplateError, parse_template, plain_text, telegram_html
 from fareflare.preferences import (
     Preferences,
+    clock_range,
     merge_preferences,
     short_date,
+    short_dates,
     short_price,
     stored_preferences,
 )
 from fareflare.telegram_messages import (
+    LATE_SECONDS,
     PREVIEW_KINDS,
     alert_message,
     collection_notice,
     flight_list,
-    flight_list_page_size,
+    flight_order,
     preview_message,
 )
 from fareflare.telegram_templates import (
     ALERT_KEYS,
+    DEFAULT_STYLE,
     PRESETS,
+    STYLES,
     TEMPLATE_KEYS,
     VOCABULARY,
+    style_switches,
     template_catalog,
     templates_for,
     validate_templates,
 )
 
 NOW = 1793952000  # 2026-11-06 08:00 UTC
+TODAY = date(2026, 11, 6)
+COMPACT = Preferences()
+DETAILED = Preferences(telegram_style="detailed")
 
 
 class Markup(HTMLParser):
@@ -70,15 +80,25 @@ def alert(flight_url, reason="new_low", amount=24600, previous=(25900, 25400), *
     }
 
 
-def monitor(number, amount, low, status="active", origin="DEN", destination="DFW", **extra):
+def monitor(
+    number,
+    amount,
+    low,
+    status="active",
+    origin="DEN",
+    destination="DFW",
+    latest_schedule=None,
+    **extra,
+):
+    latest = {"amount_minor": amount, "currency": "USD", "observed_at": NOW} if amount else None
+    if latest and latest_schedule:
+        latest["schedule"] = [{"departs": latest_schedule[0], "arrives": latest_schedule[1]}]
     return {
         "status": status,
         "stale": False,
         "collection_status": "ready",
         "rule_state": {"low_minor": low} if low else {},
-        "latest": {"amount_minor": amount, "currency": "USD", "observed_at": NOW}
-        if amount
-        else None,
+        "latest": latest,
         "target": {
             "adults": 1,
             "currency": "USD",
@@ -100,8 +120,14 @@ def monitor(number, amount, low, status="active", origin="DEN", destination="DFW
     }
 
 
+def rows(flights, prefs, today=TODAY, **options):
+    """A flight list as the lines of text a reader sees."""
+    return plain_text(flight_list(flights, prefs, today, **options)[0]).split("\n")
+
+
 def test_every_preset_is_valid_for_its_own_vocabulary():
-    assert set(PRESETS) == {"detailed", "compact", "classic"}
+    assert set(PRESETS) == {"compact", "detailed"} == set(STYLES) - {"custom"}
+    assert DEFAULT_STYLE == "compact" == Preferences().telegram_style
     for style, templates in PRESETS.items():
         assert set(templates) == set(TEMPLATE_KEYS), style
         for key, template in templates.items():
@@ -109,82 +135,113 @@ def test_every_preset_is_valid_for_its_own_vocabulary():
         assert validate_templates({k: v for k, v in templates.items() if v}) is not None
 
 
-def test_classic_new_low_shows_what_changed_the_way_people_read_it(flight_url):
-    message = alert_message(alert(flight_url), Preferences(telegram_style="classic"))
+def test_a_compact_alert_says_what_happened_the_price_and_the_flight(flight_url):
+    message = alert_message(alert(flight_url), Preferences())
     assert message.text.split("\n") == [
-        "📉 New low!  $246  (was $254, −$8 · −3%)",
-        "🛫 DEN → DFW",
-        "United  ·  UA 414",
-        "Mar 14, 2027",
-        "Open in Google Flights",
-        "",
-        "11/06/2026 8:00 AM UTC",
+        "🔥 New low · $246 (was $254)",
+        "DEN → DFW · Mar 14 · UA 414",
     ]
-    markup = Markup(message.html)
-    assert markup.tags == ["b", "b", "i", "b", "code", "a", "i"]
-    assert markup.links == [import_link(flight_url)["url"]]
+    assert message.html.split("\n")[0] == "🔥 <b>New low</b> · <b>$246</b> <i>(was $254)</i>"
+    assert Markup(message.html).tags == ["b", "b", "i"]
+    # Times join the alert once a check has recorded them.
+    timed = alert(flight_url, schedule=[{"departs": "15:35", "arrives": "18:39"}])
+    assert alert_message(timed, Preferences()).text.split("\n")[2:] == ["3:35 PM → 6:39 PM"]
 
 
-def test_classic_wording_for_each_kind_of_alert(flight_url):
-    classic = Preferences(telegram_style="classic", time_zone="America/Chicago")
-    started = alert_message(
-        alert(flight_url, "tracking_started", previous=(None, None)), classic
-    ).text
-    assert started.startswith("✈️ Now tracking  ·  $246\n🛫 DEN → DFW")
-    target = alert_message(alert(flight_url, "below_price"), classic).text
-    assert target.startswith("🎯 Target reached  $246  (was $259, −$13 · −5%)")
-    rebound = alert_message(
-        alert(flight_url, "rebound", amount=26600, previous=(24600, 24600)), classic
-    ).text
-    assert rebound.startswith("📈 Rebounding  $266  (was at low $246, +$20)")
-    assert "The discount window may be closing." in rebound
-    # A saved time zone is the reader's own, so the short stamp needs no label.
-    assert rebound.endswith("11/06/2026 2:00 AM")
+def test_a_detailed_alert_adds_the_airline_fare_and_time_of_the_check(flight_url):
+    timed = alert(
+        flight_url, schedule=[{"departs": "15:35", "arrives": "18:39", "duration_minutes": 124}]
+    )
+    message = alert_message(timed, DETAILED)
+    assert message.text.split("\n") == [
+        "🔥 New low · $246 (was $254, −$8 · −3%)",
+        "DEN → DFW · Mar 14 · UA 414",
+        "3:35 PM → 6:39 PM · 2 hr 4 min",
+        "United · Economy · Total for 1 adult",
+        "Checked 11/06/2026 8:00 AM UTC",
+    ]
+    assert Markup(message.html).tags == ["b", "b", "i", "i"]
+    # A saved time zone is the reader's own, so the time of the check needs no label.
+    local = alert_message(
+        timed, Preferences(telegram_style="detailed", time_zone="America/Chicago")
+    )
+    assert local.text.endswith("Checked 11/06/2026 2:00 AM")
+
+
+@pytest.mark.parametrize("style", sorted(PRESETS))
+def test_no_built_in_style_writes_a_currency_code(flight_url, style):
+    prefs = Preferences(telegram_style=style)
+    for reason in ALERT_KEYS:
+        assert "USD" not in alert_message(alert(flight_url, reason), prefs).text
+    listed = "\n".join(rows([monitor("1429", 32900, 24500), monitor("1430", 16400, 16400)], prefs))
+    assert "USD" not in listed and "$329" in listed and "$164" in listed
+
+
+def test_wording_for_each_kind_of_alert(flight_url):
+    def first(event, prefs=COMPACT):
+        return alert_message(event, prefs).text.split("\n")[0]
+
+    assert first(alert(flight_url, "tracking_started", previous=(None, None))) == (
+        "✈️ Now tracking · $246"
+    )
+    assert first(alert(flight_url, "below_price")) == "🎯 Target reached · $246 (was $259)"
+    assert first(alert(flight_url, "below_price"), DETAILED) == (
+        "🎯 Target reached · $246 (was $259, −$13 · −5%)"
+    )
+    rebound = alert(flight_url, "rebound", amount=26600, previous=(24600, 24600))
+    assert first(rebound) == "📈 Price rose · $266 (low $246)"
+    assert first(rebound, DETAILED) == "📈 Price rose · $266 (was at low $246, +$20)"
 
 
 def test_an_alert_queued_before_comparisons_existed_simply_omits_them(flight_url):
     legacy = alert(flight_url)
     del legacy["previous"]
-    text = alert_message(legacy, Preferences(telegram_style="classic")).text
-    assert text.startswith("📉 New low!  $246\n")
-    assert "was" not in text
+    for prefs in (Preferences(), DETAILED):
+        text = alert_message(legacy, prefs).text
+        assert text.startswith("🔥 New low · $246\n")
+        assert "was" not in text
 
 
 @pytest.mark.parametrize("previous", [(None, None), (0, 0), ("254", "254"), (True, True)])
 def test_implausible_comparison_data_is_ignored(flight_url, previous):
-    text = alert_message(
-        alert(flight_url, previous=previous), Preferences(telegram_style="classic")
-    ).text
-    assert "was" not in text and "$246" in text
+    for prefs in (Preferences(), DETAILED):
+        text = alert_message(alert(flight_url, previous=previous), prefs).text
+        assert "was" not in text and "$246" in text
 
 
-def test_detailed_and_compact_keep_their_established_layout(flight_url):
-    detailed = alert_message(alert(flight_url), Preferences()).text
-    assert detailed.split("\n") == [
-        "USD 246.00",
-        "New observed low",
-        "",
-        "DEN → DFW · 03/14/2027 · UA 414",
-        "",
-        "Total for 1 adult",
-        "Fare: Economy",
-        "",
-        "Observed 11/06/2026 8:00 AM UTC",
-    ]
-    compact = alert_message(alert(flight_url), Preferences(telegram_style="compact")).text
-    assert "Total for 1 adult · Fare: Economy" in compact
-    assert len(compact.split("\n")) == len(detailed.split("\n")) - 1
+def test_an_alert_that_arrives_late_says_when_its_price_was_checked(flight_url):
+    event = alert(flight_url)
+    on_time = alert_message(event, Preferences(), now=NOW + LATE_SECONDS - 1).text
+    assert "Checked" not in on_time
+    late = alert_message(event, Preferences(), now=NOW + LATE_SECONDS).text
+    assert late.split("\n")[-1] == "Checked 11/06/2026 8:00 AM UTC"
+    # Leaving the time of the check out of alerts does not apply to a late one.
+    quiet = Preferences(telegram_style="detailed", telegram_show_observed_time=False)
+    assert "Checked" not in alert_message(event, quiet, now=NOW).text
+    assert alert_message(event, quiet, now=NOW + 3600).text.count("Checked 11/06/2026") == 1
+    # Without a sending time, as in a list of past alerts, nothing is called late.
+    assert "Checked" not in alert_message(event, Preferences()).text
 
 
-def test_checkboxes_tune_presets_but_a_custom_template_states_its_own_content(flight_url):
+def test_switches_tune_built_in_styles_but_a_custom_template_states_its_own_content(flight_url):
     hidden = {
         "telegram_show_flight_numbers": False,
+        "telegram_show_times": False,
         "telegram_show_fare": False,
         "telegram_show_observed_time": False,
     }
-    classic = alert_message(alert(flight_url), Preferences(telegram_style="classic", **hidden))
-    assert classic.text.split("\n")[2:4] == ["United", "Mar 14, 2027"]
-    assert "UA 414" not in classic.text and "11/06/2026" not in classic.text
+    timed = alert(flight_url, schedule=[{"departs": "15:35", "arrives": "18:39"}])
+    assert alert_message(timed, Preferences(**hidden)).text.split("\n") == [
+        "🔥 New low · $246 (was $254)",
+        "DEN → DFW · Mar 14",
+    ]
+    assert alert_message(timed, Preferences(telegram_style="detailed", **hidden)).text.split(
+        "\n"
+    ) == [
+        "🔥 New low · $246 (was $254, −$8 · −3%)",
+        "DEN → DFW · Mar 14",
+        "United · Total for 1 adult",
+    ]
     custom = Preferences(
         telegram_style="custom",
         telegram_templates={"new_low": "{flights} · {fare} · {observed}"},
@@ -195,24 +252,50 @@ def test_checkboxes_tune_presets_but_a_custom_template_states_its_own_content(fl
     )
 
 
-def test_custom_templates_apply_per_message_and_others_use_the_detailed_preset(flight_url):
+def test_each_style_reports_the_switches_that_change_it():
+    assert style_switches("compact") == ["telegram_show_flight_numbers", "telegram_show_times"]
+    assert style_switches("detailed") == [
+        "telegram_show_flight_numbers",
+        "telegram_show_times",
+        "telegram_show_observed_time",
+        "telegram_show_fare",
+    ]
+    # Every switch named is a real preference, so an editor can bind to it.
+    assert set(style_switches("detailed")) <= set(Preferences.model_fields)
+
+
+def test_custom_templates_apply_per_message_and_others_use_the_default_style(flight_url):
     prefs = Preferences(
         telegram_style="custom",
         telegram_templates={"new_low": "{emoji} {route} is **{price_short}**[ ({change})]"},
     )
     low = alert_message(alert(flight_url), prefs)
-    assert low.text == "📉 DEN → DFW is $246 (−$8)"
-    assert low.html == "📉 DEN → DFW is <b>$246</b> (−$8)"
+    assert low.text == "🔥 DEN → DFW is $246 (−$8)"
+    assert low.html == "🔥 DEN → DFW is <b>$246</b> (−$8)"
     rebound = alert_message(alert(flight_url, "rebound", 26600, (24600, 24600)), prefs).text
-    assert rebound.startswith("USD 266.00\nPrice rose from its low")
-    assert templates_for("custom", {})["new_low"] == PRESETS["detailed"]["new_low"]
+    assert rebound.startswith("📈 Price rose · $266 (low $246)")
+    assert templates_for("custom", {})["new_low"] == PRESETS[DEFAULT_STYLE]["new_low"]
+    assert templates_for("custom", None) == PRESETS[DEFAULT_STYLE]
+
+
+def test_templates_written_with_currency_codes_keep_rendering_them(flight_url):
+    # Placeholder names are an account's saved data: each keeps the meaning it was saved with.
+    prefs = Preferences(
+        telegram_style="custom",
+        telegram_templates={
+            "new_low": "{price}[ (was {previous_low})]",
+            "flight_row": "{flights} {price}[ low {low}]",
+        },
+    )
+    assert alert_message(alert(flight_url), prefs).text == "USD 246.00 (was USD 254.00)"
+    assert rows([monitor("1429", 32900, 24500)], prefs)[-1] == ("WN 1429 USD 329.00 low USD 245.00")
 
 
 def test_a_template_that_would_say_nothing_falls_back_instead_of_failing_delivery(flight_url):
     event = alert(flight_url, fare_name=None)
     prefs = Preferences(telegram_style="custom", telegram_templates={"new_low": "[Fare: {fare}]"})
     message = alert_message(event, prefs)
-    assert message.text.startswith("USD 246.00\nNew observed low")
+    assert message.text.startswith("🔥 New low · $246")
     message.payload()  # A sendable message, never an empty one.
 
 
@@ -227,89 +310,121 @@ def test_an_inline_link_replaces_the_duplicate_flight_button(flight_url):
         "View flight",
         "Open Fareflare",
     ]
-    classic = Preferences(telegram_style="classic")
-    assert labels(alert_message(alert(flight_url), classic, url)) == ["Open Fareflare"]
-    quiet = Preferences(telegram_style="classic", telegram_show_buttons=False)
+    linked = {"telegram_style": "custom", "telegram_templates": {"new_low": "{price_short} {link}"}}
+    message = alert_message(alert(flight_url), Preferences(**linked), url)
+    assert labels(message) == ["Open Fareflare"]
+    assert Markup(message.html).links == [import_link(flight_url)["url"]]
+    quiet = Preferences(telegram_show_buttons=False, **linked)
     without = alert_message(alert(flight_url), quiet, url)
     assert without.reply_markup is None and "reply_markup" not in without.payload()
 
 
-def test_round_trips_show_both_dates_and_a_two_way_route(flight_url):
-    event = alert(flight_url)
+def test_round_trips_show_both_dates_a_two_way_route_and_the_return_times(flight_url):
+    event = alert(
+        flight_url,
+        schedule=[
+            {"departs": "23:23", "arrives": "05:00", "arrival_day_offset": 1},
+            {"departs": "09:05", "arrives": "12:14", "duration_minutes": 129},
+        ],
+    )
     outbound = event["itinerary"]["segments"][0]
     leg = outbound["legs"][0]
     back = {
         "date": "2027-03-21",
-        "legs": [{**leg, "origin": leg["destination"], "destination": leg["origin"]}],
+        "legs": [
+            {**leg, "origin": leg["destination"], "destination": leg["origin"], "number": "2049"}
+        ],
     }
     event["itinerary"]["segments"] = [outbound, back]
-    classic = alert_message(event, Preferences(telegram_style="classic")).text
-    assert "🛫 DEN ⇄ DFW" in classic and "\nMar 14, 2027\n↩ Mar 21, 2027\n" in classic
-    detailed = alert_message(event, Preferences()).text
-    assert "DEN → DFW · 03/14/2027 · UA 414\nDFW → DEN · 03/21/2027 · UA 414" in detailed
+    assert alert_message(event, Preferences()).text.split("\n")[1:] == [
+        "DEN ⇄ DFW · Mar 14 – Mar 21 · UA 414, UA 2049",
+        "11:23 PM → 5:00 AM +1",
+        "↩ 9:05 AM → 12:14 PM",
+    ]
+    assert alert_message(event, DETAILED).text.split("\n")[2:4] == [
+        "11:23 PM → 5:00 AM +1",
+        "↩ 9:05 AM → 12:14 PM · 2 hr 9 min",
+    ]
 
 
 def test_provider_text_cannot_inject_markup_or_extra_lines_into_any_style(flight_url):
     event = alert(flight_url, fare_name='<a href="https://evil.test">Economy</a>\nFREE\u202e')
-    for style in ("detailed", "compact", "classic"):
+    for style in PRESETS:
         message = alert_message(event, Preferences(telegram_style=style))
         markup = Markup(message.html)
         assert all("evil.test" not in link for link in markup.links)
         assert "\nFREE" not in message.text and "\u202e" not in message.text
 
 
-def test_classic_flight_list_groups_a_route_and_marks_the_low_with_fire():
+def test_compact_flight_list_groups_a_route_and_marks_the_low_with_fire():
     flights = [
-        monitor("1429", 32900, 24500),
+        monitor("1429", 32900, 24500, latest_schedule=("23:23", "05:00")),
         monitor("1430", 16400, 16400),
         monitor("1066", 26900, 25500, origin="DEN", destination="DAL", status="paused"),
     ]
-    plain, markup = flight_list(flights, Preferences(telegram_style="classic"), 2026)
-    assert plain == [
-        "🛫 DEN → DFW  Jan 10, 2027",
-        "  • WN 1429 · $329 (low $245)",
-        "  • WN 1430 · $164 🔥 at the low",
+    lines, count = flight_list(flights, Preferences(), TODAY)
+    assert count == 3
+    assert plain_text(lines).split("\n") == [
+        "🛫 DEN → DFW · Jan 10",
+        "• WN 1429 11:23 PM→5:00 AM · $329 (low $245)",
+        "• WN 1430 · $164 🔥 at the low",
         "",
-        "🛫 DEN → DAL  Jan 10, 2027",
-        "  • WN 1066 · $269 (low $255) · Paused",
+        "🛫 DEN → DAL · Jan 10",
+        "• WN 1066 · $269 (low $255) · Paused",
     ]
-    assert len(markup) == len(plain)
-    assert markup[2] == "  • <code>WN 1430</code> · <b>$164</b> <i>🔥 at the low</i>"
-    for line in markup:
-        Markup(line)
-    # In the year of travel the date needs no year.
-    assert flight_list(flights, Preferences(telegram_style="classic"), 2027)[0][0] == (
-        "🛫 DEN → DFW  Jan 10"
+    markup = telegram_html(lines).split("\n")
+    assert markup[0] == "🛫 <b>DEN → DFW</b> · Jan 10"
+    assert markup[2] == "• <code>WN 1430</code> · <b>$164</b> <i>🔥 at the low</i>"
+    Markup(telegram_html(lines))
+    # A date more than a few months off names its year.
+    assert rows(flights, Preferences(), date(2025, 6, 1))[0] == "🛫 DEN → DFW · Jan 10, 2027"
+
+
+def test_detailed_flight_list_gives_each_flight_its_own_block():
+    flights = [
+        monitor("1429", 32900, 24500, latest_schedule=("15:35", "18:39")),
+        monitor("1430", 16400, 16400),
+        monitor("1431", 0, 0, status="pending"),
+    ]
+    assert rows(flights, DETAILED) == [
+        "DEN → DFW · Jan 10",
+        "WN 1429 · 3:35 PM → 6:39 PM · $329",
+        "Lowest $245",
+        "",
+        "DEN → DFW · Jan 10",
+        "WN 1430 · $164",
+        "🔥 At its lowest",
+        "",
+        "DEN → DFW · Jan 10",
+        "WN 1431",
+        "Awaiting check",
+    ]
+
+
+def test_a_round_trip_row_adds_its_return_times():
+    flight = monitor("1429", 32900, 24500)
+    leg = flight["target"]["segments"][0]["legs"][0]
+    flight["target"]["segments"].append(
+        {"date": "2027-01-17", "legs": [{**leg, "origin": "DFW", "destination": "DEN"}]}
     )
-
-
-def test_detailed_and_compact_flight_lists_identify_each_flight():
-    flights = [monitor("1429", 32900, 24500), monitor("1430", 0, 0, status="pending")]
-    detailed, _ = flight_list(flights, Preferences())
-    assert detailed == [
-        "DEN → DFW  01/10/2027",
-        "WN 1429 · Watching",
-        "Last observed USD 329.00",
-        "Lowest observed USD 245.00",
-        "",
-        "DEN → DFW  01/10/2027",
-        "WN 1430 · Awaiting check",
+    flight["latest"]["schedule"] = [
+        {"departs": "07:05", "arrives": "10:02"},
+        {"departs": "17:09", "arrives": "20:02"},
     ]
-    compact, _ = flight_list(flights, Preferences(telegram_style="compact"), 2027)
-    assert compact == [
-        "DEN → DFW · Jan 10 · WN 1429 · USD 329.00",
-        "DEN → DFW · Jan 10 · WN 1430 · Awaiting check",
+    assert rows([flight], Preferences(hour_cycle="h23")) == [
+        "🛫 DEN ⇄ DFW · Jan 10 – Jan 17",
+        "• WN 1429, WN 1429 07:05→10:02 · $329 (low $245)",
+        "   ↩ 17:09→20:02",
     ]
 
 
 def test_flight_rows_flag_delays_and_describe_route_searches():
     delayed = monitor("1429", 32900, 24500, collection_status="blocked")
-    plain, _ = flight_list([delayed], Preferences(telegram_style="classic"), 2027)
-    assert plain[1].endswith("· Check delayed")
+    assert rows([delayed], Preferences())[1].endswith("· Check delayed")
     search = monitor("1", 0, 0, status="pending")
     search["target"]["kind"] = "search"
     search["target"]["segments"][0]["legs"][0].update(airline=None, number=None)
-    assert "Route search" in flight_list([search], Preferences(), 2027)[0][1]
+    assert "Route search" in rows([search], DETAILED)[1]
     # Once a search has matched an offer, that flight is what the row names.
     search["latest"] = {
         "amount_minor": 19100,
@@ -326,10 +441,10 @@ def test_flight_rows_flag_delays_and_describe_route_searches():
             ]
         },
     }
-    assert "F9 22" in flight_list([search], Preferences(), 2027)[0][1]
+    assert "F9 22" in rows([search], DETAILED)[1]
 
 
-def test_custom_list_templates_and_page_size_follow_the_row_shape():
+def test_custom_list_templates_choose_their_own_heading_and_row():
     prefs = Preferences(
         telegram_style="custom",
         telegram_templates={
@@ -337,12 +452,54 @@ def test_custom_list_templates_and_page_size_follow_the_row_shape():
             "flight_row": "{flights}: {price_short}[ {low_note}]",
         },
     )
-    plain, markup = flight_list([monitor("1429", 16400, 16400)], prefs, 2027)
-    assert plain == ["DEN → DFW", "WN 1429: $164 🔥 at the low"]
-    assert markup[0] == "<b>DEN → DFW</b>"
-    assert flight_list_page_size(prefs) == 8
-    assert flight_list_page_size(Preferences()) == 5
-    assert flight_list_page_size(Preferences(telegram_style="classic")) == 8
+    lines, _ = flight_list([monitor("1429", 16400, 16400), monitor("1430", 20000, 16400)], prefs)
+    assert plain_text(lines).split("\n") == [
+        "DEN → DFW",
+        "WN 1429: $164 🔥 at the low",
+        "WN 1430: $200 (low $164)",
+    ]
+    assert telegram_html(lines).split("\n")[0] == "<b>DEN → DFW</b>"
+    # No heading at all is a valid choice.
+    bare = prefs.model_copy(
+        update={"telegram_templates": {**prefs.telegram_templates, "flight_group": ""}}
+    )
+    assert rows([monitor("1429", 16400, 16400)], bare) == ["WN 1429: $164 🔥 at the low"]
+
+
+def test_a_list_stops_before_the_flight_that_would_not_fit_its_budget():
+    flights = [monitor(str(1400 + index), 32900, 24500) for index in range(40)]
+    lines, count = flight_list(flights, DETAILED, TODAY, budget=600)
+    assert 1 < count < 40
+    assert len(plain_text(lines)) <= 600
+    # The next page starts with the first flight that was left out.
+    following = rows(flights[count:], DETAILED, budget=600)
+    assert following[1].startswith(f"WN {1400 + count}")
+    assert f"WN {1400 + count}" not in plain_text(lines)
+    # One flight is always shown, however small the budget.
+    assert flight_list(flights, DETAILED, TODAY, budget=1)[1] == 1
+    # A row an account wrote far too long is replaced by the default one, never cut short.
+    long = Preferences(
+        telegram_style="custom",
+        telegram_templates={"flight_group": "", "flight_row": "{flights} " + "padding " * 90},
+    )
+    assert rows(flights[:1], long) == ["🛫 DEN → DFW · Jan 10", "• WN 1400 · $329 (low $245)"]
+
+
+def test_lists_are_ordered_by_day_route_and_departure():
+    late = monitor("3", 100, 100, latest_schedule=("19:00", "21:00"))
+    early = monitor("2", 100, 100, latest_schedule=("06:00", "08:00"))
+    untimed = monitor("4", 100, 100)
+    other = monitor("1", 100, 100, origin="DEN", destination="DAL")
+    sooner = monitor("9", 100, 100)
+    sooner["target"]["segments"][0]["date"] = "2027-01-02"
+    ordered = sorted([late, untimed, other, early, sooner], key=flight_order)
+    assert [flight["target"]["segments"][0]["legs"][0]["number"] for flight in ordered] == [
+        "9",
+        "1",
+        "2",
+        "3",
+        "4",
+    ]
 
 
 def test_templates_are_validated_when_preferences_are_saved():
@@ -378,8 +535,11 @@ def test_saved_preferences_from_another_release_never_block_reading_them():
     }
     restored = stored_preferences(saved)
     assert restored.locale == "de-DE" and restored.muted_routes == ["DEN-DFW"]
-    assert restored.telegram_style == "detailed" and restored.telegram_templates == {}
+    assert restored.telegram_style == DEFAULT_STYLE and restored.telegram_templates == {}
     assert stored_preferences(None) == Preferences()
+    # A style that was offered before this release reads as the default one.
+    assert stored_preferences({"telegram_style": "classic"}).telegram_style == DEFAULT_STYLE
+    assert stored_preferences({"telegram_style": "detailed"}).telegram_style == "detailed"
     # Updates are still strict: a bad new value is an error, not a silent default.
     assert merge_preferences(saved, {"telegram_silent": True}).telegram_silent is True
     with pytest.raises(ValidationError):
@@ -392,10 +552,12 @@ def test_saved_preferences_from_another_release_never_block_reading_them():
         (24600, "USD", "en-US", "$246"),
         (24650, "USD", "en-US", "$246.50"),
         (123456700, "USD", "en-US", "$1,234,567"),
-        (24650, "USD", "de-DE", "246,50 $"),
-        (24600, "EUR", "fr-FR", "246 €"),
+        (24650, "USD", "de-DE", "246,50\N{NO-BREAK SPACE}$"),
+        (24600, "EUR", "fr-FR", "246\N{NO-BREAK SPACE}€"),
         (25000, "JPY", "en-US", "¥25,000"),
         (24600, "GBP", "en-GB", "£246"),
+        (24605, "CAD", "en-US", "CA$246.05"),
+        (24600, "AUD", "en-GB", "A$246"),
     ],
 )
 def test_short_prices_use_a_symbol_and_drop_empty_cents(amount, currency, locale, expected):
@@ -408,25 +570,57 @@ def test_signed_amounts_and_short_dates():
     assert short_price(0, "USD", "en-US", signed=True) == "$0"
     with pytest.raises(ValueError):
         short_price(100, "XYZ", "en-US")
-    from datetime import date
+    day = date(2027, 3, 4)
+    assert short_date(day) == "Mar 4"
+    assert short_date(day, date(2027, 1, 1)) == "Mar 4"
+    # The coming months need no year, even across New Year.
+    assert short_date(day, date(2026, 11, 6)) == "Mar 4"
+    assert short_date(day, date(2026, 3, 1)) == "Mar 4, 2027"
+    # A day already behind the reader in another year is never ambiguous.
+    assert short_date(date(2026, 12, 30), date(2027, 1, 2)) == "Dec 30, 2026"
+    assert short_dates(day, None, TODAY) == "Mar 4"
+    assert short_dates(day, day, TODAY) == "Mar 4"
+    assert short_dates(day, date(2027, 3, 11), TODAY) == "Mar 4 – Mar 11"
+    assert short_dates(day, date(2027, 3, 11), date(2025, 1, 1)) == "Mar 4 – Mar 11, 2027"
+    assert short_dates(date(2027, 12, 28), date(2028, 1, 4), date(2025, 1, 1)) == (
+        "Dec 28, 2027 – Jan 4, 2028"
+    )
 
-    assert short_date(date(2027, 3, 4)) == "Mar 4"
-    assert short_date(date(2027, 3, 4), 2027) == "Mar 4"
-    assert short_date(date(2027, 3, 4), 2026) == "Mar 4, 2027"
+
+@pytest.mark.parametrize(
+    "departs, arrives, hour_cycle, expected",
+    [
+        ("15:35", "18:39", "h12", "3:35→6:39 PM"),
+        ("07:05", "10:02", "h12", "7:05→10:02 AM"),
+        ("11:50", "13:05", "h12", "11:50 AM→1:05 PM"),
+        ("23:23", "05:00", "h12", "11:23 PM→5:00 AM"),
+        ("15:35", "18:39", "h23", "15:35→18:39"),
+    ],
+)
+def test_a_time_range_names_am_or_pm_once_when_both_ends_share_it(
+    departs, arrives, hour_cycle, expected
+):
+    assert clock_range(departs, arrives, Preferences(hour_cycle=hour_cycle)) == expected
 
 
 def test_every_preview_renders_for_every_style_without_sending_anything():
     assert (*ALERT_KEYS, "flight_list") == PREVIEW_KINDS
-    for style in ("detailed", "compact", "classic", "custom"):
+    for style in STYLES:
         prefs = Preferences(telegram_style=style)
         for kind in PREVIEW_KINDS:
-            message = preview_message(kind, prefs, "https://fareflare.example", NOW)
-            message.payload()
-            Markup(message.html)
-    assert (
-        "🔥 at the low"
-        in preview_message("flight_list", Preferences(telegram_style="classic"), None, NOW).text
-    )
+            preview = preview_message(kind, prefs, "https://fareflare.example", NOW)
+            preview.message.payload()
+            Markup(preview.message.html)
+            # The styled lines an editor draws are the message that would be sent.
+            assert plain_text(preview.lines) == preview.message.text
+            assert telegram_html(preview.lines) == preview.message.html
+            assert "USD" not in preview.message.text
+    listed = preview_message("flight_list", Preferences(), None, NOW).message.text.split("\n")
+    assert listed[0] == "🛫 DEN → DFW · Mar 14"
+    assert listed[1] == "• UA 1565 7:05→10:02 AM · $214 🔥 at the low"
+    assert listed[-1].endswith("· Paused")
+    # A sample alert is on time, so it shows no note about a late check.
+    assert "Checked" not in preview_message("new_low", Preferences(), None, NOW).message.text
     with pytest.raises(ValueError):
         preview_message("anything", Preferences(), None, NOW)
 
@@ -436,10 +630,24 @@ def test_catalog_describes_every_template_for_an_editor():
     assert [item["key"] for item in catalog["templates"]] == list(TEMPLATE_KEYS)
     assert [item["key"] for item in catalog["templates"] if item["optional"]] == ["flight_group"]
     for key in TEMPLATE_KEYS:
-        names = {item["name"] for item in catalog["placeholders"][key]}
-        assert names == VOCABULARY[key]
-        assert all(item["description"] and item["example"] for item in catalog["placeholders"][key])
-    assert catalog["presets"]["classic"]["flight_row"] == PRESETS["classic"]["flight_row"]
+        listed = [item["name"] for item in catalog["placeholders"][key]]
+        assert set(listed) == VOCABULARY[key] and len(listed) == len(set(listed))
+        assert all(
+            item["description"] and item["example"] and item["group"]
+            for item in catalog["placeholders"][key]
+        )
+    # The symbol form of a price is the first thing an editor offers.
+    assert catalog["placeholders"]["new_low"][0]["name"] == "price_short"
+    assert catalog["placeholders"]["flight_row"][0]["name"] == "price_short"
+    assert catalog["presets"] == PRESETS
+    assert catalog["default_style"] == DEFAULT_STYLE
+    assert [style["value"] for style in catalog["styles"]] == ["compact", "detailed", "custom"]
+    assert all(style["label"] and style["description"] for style in catalog["styles"])
+    assert [style["switches"] for style in catalog["styles"]] == [
+        style_switches("compact"),
+        style_switches("detailed"),
+        [],
+    ]
     assert catalog["limits"] == {"characters": 800, "lines": 20, "placeholders": 40}
 
 
@@ -485,7 +693,7 @@ def test_diagnostic_notices_use_plain_words_and_name_the_code_once():
         Markup(message.html)
 
 
-def test_an_oversized_rendering_falls_back_to_the_detailed_wording(flight_url):
+def test_an_oversized_rendering_falls_back_to_the_default_wording(flight_url):
     prefs = Preferences(
         telegram_style="custom", telegram_templates={"new_low": "{link} " * 39 + "{price}"}
     )
@@ -493,6 +701,6 @@ def test_an_oversized_rendering_falls_back_to_the_detailed_wording(flight_url):
     # A long but valid Google Flights address, repeated by the template above.
     event["itinerary"]["url"] += "&utm_source=" + "x" * 600
     message = alert_message(event, prefs)
-    assert message.text.startswith("USD 246.00\nNew observed low")
+    assert message.text.startswith("🔥 New low · $246 (was $254)")
     assert len(message.html) < 4096
     message.payload()

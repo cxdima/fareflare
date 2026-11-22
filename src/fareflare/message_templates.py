@@ -11,8 +11,14 @@ Syntax::
     **bold**    emphasis; also __italic__ and `monospace`
     \\x          the literal character x, for example \\[ or \\{
 
-A line whose placeholders and groups all render empty is removed and repeated
-blank lines collapse, so one template serves itineraries with differing details.
+One template serves itineraries with differing details:
+
+- a separator left beside a placeholder that has no value is dropped, so
+  ``{flights} · {times} · {price}`` reads ``UA 414 · $246`` when the times are unknown;
+- a line with nothing left to show is removed, and repeated blank lines collapse.
+
+A separator is literal text made only of spaces and ``· • | / , ; : - – — →``. Words
+are never dropped that way: put a label and its placeholder in a group to hide both.
 Groups and emphasis must close on the line where they open.
 """
 
@@ -23,6 +29,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from html import escape
+from itertools import pairwise
 
 MAX_TEMPLATE_LENGTH = 800
 MAX_TEMPLATE_LINES = 20
@@ -32,6 +39,8 @@ _NAME = re.compile(r"[a-z][a-z_]{0,31}\Z")
 # Direction marks, overrides and isolates can visually reorder a message around a price.
 # Written as escapes: the characters themselves would be invisible in this file.
 DIRECTIONAL = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+# Literal text made only of these joins two details and goes when one of them is missing.
+_JOINERS = frozenset(" ·•|/,;:-–—→")
 _EMPHASIS = (("**", "bold"), ("__", "italic"), ("`", "code"))
 _LABELS = {"bold": "**bold**", "italic": "__italic__", "code": "`monospace`"}
 
@@ -52,14 +61,33 @@ class Run:
 
 
 Value = str | tuple[Run, ...]
+# A rendered message: one tuple of runs per line, an empty tuple for a blank line.
+Lines = tuple[tuple[Run, ...], ...]
+
+
+def plain_text(lines: Lines) -> str:
+    return "\n".join("".join(run.text for run in line) for line in lines)
+
+
+def telegram_html(lines: Lines) -> str:
+    return "\n".join("".join(_markup(run) for run in line) for line in lines)
 
 
 @dataclass(frozen=True)
 class Rendered:
-    text: str
-    html: str
+    """The plain text and the Telegram markup are two views of the same runs."""
+
+    lines: Lines
     # Placeholders that produced visible output, so callers can avoid repeating them.
     used: frozenset[str]
+
+    @property
+    def text(self) -> str:
+        return plain_text(self.lines)
+
+    @property
+    def html(self) -> str:
+        return telegram_html(self.lines)
 
 
 @dataclass(frozen=True)
@@ -241,6 +269,41 @@ def _is_dynamic(nodes: tuple[_Node, ...]) -> bool:
     )
 
 
+def _shows(runs: list[Run]) -> bool:
+    return any(run.text.strip() for run in runs)
+
+
+def _joined(parts: list[tuple[str, list[Run]]]) -> list[Run]:
+    """Concatenate one sequence, dropping separators left beside a missing value.
+
+    Each part is a ``value`` (a placeholder that shows something), a ``gap`` (one
+    that shows nothing), a ``joiner`` (separator text) or other ``text``. Text
+    before the first placeholder and after the last one is never touched.
+    """
+    dynamic = [index for index, (kind, _) in enumerate(parts) if kind in ("value", "gap")]
+    shown = [index for index in dynamic if parts[index][0] == "value"]
+    drop: set[int] = set()
+
+    def separators(start: int, end: int) -> list[int]:
+        """Literal parts between two placeholders, when all of them are separators."""
+        between = [i for i in range(start + 1, end) if parts[i][0] in ("joiner", "text")]
+        return between if all(parts[i][0] == "joiner" for i in between) else []
+
+    if shown:
+        # Nothing precedes the first shown value or follows the last: no separator needed.
+        drop.update(separators(dynamic[0], shown[0]))
+        drop.update(separators(shown[-1], dynamic[-1]))
+        for first, second in pairwise(shown):
+            between = separators(first, second)
+            if len(between) < second - first - 1:
+                # A placeholder between these two is missing. One separator still
+                # joins them: the one written nearest the second value.
+                drop.update(between[:-1])
+    elif dynamic:
+        drop.update(separators(dynamic[0], dynamic[-1]))
+    return [run for index, (_, runs) in enumerate(parts) if index not in drop for run in runs]
+
+
 def _expand(
     nodes: tuple[_Node, ...],
     values: Mapping[str, Value],
@@ -250,40 +313,40 @@ def _expand(
     italic: bool = False,
     code: bool = False,
 ) -> list[Run]:
-    runs: list[Run] = []
+    parts: list[tuple[str, list[Run]]] = []
     for node in nodes:
+        runs: list[Run] = []
         if isinstance(node, _Text):
-            runs.append(Run(node.value, bold, italic, code))
-        elif isinstance(node, _Field):
+            kind = "joiner" if all(char in _JOINERS for char in node.value) else "text"
+            parts.append((kind, [Run(node.value, bold, italic, code)]))
+            continue
+        if isinstance(node, _Field):
             value = values.get(node.name)
-            if _is_empty(value):
-                continue
-            used.add(node.name)
-            if isinstance(value, str):
-                runs.append(Run(value, bold, italic, code))
-            else:
-                assert value is not None
-                runs.extend(
+            if value is not None and not _is_empty(value):
+                used.add(node.name)
+                runs = [
                     Run(
                         run.text, run.bold or bold, run.italic or italic, run.code or code, run.href
                     )
-                    for run in value
-                )
+                    for run in ((Run(value),) if isinstance(value, str) else value)
+                ]
         elif isinstance(node, _Group):
             if not _has_empty_field(node.parts, values):
-                runs.extend(_expand(node.parts, values, used, bold=bold, italic=italic, code=code))
+                runs = _expand(node.parts, values, used, bold=bold, italic=italic, code=code)
         else:
-            runs.extend(
-                _expand(
-                    node.parts,
-                    values,
-                    used,
-                    bold=bold or node.style == "bold",
-                    italic=italic or node.style == "italic",
-                    code=code or node.style == "code",
-                )
+            runs = _expand(
+                node.parts,
+                values,
+                used,
+                bold=bold or node.style == "bold",
+                italic=italic or node.style == "italic",
+                code=code or node.style == "code",
             )
-    return runs
+            if not _is_dynamic(node.parts):
+                parts.append(("text", runs))
+                continue
+        parts.append(("value" if _shows(runs) else "gap", runs))
+    return _joined(parts)
 
 
 def _markup(run: Run) -> str:
@@ -347,18 +410,29 @@ def render(template: str, values: Mapping[str, Value], vocabulary: frozenset[str
     output: list[list[Run]] = []
     for nodes in parse_template(template, vocabulary):
         runs = _expand(nodes, values, used)
-        if _is_dynamic(nodes) and not "".join(run.text for run in runs).strip():
+        if _is_dynamic(nodes) and not _shows(runs):
             continue  # Every placeholder on this line was empty.
         output.extend(_trim_trailing(line) for line in _lines(runs))
-    collapsed: list[list[Run]] = []
+    collapsed: list[tuple[Run, ...]] = []
     for line in output:
         if not line and (not collapsed or not collapsed[-1]):
             continue  # Leading blank line, or a repeat of the previous blank line.
-        collapsed.append(line)
+        collapsed.append(tuple(line))
     while collapsed and not collapsed[-1]:
         collapsed.pop()
-    return Rendered(
-        "\n".join("".join(run.text for run in line) for line in collapsed),
-        "\n".join("".join(_markup(run) for run in line) for line in collapsed),
-        frozenset(used),
-    )
+    return Rendered(tuple(collapsed), frozenset(used))
+
+
+def template_fields(template: str, vocabulary: frozenset[str]) -> frozenset[str]:
+    """Every placeholder a template mentions, wherever it is nested."""
+
+    def names(nodes: tuple[_Node, ...]) -> set[str]:
+        found: set[str] = set()
+        for node in nodes:
+            if isinstance(node, _Field):
+                found.add(node.name)
+            elif isinstance(node, _Group | _Styled):
+                found |= names(node.parts)
+        return found
+
+    return frozenset(name for line in parse_template(template, vocabulary) for name in names(line))

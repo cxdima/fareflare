@@ -43,11 +43,22 @@ The bot validates the link before creating a monitor. Prices arrive after a
 scheduled collection pass; opening a menu or pressing a button does not start a
 browser search. Account quotas and supported-flight restrictions still apply.
 
-From `/flights`, choose a flight to see its latest observed price and check time.
-The list follows your message style. In the classic style, flights on the same
-route and day share a heading and a flight at its lowest recorded price is marked
-`🔥 at the low`. **Recent prices** shows five readings per page; **Earlier prices**
-loads more. The low shown there applies only to the readings on that page.
+`/flights` lists the flights you are watching or have paused, in the order they
+depart. The list follows your message style. In the compact style each flight is one
+line, flights on the same route and day share a heading, and a flight at its lowest
+recorded price is marked `🔥 at the low`; otherwise the line shows that low:
+
+```text
+🛫 DEN → DFW · Mar 14
+• UA 1565 7:05→10:02 AM · $214 🔥 at the low
+• UA 414 3:50→6:54 PM · $269 (low $219)
+```
+
+A long list comes in pages: **Next flights** shows the rest. Choose **Manage a
+flight** and then the flight (or **Manage this flight** when there is only one) to
+see its latest observed price and check time. **Recent prices** shows ten readings
+per page; **Earlier prices** loads more. The lowest price shown there applies only
+to the readings on that page.
 
 - **Pause watching** suspends tracking; **Resume watching** starts it again.
 - **Retry collection** appears when collection is blocked and schedules another attempt.
@@ -81,8 +92,8 @@ Rule changes apply to future observations.
 ## Messages and delivery
 
 `/settings` offers silent Telegram notifications, global muting and **Message
-style**: Detailed, Compact or Classic with emoji, each shown with an example before
-you choose it. Your own wording is written in
+style**: Compact or Detailed, each shown with an example before you choose it.
+Your own wording is written in
 [Account settings](ACCOUNT_PREFERENCES.md#message-styles-and-templates) and then
 appears in this menu as **Custom**. **Mute alerts also mutes webhook delivery**; checks and history
 continue. **Send silently** changes Telegram notification sound only. **Quiet hours**
@@ -90,11 +101,14 @@ does the same between 22:00 and 07:00 in your time zone: alerts still arrive at 
 without a sound. Choose a different window, and more display and route-muting
 options, in [Account settings](ACCOUNT_PREFERENCES.md#quiet-hours).
 
-Alerts show the price first, followed by itinerary details and the observation
-time in your saved time zone. Without a saved zone, Telegram uses UTC. Validated
-flight and dashboard links appear as buttons, without long URLs or internal IDs
-in the message body. Website previews use sample data and noninteractive button
-labels; they do not send messages.
+Alerts open with what happened and the price (`🔥 New low · $191 (was $199)`),
+followed by the route, day, flight and its times. The detailed style adds the
+airline, flight length, fare and the time of the check in your saved time zone;
+without a saved zone, Telegram uses UTC. An alert that arrives ten minutes or more
+after its price was checked says when the check was made, in either style.
+Validated flight and dashboard links appear as buttons, without long URLs or
+internal IDs in the message body. The website preview uses sample data and
+noninteractive button labels; it does not send messages.
 
 If a price check cannot finish, the flight shows a short note and Fareflare tries
 again; the bot does not send error messages unless you turned on

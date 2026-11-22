@@ -89,7 +89,7 @@ def test_private_one_use_link_hashes_credentials_and_routes_delivery(telegram, s
     assert connections.status(tenant)["connected"]
     assert sent[0]["chat_id"] == "123"
     assert connections.send(delivery(tenant))
-    assert "USD 120.00" in sent[-1]["text"]
+    assert "<b>$120</b>" in sent[-1]["text"]
     assert sent[-1]["parse_mode"] == "HTML"
     assert sent[-1]["link_preview_options"] == {"is_disabled": True}
     assert connections.handle_update(update("/start " + payload, chat=456, identifier=2))
@@ -410,7 +410,9 @@ def test_concurrent_disconnect_retries_and_always_invalidates_pending(telegram, 
     assert store.get("tenant:" + tenant).data["notification_epoch"] == 2
 
 
-def test_delivery_reads_current_account_presentation_without_invalidating_queue(telegram, service):
+def test_delivery_reads_current_account_presentation_without_invalidating_queue(
+    telegram, service, clock
+):
     connections, _, user, sent = telegram
     tenant = user["account"]["id"]
     bind(connections, tenant)
@@ -421,13 +423,18 @@ def test_delivery_reads_current_account_presentation_without_invalidating_queue(
         locale="de-DE",
         hour_cycle="h23",
         telegram_silent=True,
-        telegram_style="compact",
+        telegram_style="detailed",
     )
     assert service.tenant_notification_epoch(tenant) == queued["tenant_epoch"]
     assert connections.send(queued)
-    assert "America/Chicago" in sent[-1]["text"] and "USD 120,00" in sent[-1]["text"]
+    # The price and the time of the check follow the account's region, clock and zone.
+    assert "<b>120\xa0$</b>" in sent[-1]["text"]
+    assert "<i>Checked 02.11.2026 15:00</i>" in sent[-1]["text"]
     assert sent[-1]["disable_notification"] is True
-    assert "Alert " not in sent[-1]["text"]
     service.set_preferences(tenant, telegram_show_observed_time=False)
     assert connections.send(queued)
-    assert "Observed " not in sent[-1]["text"]
+    assert "Checked " not in sent[-1]["text"]
+    # An alert that is sent long after its check says so, whatever was chosen.
+    clock[0] += 3600
+    assert connections.send(queued)
+    assert "<i>Checked 02.11.2026 15:00</i>" in sent[-1]["text"]

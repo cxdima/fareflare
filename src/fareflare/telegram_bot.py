@@ -11,52 +11,60 @@ import hashlib
 import re
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from html import escape
 from urllib.parse import urlsplit
 
 from fareflare.accounts import Accounts, AuthenticationFailed
 from fareflare.domain import AlertPolicy
+from fareflare.message_templates import Run, plain_text, telegram_html
 from fareflare.preferences import (
     Preferences,
     merge_preferences,
     observed_time,
     quiet_hours_label,
     regional_date,
-    regional_price,
+    short_price,
 )
-from fareflare.service import MonitoringService, NotFound
+from fareflare.service import CapacityReached, MonitoringService, NotFound, QuotaReached
 from fareflare.store import Conflict, Document, Store
 from fareflare.telegram_messages import (
     STATUS_LABELS,
     TelegramMessage,
     flight_list,
-    flight_list_page_size,
+    flight_numbers,
+    flight_order,
     flight_row_values,
+    local_date,
+    monitor_segments,
     monitor_times,
-    observed_low,
+    party,
     preview_message,
     safe_flight_url,
     schedule_lines,
     single_line,
+    utf16_length,
 )
 from fareflare.telegram_rules import parse_amount, price_example
+from fareflare.telegram_templates import PRESETS, STYLES
 
 _TOKEN = re.compile(r"ff:([A-Za-z0-9_-]{24})\Z")
 _MENU_SECONDS = 15 * 60
 _STATUS = STATUS_LABELS
-# Leaves room in a 4000-character view for its title and a notice.
-_LIST_BUDGET = 3500
+_LIVE = ("pending", "active", "degraded")
+# Telegram allows 4096 characters. A view keeps to 4000, and its flight list to
+# less, which leaves room for the title, a notice and the line under the list.
+_VIEW_LIMIT = 4000
+_LIST_BUDGET = 3300
+# Flights offered at a time when choosing one to open, and readings per history page.
+_CHOICES = 8
+_READINGS = 10
 # Offered with one tap; any other window is set in Account settings.
 _DEFAULT_QUIET_HOURS = "22:00-07:00"
-_STYLE_NAMES = {
-    "detailed": "Detailed",
-    "compact": "Compact",
-    "classic": "Classic with emoji",
-    "custom": "Custom",
-}
+_CABINS = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}
+# A line of a view: plain words, or runs that carry their own emphasis.
+Line = str | tuple[Run, ...]
 
 
 class _Unavailable(Exception):
@@ -283,17 +291,17 @@ class TelegramBot:
             return self._plain(
                 "Your account changed while this request was running. Open /flights or /settings and try again."
             )
-        except ValueError as error:
+        except QuotaReached:
+            unit = "flight" if self.service.monitor_limit == 1 else "flights"
+            return self._plain(
+                f"Your account can watch {self.service.monitor_limit} {unit}. Use /flights to stop one before adding another."
+            )
+        except CapacityReached:
+            return self._plain(
+                "Fareflare is at its current collection capacity. Try adding this flight later."
+            )
+        except ValueError:
             # Provider and storage diagnostics must not become bot messages.
-            if str(error) == "Monitor quota reached":
-                unit = "flight" if self.service.monitor_limit == 1 else "flights"
-                return self._plain(
-                    f"Your account can watch {self.service.monitor_limit} {unit}. Use /flights to stop one before adding another."
-                )
-            if str(error) == "Development collection capacity reached; try again later":
-                return self._plain(
-                    "Fareflare is at its current collection capacity. Try adding this flight later."
-                )
             return self._plain(
                 "This request could not be completed. Check your flight link or use Fareflare for more details."
             )
@@ -363,23 +371,27 @@ class TelegramBot:
         self,
         ctx: _Context,
         title: str,
-        lines: list[str],
+        lines: Sequence[Line],
         rows: list[list[dict]],
         notice: str | None = None,
-        *,
-        markup: list[str] | None = None,
     ) -> TelegramMessage:
-        """Build a view. ``markup`` is the HTML counterpart of pre-rendered ``lines``."""
-        head = [notice, ""] if notice else []
-        plain = "\n".join([*head, title, "", *lines])
-        if len(plain.encode("utf-16-le")) // 2 > 4000:
+        """Build a view: an optional notice, a bold title, then the lines beneath it."""
+        view: list[tuple[Run, ...]] = [(Run(notice),), ()] if notice else []
+        view.append((Run(title, bold=True),))
+        if lines:
+            view.append(())
+        view += [
+            ((Run(line),) if line else ()) if isinstance(line, str) else line for line in lines
+        ]
+        plain = plain_text(tuple(view))
+        if utf16_length(plain) > _VIEW_LIMIT:
             raise ValueError("Telegram view exceeds the message limit")
-        body = markup if markup is not None else [escape(line) for line in lines]
-        html = "\n".join([*map(escape, head), "<b>" + escape(title) + "</b>", "", *body])
         if ctx.pending:
             _BoundStore(self.store, ctx, self._now).commit(ctx.pending)
             ctx.pending.clear()
-        return TelegramMessage(text=plain, html=html, reply_markup={"inline_keyboard": rows})
+        return TelegramMessage(
+            text=plain, html=telegram_html(tuple(view)), reply_markup={"inline_keyboard": rows}
+        )
 
     def _nav(self, ctx: _Context) -> list[dict]:
         return [
@@ -463,67 +475,87 @@ class TelegramBot:
         )
 
     @staticmethod
-    def _itinerary_details(target: dict) -> list[str]:
-        cabin = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}.get(
-            target["cabin"], "Cabin not specified"
-        )
-        adults = target["adults"]
-        party = f"{adults} adult" + ("s" if adults != 1 else "") + " · " + cabin
-        if target.get("kind") == "search":
-            return ["Route search", party]
-        flights = ", ".join(
-            leg["airline"] + " " + leg["number"]
-            for segment in target["segments"]
-            for leg in segment["legs"]
-        )
-        return [flights, party]
+    def _travellers(target: dict) -> str:
+        """Who travels and in which cabin: ``1 adult · Economy``."""
+        return f"{party(target['adults'])} · {_CABINS.get(target['cabin'], 'Cabin not specified')}"
 
-    def _flights(self, ctx: _Context, cursor: str | None = None) -> TelegramMessage:
+    @staticmethod
+    def _flights_of(segments: list[dict], target: dict) -> str:
+        """Flight numbers, or what a route search is still looking for."""
+        return ", ".join(flight_numbers(segments)) or (
+            "Route search" if target.get("kind") == "search" else ""
+        )
+
+    def _current(self, tenant: str) -> list[dict]:
+        """The flights being watched or paused, in the order every list shows them."""
+        return sorted(self.service.current_monitors(tenant), key=flight_order)
+
+    def _flights(self, ctx: _Context, start: int = 0) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
-        page = self.service.monitors_page(
-            ctx.tenant, limit=flight_list_page_size(prefs), cursor=cursor
+        monitors = self._current(ctx.tenant)
+        if not 0 < start < len(monitors):
+            start = 0
+        lines, shown = flight_list(
+            monitors[start:], prefs, local_date(self._now(), prefs), budget=_LIST_BUDGET
         )
-        # Keep flights on the same route and day together so they share one heading.
-        monitors = sorted(
-            page["items"],
-            key=lambda monitor: (
-                monitor["target"]["segments"][0]["date"],
-                self._route(monitor["target"]),
-                # Earliest departure first; flights without a recorded time last.
-                next((item["departs"] for item in monitor_times(monitor)), "99:99"),
-            ),
-        )
-        year = time.gmtime(self._now()).tm_year
-        lines, markup = flight_list(monitors, prefs, year)
-        if len("\n".join(lines).encode("utf-16-le")) // 2 > _LIST_BUDGET:
-            # Long custom rows must never turn the list into an error.
-            compact = prefs.model_copy(update={"telegram_style": "compact"})
-            lines, markup = flight_list(monitors, compact, year)
+        body: list[Line] = list(lines)
+        page = monitors[start : start + shown]
+        notes = []
+        if shown < len(monitors):
+            notes.append(f"Flights {start + 1}–{start + shown} of {len(monitors)}")
+        checks = [flight["latest"]["observed_at"] for flight in page if flight.get("latest")]
+        if checks:
+            notes.append("Latest check " + observed_time(max(checks), prefs, zone_label=False))
+        if notes:
+            body += ["", (Run(" · ".join(notes), italic=True),)]
+        if not monitors:
+            body = ["No flights yet. Paste a Google Flights link to start watching."]
         rows = []
-        for monitor in monitors:
-            values = flight_row_values(monitor, prefs, year)
+        if start + shown < len(monitors):
+            rows.append([self._button(ctx, "Next flights", "flights", {"start": start + shown})])
+        if start:
+            rows.append([self._button(ctx, "First page", "flights")])
+        actions = [self._button(ctx, "Watch a flight", "add", style="primary")]
+        if len(monitors) == 1:
+            actions.insert(
+                0, self._button(ctx, "Manage this flight", "detail", {"id": monitors[0]["id"]})
+            )
+        elif monitors:
+            actions.insert(0, self._button(ctx, "Manage a flight", "choose"))
+        rows += [actions, [self._button(ctx, "Alert settings", "settings")]]
+        title = "Your flights" + (f" ({len(monitors)})" if monitors else "")
+        return self._message(ctx, title, body, rows)
+
+    def _choose(self, ctx: _Context, start: int = 0) -> TelegramMessage:
+        """Pick one flight to open. The list itself stays free of a button per flight."""
+        prefs = self._preferences(ctx.tenant)
+        monitors = self._current(ctx.tenant)
+        if not monitors:
+            return self._flights(ctx)
+        if not 0 < start < len(monitors):
+            start = 0
+        today = local_date(self._now(), prefs)
+        rows = []
+        for monitor in monitors[start : start + _CHOICES]:
+            values = flight_row_values(monitor, prefs, today)
             label = " · ".join(
-                str(values[name]) for name in ("route", "date_short", "flights") if values.get(name)
+                str(values[name])
+                for name in ("route", "dates_short", "flights")
+                if values.get(name)
             )
             rows.append(
                 [self._button(ctx, single_line(label, 60), "detail", {"id": monitor["id"]})]
             )
-        if not monitors:
-            lines = ["No flights yet. Paste a Google Flights link to start watching."]
-            markup = [escape(lines[0])]
-        if page["next_cursor"]:
-            rows.append(
-                [self._button(ctx, "Next flights", "flights", {"cursor": page["next_cursor"]})]
-            )
-        if cursor:
-            rows.append([self._button(ctx, "First page", "flights")])
-        rows += [
-            [
-                self._button(ctx, "Watch a flight", "add", style="primary"),
-                self._button(ctx, "Alert settings", "settings"),
-            ]
-        ]
-        return self._message(ctx, "Your flights", lines, rows, markup=markup)
+        end = min(start + _CHOICES, len(monitors))
+        if end < len(monitors):
+            rows.append([self._button(ctx, "More flights", "choose", {"start": end})])
+        if start:
+            rows.append([self._button(ctx, "First flights", "choose")])
+        rows.append([self._button(ctx, "Back to my flights", "flights")])
+        lines = (
+            [f"Flights {start + 1}–{end} of {len(monitors)}"] if len(monitors) > _CHOICES else []
+        )
+        return self._message(ctx, "Choose a flight", lines, rows)
 
     def _detail(self, ctx: _Context, identifier: str, notice: str | None = None) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
@@ -532,36 +564,34 @@ class TelegramBot:
             monitor["target"],
             monitor.get("latest"),
         )
+        values = flight_row_values(monitor, prefs, local_date(self._now(), prefs))
+        segments = monitor_segments(monitor)
         times = schedule_lines(monitor_times(monitor), prefs)
-        if len(times) > 1:
-            times = [f"{label} {line}" for label, line in zip(("Out", "Back"), times, strict=False)]
-        lines = [
-            self._dates(target, prefs),
-            *times,
-            *self._itinerary_details(target),
-            _STATUS.get(monitor["status"], "Unknown"),
-            "",
-        ]
+        lines: list[Line] = []
+        for index, segment in enumerate(segments):
+            parts = (self._flights_of([segment], target), times[index] if times else "")
+            if direction := " · ".join(part for part in parts if part):
+                lines.append(("↩ " if index else "") + direction)
+        lines += [self._travellers(target), ""]
         if latest:
+            price: list[Run] = [Run(str(values["price_short"]), bold=True)]
+            if values.get("low_note"):
+                price.append(Run(f" {values['low_note']}"))
             lines += [
-                "Last observed price: "
-                + regional_price(latest["amount_minor"], latest["currency"], prefs.locale),
-                "Checked " + observed_time(latest["observed_at"], prefs),
+                tuple(price),
+                "Checked " + observed_time(latest["observed_at"], prefs, zone_label=False),
             ]
             if latest.get("fare_name"):
                 lines.append("Fare: " + single_line(latest["fare_name"]))
-            low = observed_low(monitor)
-            if low is not None and latest["amount_minor"] <= low:
-                lines.append("This is the lowest price recorded so far.")
-            elif low is not None:
-                lines.append(
-                    "Lowest recorded: " + regional_price(low, latest["currency"], prefs.locale)
-                )
         else:
             lines.append("Waiting for the first price check.")
-        if monitor.get("stale") and latest:
+        status = _STATUS.get(monitor["status"], "Unknown")
+        if monitor["status"] in _LIVE:
+            status += f" · checked every {monitor['interval_seconds'] // 60} min"
+        lines += ["", status]
+        if monitor.get("stale") and latest and monitor["status"] in _LIVE:
             lines.append("This price needs a fresh check.")
-        if monitor.get("last_error") and monitor["status"] in ("pending", "active", "degraded"):
+        if monitor.get("last_error") and monitor["status"] in _LIVE:
             # Plain language for everyone; codes only for accounts that asked for them.
             if monitor.get("collection_status") == "blocked":
                 lines.append("Price checks have stopped. Choose Retry collection to try again.")
@@ -573,8 +603,6 @@ class TelegramBot:
                     f"Diagnostic code: {single_line(str(monitor['last_error']), 40)}"
                     f" · failed checks in a row: {failures}"
                 )
-        interval = monitor["interval_seconds"] // 60
-        lines += ["", f"Checks requested every {interval} min. Prices may change before booking."]
         rows = [[self._button(ctx, "Recent prices", "history", {"id": identifier})]]
         params = {"monitor_id": identifier, "monitor_epoch": monitor.get("notification_epoch", 0)}
         if monitor["status"] == "paused":
@@ -589,7 +617,7 @@ class TelegramBot:
                     )
                 ]
             )
-        elif monitor["status"] in ("pending", "active", "degraded"):
+        elif monitor["status"] in _LIVE:
             rows.append(
                 [self._button(ctx, "Pause watching", "status", {**params, "status": "paused"})]
             )
@@ -603,31 +631,32 @@ class TelegramBot:
         if url:
             rows.append([{"text": "View on Google Flights", "url": url}])
         rows.append(self._nav(ctx))
-        return self._message(ctx, self._route(target), lines, rows, notice)
+        title = f"{values['route']} · {values['dates_short']}"
+        return self._message(ctx, title, lines, rows, notice)
 
     def _history(
         self, ctx: _Context, identifier: str, cursor: str | None = None
     ) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
         prefs = self._preferences(ctx.tenant)
-        page = self.service.history_page(ctx.tenant, identifier, limit=5, cursor=cursor)
+        page = self.service.history_page(ctx.tenant, identifier, limit=_READINGS, cursor=cursor)
         items = page["items"]
-        lines = []
-        for item in items:
-            lines += [
-                regional_price(item["amount_minor"], item["currency"], prefs.locale),
-                observed_time(item["observed_at"], prefs),
-                "",
-            ]
-        if items:
+        lines: list[Line] = [
+            (
+                Run(short_price(item["amount_minor"], item["currency"], prefs.locale), bold=True),
+                Run(" · " + observed_time(item["observed_at"], prefs, zone_label=False)),
+            )
+            for item in items
+        ]
+        if len(items) > 1:
             lowest = min(items, key=lambda item: item["amount_minor"])
             lines += [
-                "Lowest in these readings: "
-                + regional_price(lowest["amount_minor"], lowest["currency"], prefs.locale),
-                "Each entry is a recorded observation, not a forecast.",
+                "",
+                "Lowest of these: "
+                + short_price(lowest["amount_minor"], lowest["currency"], prefs.locale),
             ]
-        else:
-            lines = ["No prices recorded yet. Collection starts after you confirm a flight."]
+        if not items:
+            lines = ["No prices recorded yet. The first check comes soon after a flight is added."]
         rows = []
         if page["next_cursor"]:
             rows.append(
@@ -656,7 +685,7 @@ class TelegramBot:
                 if prefs.quiet_hours
                 else "off"
             ),
-            "Message style: " + _STYLE_NAMES[prefs.telegram_style],
+            "Message style: " + STYLES[prefs.telegram_style][0],
             "Time zone: " + (prefs.time_zone or "UTC (choose your local zone in Fareflare)"),
             "Regional format: " + prefs.locale,
         ]
@@ -709,20 +738,14 @@ class TelegramBot:
     def _styles(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
         sample = preview_message("new_low", prefs, None, self._now())
-        intro = [
-            "Current style: " + _STYLE_NAMES[prefs.telegram_style],
-            "",
-            "Example alert with sample data:",
-            "",
-        ]
-        styles = ["detailed", "compact", "classic"]
+        styles = list(PRESETS)
         if prefs.telegram_templates or prefs.telegram_style == "custom":
             styles.append("custom")
         rows = [
             [
                 self._button(
                     ctx,
-                    ("✓ " if style == prefs.telegram_style else "") + _STYLE_NAMES[style],
+                    ("✓ " if style == prefs.telegram_style else "") + STYLES[style][0],
                     "preferences",
                     {"telegram_style": style},
                 )
@@ -733,14 +756,12 @@ class TelegramBot:
             [{"text": "Write your own messages", "url": self.public_url + "/app#settings"}],
             [self._button(ctx, "Back to alert settings", "settings")],
         ]
-        return self._message(
-            ctx,
-            "Message style",
-            [*intro, *sample.text.split("\n")],
-            rows,
-            notice,
-            markup=[*map(escape, intro), *(sample.html or "").split("\n")],
-        )
+        lines: list[Line] = [
+            f"{STYLES[prefs.telegram_style][0]}: an example with sample data.",
+            "",
+            *sample.lines,
+        ]
+        return self._message(ctx, "Message style", lines, rows, notice)
 
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
         try:
@@ -777,7 +798,8 @@ class TelegramBot:
             "Watch " + self._route(target) + "?",
             [
                 self._dates(target, prefs),
-                *self._itinerary_details(target),
+                self._flights_of(target["segments"], target),
+                self._travellers(target),
                 "Currency: " + target["currency"],
                 "",
                 "Alert on a new observed low.",
@@ -838,12 +860,13 @@ class TelegramBot:
                 "a new observed low"
                 if policy["kind"] == "new_low"
                 else "a price at or below "
-                + regional_price(policy["threshold_minor"], currency, prefs.locale)
+                + short_price(policy["threshold_minor"], currency, prefs.locale)
             )
         ]
         if policy["kind"] == "new_low":
+            drop = policy["min_drop_minor"]
             lines.append(
-                "Minimum drop: " + regional_price(policy["min_drop_minor"], currency, prefs.locale)
+                "Minimum drop: " + (short_price(drop, currency, prefs.locale) if drop else "none")
             )
         lines += [
             "Price rebounds: " + ("on" if policy["notify_rebounds"] else "off"),
@@ -975,8 +998,10 @@ class TelegramBot:
             }
             description = (
                 "Alert on a new observed low after a drop of at least "
-                + regional_price(amount, currency, prefs.locale)
+                + short_price(amount, currency, prefs.locale)
                 + "."
+                if amount
+                else "Alert on every new observed low."
             )
         else:
             updated = {
@@ -987,7 +1012,7 @@ class TelegramBot:
             }
             description = (
                 "Alert when an observed price reaches or crosses below "
-                + regional_price(amount, currency, prefs.locale)
+                + short_price(amount, currency, prefs.locale)
                 + "."
             )
         params = {
@@ -1039,8 +1064,10 @@ class TelegramBot:
         if action.data.get("used"):
             raise _Applied
         kind, params = action.data["action"], action.data["params"]
-        if kind == "flights":
-            return self._flights(ctx, params.get("cursor"))
+        if kind in ("flights", "choose"):
+            start = params.get("start")
+            view = self._flights if kind == "flights" else self._choose
+            return view(ctx, start if type(start) is int else 0)
         if kind == "detail":
             return self._detail(ctx, params["id"])
         if kind == "history":

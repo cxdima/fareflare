@@ -100,26 +100,65 @@
   font-size: 0.85rem;
   margin: 0;
 }
-/* Telegram: the settings on the left, the message as it will arrive on the right. */
+/*
+ * Telegram: the settings on the left, the message as it will arrive on the right.
+ * The preview follows the style choice in the document, so on a narrow panel it sits
+ * directly under the choice it illustrates and the keyboard reaches it in that order.
+ */
 .preference-panel {
   container-type: inline-size;
 }
 .telegram-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  grid-template-rows: auto 1fr;
   align-items: start;
   gap: 1.75rem 2.5rem;
+}
+.style-field,
+.telegram-settings {
+  grid-column: 1;
+  min-width: 0;
+}
+.telegram-preview {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 .telegram-settings {
   display: grid;
   gap: 1.75rem;
-  min-width: 0;
 }
-.style-field .form-select {
-  max-width: 24rem;
+.style-field .form-label {
+  display: block;
+}
+/* A segment switch: one pill track, the chosen style in ink. */
+.style-control {
+  display: inline-flex;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: var(--ff-paper);
+}
+.style-button {
+  min-height: 44px;
+  padding: 0 1.15rem;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ff-ink);
+  font-size: 0.9rem;
+}
+.style-button[aria-pressed='true'] {
+  background: var(--ff-ink);
+  color: #fff;
+}
+.style-button:hover:not([aria-pressed='true'], :disabled) {
+  background: var(--ff-paper-deep);
+  color: var(--ff-ink);
 }
 .style-field .form-text {
   max-width: 52ch;
+  margin: 0.6rem 0 0;
 }
 /* A list of switches: label and its help on the left, the switch at the right edge. */
 .toggle-group {
@@ -158,15 +197,6 @@
 .toggle-copy .form-text {
   max-width: 46ch;
   margin: 0.15rem 0 0;
-}
-.toggle-note {
-  margin: 0.4rem 0;
-  padding: 0.6rem 0.85rem;
-  border-radius: 0.85rem;
-  background: var(--ff-paper);
-  color: var(--ff-ink-2);
-  font-size: 0.84rem;
-  line-height: 1.5;
 }
 .toggle-group .drawer > .drawer-body > * {
   margin-top: 0.15rem;
@@ -274,17 +304,34 @@
     0 1px 0 rgb(23 20 31 / 8%),
     0 12px 22px -18px rgb(23 20 31 / 45%);
 }
-.bubble pre {
+/* The message as Telegram draws it: one block per line, emphasis from the service. */
+.bubble-text {
   margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
   color: var(--ff-ink);
-  font-family: var(--ff-font);
   font-size: 0.85rem;
   line-height: 1.55;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.bubble-line {
+  display: block;
+  min-height: 1lh;
+}
+.run {
+  white-space: pre-wrap;
+}
+.run-bold {
+  font-weight: 700;
+}
+.run-italic {
+  font-style: italic;
+}
+.run-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.94em;
+}
+.run-link {
+  color: var(--ff-violet-ink);
+  text-decoration: underline;
 }
 .bubble-meta {
   display: flex;
@@ -327,16 +374,14 @@
   font-size: 0.78rem;
   font-weight: 650;
 }
-.preview-placeholder {
-  margin: 0.25rem 0 0;
-  color: var(--ff-ink-2);
-  font-size: 0.82rem;
-  line-height: 1.5;
+/* While a newer preview is on its way the current one stays, slightly set back. */
+.chat-body[aria-busy='true'] .bubble,
+.chat-body[aria-busy='true'] .preview-actions {
+  opacity: 0.6;
 }
-.preview-foot {
-  display: grid;
-  justify-items: start;
-  gap: 0.6rem;
+.bubble,
+.preview-actions {
+  transition: opacity 200ms var(--ff-ease);
 }
 .telegram-footer {
   display: flex;
@@ -356,6 +401,12 @@
     transform-origin: 0 100%;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .bubble,
+  .preview-actions {
+    transition: none;
+  }
+}
 @keyframes bubble-in {
   from {
     transform: translateY(0.6rem) scale(0.96);
@@ -365,9 +416,20 @@
 @container (max-width: 44rem) {
   .telegram-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
   }
   .telegram-preview {
     position: static;
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .style-control {
+    display: flex;
+  }
+  .style-button {
+    flex: 1;
+    min-width: 0;
+    padding-inline: 0.4rem;
   }
 }
 .template-editor {
@@ -386,20 +448,22 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
+/* Two fields side by side where there is room for both, one above the other where not. */
 .template-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   gap: 1rem;
 }
 .template-preset {
   display: flex;
   gap: 0.5rem;
 }
+.template-preset .form-select {
+  flex: 1;
+  min-width: 8rem;
+}
 .template-preset .btn {
   flex: none;
-}
-.template-field[hidden] {
-  display: none;
 }
 .template-input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -407,20 +471,55 @@
   line-height: 1.6;
   resize: vertical;
 }
+/* Details to insert, under the kind of thing they describe, each with what it looks like. */
+.placeholder-groups {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.placeholder-hint {
+  margin: 0;
+  color: var(--ff-ink-2);
+  font-size: 0.8rem;
+}
+.placeholder-group {
+  display: grid;
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.4rem 0.75rem;
+}
+.placeholder-group-name {
+  color: var(--ff-ink-2);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
 .placeholder-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 .placeholder-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.5rem;
   min-height: 32px;
-  padding: 0.25rem 0.6rem;
+  max-width: 100%;
+  padding: 0.3rem 0.65rem;
   border: 1.5px solid var(--ff-line);
   border-radius: var(--bs-border-radius);
   background: var(--ff-paper-deep);
   color: var(--ff-ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+  text-align: left;
+}
+.placeholder-chip code {
+  color: inherit;
+  font-size: inherit;
+}
+.placeholder-example {
+  color: var(--ff-ink-2);
+  overflow-wrap: anywhere;
 }
 .placeholder-chip:hover:not(:disabled),
 .placeholder-chip:focus-visible {
@@ -436,7 +535,7 @@
 }
 @media (max-width: 767px) {
   .regional-grid,
-  .template-toolbar {
+  .placeholder-group {
     grid-template-columns: minmax(0, 1fr);
   }
   .telegram-preview {

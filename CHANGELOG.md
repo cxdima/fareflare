@@ -60,24 +60,39 @@ Notable changes to Fareflare. The format follows
   Flights link. It says at once whether the link is recognized; after signing up or
   signing in, the add-flight dialog opens with that link already filled in. The
   link waits in the browser tab only and is offered once.
-- **Message styles.** Telegram alerts and the flight list can use a built-in
-  style or your own wording. *Classic with emoji* shows what changed at a glance,
-  for example `📉 New low!  $246  (was $254, −$8 · −3%)`, and marks a flight that
-  is at its lowest recorded price with 🔥 in `/flights`.
+- **Message styles.** Telegram alerts and the flight list use *Compact* (the
+  default), *Detailed* or your own wording. A compact alert is three short lines:
+  `🔥 New low · $191 (was $199)`, `DEN → DFW · Mar 14 · UA 414`,
+  `3:50 PM → 6:54 PM`. Detailed adds the size of the change, the airline, flight
+  length, fare and the time of the check. Every style writes prices with their
+  symbol (`$246`, not `USD 246.00`), and each alert opens with its own mark: ✈️ now
+  tracking, 🔥 new low, 🎯 target reached, 📈 price rose.
+- **A compact flight list.** `/flights` shows `Your flights (17)`: one line per
+  flight under a shared route-and-day heading, in departure order, with 🔥 beside
+  a flight at its lowest recorded price and `(low $231)` beside the others. Only
+  flights being watched or paused are listed. A long list comes in pages, and one
+  **Manage a flight** button opens a picker instead of a button for every flight.
+- An alert that arrives ten minutes or more after its price was checked says when
+  the check was made, whatever the style.
 - **Custom templates.** Each alert, plus the flight list heading and row, accepts
   a template of `{placeholders}`, `[optional groups]` and `**bold**`,
   `__italic__` or `` `monospace` `` emphasis. Templates are plain data: there are
   no expressions and nothing is evaluated. See
   [account preferences](docs/ACCOUNT_PREFERENCES.md#message-styles-and-templates).
-- A message editor in **Account settings → Notifications** with insertable
-  placeholders and a preview for every message, and a **Message style** menu in
-  the Telegram bot.
+- A message editor in **Account settings → Notifications**: the style is a
+  three-way switch, the preview follows every change without a button to press and
+  explains a template mistake as it is typed, and details to insert are grouped
+  (Price, Alert, Trip, Flight, Times, More) with an example of each. Each style
+  offers only the switches it uses. The Telegram bot has a **Message style** menu.
+- In a template, a separator such as `·` left beside a detail with no value is
+  dropped. New details: `{dates_short}`, `{times_short}`, `{return_times_short}`,
+  `{party_note}` and `{late_note}`.
 - **Flight times.** Departure and arrival times are read with each price and shown
   in alerts, the `/flights` list, the bot's flight detail and dashboard cards, in
-  the account's 12- or 24-hour style: `Mar 10  ·  16:42 → 17:58`. An arrival on a
-  later day is marked `+1`. Templates gain `{times}`, `{depart_time}`,
+  the account's 12- or 24-hour style: `3:50 PM → 6:54 PM` or `15:50 → 18:54`. An
+  arrival on a later day is marked `+1`. Templates gain `{times}`, `{depart_time}`,
   `{arrive_time}`, `{duration}` and their `return_` forms; `telegram_show_times`
-  turns them off for the built-in styles. `observation.schedule` carries the same
+  leaves them out of built-in alerts. `observation.schedule` carries the same
   facts in the API and in webhook events. Times never decide whether a price is
   accepted: anything ambiguous is left out rather than guessed.
 - **Quiet hours.** `quiet_hours`, for example `22:00-07:00`, names a daily window in
@@ -86,9 +101,11 @@ Notable changes to Fareflare. The format follows
   in **Account settings → Notifications** or from the bot's `/settings`.
 - Alerts record what they are compared with. `previous.price_minor` and
   `previous.low_minor` appear in `GET /v1/alerts` and in webhook events.
-- `GET /v1/preferences/telegram-templates` lists templates, placeholders, presets
-  and limits. `POST /v1/preferences/telegram-preview` accepts
-  `?message=tracking_started|new_low|below_price|rebound|flight_list`.
+- `GET /v1/preferences/telegram-templates` lists the styles with the switches each
+  one uses, templates, placeholders with examples and groups, presets and limits.
+  `POST /v1/preferences/telegram-preview` accepts
+  `?message=tracking_started|new_low|below_price|rebound|flight_list` and returns
+  the message as `text` and as `lines` of styled runs.
 - **Sign in with an email address.** The sign-in name can be an email address
   or a username, and one field labeled "Email or username" asks for it on every
   page. Sign-in, sign-up and recovery each have an address (`/login`,
@@ -331,6 +348,21 @@ Notable changes to Fareflare. The format follows
   looked successful, ended the check as `browser_failed`. The collector now
   starts a new browser once in that case, with its own empty profile, as it
   already did for a failed start. The worker reports `browser_restarts`.
+- The bot's `/flights` listed flights in no particular order and went on listing
+  ones that had been stopped or had departed. It now lists the flights being
+  watched or paused, by departure.
+- The bot read one page of an account's flights from storage and ignored the rest,
+  so an account with a long history of stopped flights could find current ones
+  missing from `/flights`. It now reads every page.
+- A flight list too long for one Telegram message was reworded in another style
+  to make it fit, and could still fail. It is now sent in pages.
+- The bot recognized "limit reached" by the wording of an error message. It now
+  tells an account's quota and the service's capacity apart by their type.
+- `POST /v1/preferences/telegram-preview` put a heading of its own ("Example
+  alert") inside `text`. `text` is now exactly the message that would be sent.
+- Amounts were formatted from two separate currency lists, one for digits and one
+  for symbols. There is one list now, so a currency cannot be in one and not the
+  other.
 
 ### Security
 

@@ -87,9 +87,9 @@ preference. With no saved zone, the website uses device time and Telegram uses
 UTC. Save a named zone to keep both consistent. Flight departure dates stay in
 the airport's calendar; fare amounts retain their original currency.
 
-Under **Notifications**, choose a Telegram message style (detailed, compact, classic with
-emoji, or your own wording), optional flight/fare/timestamp details, silent delivery
-and quiet hours. **Preview message** displays sample content without
+Under **Notifications**, choose a Telegram message style (compact, detailed, or your
+own wording), the details that style includes, silent delivery and quiet hours. The
+preview beside the settings follows every change and displays sample content without
 saving changes or sending a notification. Global and route muting stop outgoing
 alerts while collection continues. See [account preferences](ACCOUNT_PREFERENCES.md)
 for defaults, partial API/MCP updates and formatting limits.

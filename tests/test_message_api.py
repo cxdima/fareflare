@@ -12,7 +12,7 @@ from fareflare.contracts import Reading
 from fareflare.telegram_templates import PRESETS, TEMPLATE_KEYS
 from fareflare.webhooks import WebhookSink
 from tests.test_hosted_mcp import application, tool
-from tests.test_telegram_bot import _call, _press, native_bot  # noqa: F401
+from tests.test_telegram_bot import _call, _labels, _press, native_bot  # noqa: F401
 
 KEY = "a" * 40
 AUTH = {"Authorization": "Bearer " + KEY}
@@ -33,6 +33,25 @@ def test_catalog_requires_a_credential_and_lists_presets_and_placeholders(servic
     assert catalog["presets"] == {style: dict(value) for style, value in PRESETS.items()}
     assert {"price_short", "change_summary", "link"} <= {
         item["name"] for item in catalog["placeholders"]["new_low"]
+    }
+    # What a settings page needs to offer the styles and only the switches each one uses.
+    assert catalog["default_style"] == "compact"
+    assert {style["value"]: style["switches"] for style in catalog["styles"]} == {
+        "compact": ["telegram_show_flight_numbers", "telegram_show_times"],
+        "detailed": [
+            "telegram_show_flight_numbers",
+            "telegram_show_times",
+            "telegram_show_observed_time",
+            "telegram_show_fare",
+        ],
+        "custom": [],
+    }
+    assert {item["group"] for item in catalog["placeholders"]["flight_row"]} == {
+        "Price",
+        "Trip",
+        "Flight",
+        "Times",
+        "More",
     }
 
 
@@ -68,38 +87,79 @@ def test_preview_renders_each_message_with_unsaved_templates(service, store):
     before = store.get("tenant:alice")
     with TestClient(create_app(service, {"alice": KEY})) as client:
         url = "/v1/preferences/telegram-preview"
-        classic = client.post(url, json={"telegram_style": "classic"}, headers=AUTH).json()
-        assert classic["message"] == "new_low"
-        assert "📉 New low!  $191  (was $199, −$8 · −4%)" in classic["text"]
-        assert [button["text"] for button in classic["buttons"]] == []
+        compact = client.post(url, json={}, headers=AUTH).json()
+        assert compact["message"] == "new_low"
+        assert compact["text"].split("\n") == [
+            "🔥 New low · $191 (was $199)",
+            "DEN → DFW · Mar 14 · UA 414",
+            "3:50 PM → 6:54 PM",
+        ]
+        # The same message as styled lines, so a page can draw it without parsing markup.
+        assert compact["lines"][0] == [
+            {"text": "🔥 ", "bold": False, "italic": False, "code": False, "link": False},
+            {"text": "New low", "bold": True, "italic": False, "code": False, "link": False},
+            {"text": " · ", "bold": False, "italic": False, "code": False, "link": False},
+            {"text": "$191", "bold": True, "italic": False, "code": False, "link": False},
+            {"text": " ", "bold": False, "italic": False, "code": False, "link": False},
+            {"text": "(was $199)", "bold": False, "italic": True, "code": False, "link": False},
+        ]
+        assert (
+            "\n".join("".join(run["text"] for run in line) for line in compact["lines"])
+            == (compact["text"])
+        )
+        assert [button["text"] for button in compact["buttons"]] == ["View flight"]
 
-        rebound = client.post(
-            url + "?message=rebound", json={"telegram_style": "classic"}, headers=AUTH
-        ).json()
-        assert "📈 Rebounding  $211  (was at low $191, +$20)" in rebound["text"]
+        detailed = client.post(url, json={"telegram_style": "detailed"}, headers=AUTH).json()
+        assert detailed["text"].split("\n")[0] == "🔥 New low · $191 (was $199, −$8 · −4%)"
+        assert detailed["text"].split("\n")[3] == "United · Economy · Total for 1 adult"
 
-        listing = client.post(
-            url + "?message=flight_list", json={"telegram_style": "classic"}, headers=AUTH
-        ).json()
-        assert listing["text"].startswith("Example flight list — sample data\n\n🛫 DEN → DFW")
+        rebound = client.post(url + "?message=rebound", json={}, headers=AUTH).json()
+        assert rebound["text"].startswith("📈 Price rose · $211 (low $191)\n")
+
+        listing = client.post(url + "?message=flight_list", json={}, headers=AUTH).json()
+        assert listing["text"].startswith("🛫 DEN → DFW · Mar 14\n• UA 1565 7:05→10:02 AM · $214")
         assert "🔥 at the low" in listing["text"] and listing["buttons"] == []
+        assert listing["lines"][1][1] == {
+            "text": "UA 1565",
+            "bold": False,
+            "italic": False,
+            "code": True,
+            "link": False,
+        }
 
         custom = client.post(
             url + "?message=tracking_started",
             json={
                 "telegram_style": "custom",
-                "telegram_templates": {"tracking_started": "Watching {route} from {price}"},
+                "telegram_templates": {"tracking_started": "Watching {route} from {price} {link}"},
             },
             headers=AUTH,
         ).json()
-        assert custom["text"].endswith("Watching DEN → DFW from USD 191.00")
+        assert custom["text"] == "Watching DEN → DFW from USD 191.00 Open in Google Flights"
+        assert custom["lines"][0][-1]["link"] is True and custom["buttons"] == []
+        # No address ever reaches the page as a link target; it only learns that text is linked.
+        assert "google.com" not in str(custom["lines"])
 
         assert client.post(url + "?message=unknown", json={}, headers=AUTH).status_code == 422
+        assert client.post(url, json={"telegram_style": "classic"}, headers=AUTH).status_code == 422
         broken = client.post(
             url, json={"telegram_templates": {"new_low": "[{price}"}}, headers=AUTH
         )
         assert broken.status_code == 422
     assert store.get("tenant:alice") == before  # A preview saves nothing.
+
+
+def test_a_style_saved_before_it_was_removed_reads_as_the_default(service, store):
+    service.set_preferences("alice", telegram_show_buttons=False)
+    document = store.get("tenant:alice")
+    saved = {**document.data["preferences"], "telegram_style": "classic"}
+    store.commit([document.update({**document.data, "preferences": saved})])
+    with TestClient(create_app(service, {"alice": KEY})) as client:
+        current = client.get("/v1/preferences", headers=AUTH).json()
+        assert current["telegram_style"] == "compact" and current["telegram_show_buttons"] is False
+        # Saving anything else afterwards works, and stores a style that exists.
+        assert client.put("/v1/preferences", json={"muted": True}, headers=AUTH).status_code == 200
+    assert store.get("tenant:alice").data["preferences"]["telegram_style"] == "compact"
 
 
 def test_alerts_record_what_they_are_compared_with(service, flight_url, clock):
@@ -171,7 +231,7 @@ def test_mcp_can_read_and_set_message_templates(service):
         assert current["telegram_templates"] == {"rebound": "{emoji} {route} {price_short}"}
         assert current["telegram_show_buttons"] is False and current["diagnostics"] is False
         catalog = tool(client, "get_message_templates")["structuredContent"]
-        assert catalog["limits"]["characters"] == 800 and "classic" in catalog["presets"]
+        assert catalog["limits"]["characters"] == 800 and "compact" in catalog["presets"]
 
 
 def test_bot_flight_list_marks_the_low_and_style_menu_previews_the_choice(
@@ -181,36 +241,40 @@ def test_bot_flight_list_marks_the_low_and_style_menu_previews_the_choice(
     clock,
 ):
     _, tenant, _ = native_bot
-    monitor = service.create_monitor(tenant, flight_url, "bot-classic-list")
+    monitor = service.create_monitor(tenant, flight_url, "bot-compact-list")
     observe(service, monitor, clock, 26900, "first")
     observe(service, monitor, clock, 21400, "second")
 
     styles = _press(native_bot, _call(native_bot, "/settings"), "Message style")
-    assert "✓ Detailed" in [
-        button["text"] for row in styles.reply_markup["inline_keyboard"] for button in row
-    ]
-    classic = _press(native_bot, styles, "Classic with emoji")
-    assert "Current style: Classic with emoji" in classic.text
-    assert "📉 New low!  $191  (was $199, −$8 · −4%)" in classic.text
-    assert "<b>New low!</b>" in classic.html
+    assert "✓ Compact" in _labels(styles)
+    assert "🔥 New low · $191 (was $199)" in styles.text
+    assert "🔥 <b>New low</b> · <b>$191</b> <i>(was $199)</i>" in styles.html
+    detailed = _press(native_bot, styles, "Detailed")
+    assert "Detailed: an example with sample data." in detailed.text
+    assert "🔥 New low · $191 (was $199, −$8 · −4%)" in detailed.text
+    compact = _press(native_bot, detailed, "Compact")
 
     listing = _call(native_bot, "/flights")
-    assert "🛫 DEN → DFW  Mar 14, 2027" in listing.text
-    assert "  • UA 414 · $214 🔥 at the low" in listing.text
+    assert listing.text.split("\n")[:4] == [
+        "Your flights (1)",
+        "",
+        "🛫 DEN → DFW · Mar 14",
+        "• UA 414 · $214 🔥 at the low",
+    ]
     assert "<code>UA 414</code>" in listing.html and "<b>$214</b>" in listing.html
+    assert "USD" not in listing.text
 
     observe(service, monitor, clock, 26900, "third")
-    assert "  • UA 414 · $269 (low $214)" in _call(native_bot, "/flights").text
-    detail = _press(native_bot, _call(native_bot, "/flights"), "DEN → DFW · Mar 14, 2027 · UA 414")
-    assert "Lowest recorded: USD 214.00" in detail.text
+    assert "• UA 414 · $269 (low $214)" in _call(native_bot, "/flights").text
+    detail = _press(native_bot, _call(native_bot, "/flights"), "Manage this flight")
+    assert "\n$269 (low $214)\n" in detail.text and "<b>$269</b> (low $214)" in detail.html
 
     # The custom style is offered in chat only once templates exist.
-    labels = [button["text"] for row in classic.reply_markup["inline_keyboard"] for button in row]
-    assert "Custom" not in labels and "Write your own messages" in labels
+    assert "Custom" not in _labels(compact) and "Write your own messages" in _labels(compact)
     service.set_preferences(tenant, telegram_templates={"flight_row": "{flights} = {price_short}"})
     menu = _press(native_bot, _call(native_bot, "/settings"), "Message style")
     custom = _press(native_bot, menu, "Custom")
-    assert "Current style: Custom" in custom.text
+    assert "✓ Custom" in _labels(custom)
     assert "UA 414 = $269" in _call(native_bot, "/flights").text
 
 
@@ -227,21 +291,26 @@ def test_one_version_number_is_published_everywhere(service):
         assert client.get("/openapi.json").json()["info"]["version"] == project
 
 
-def test_flight_list_that_would_not_fit_one_message_uses_compact_rows(
+def test_long_custom_rows_are_paged_and_an_unusable_one_gives_way_to_the_default_list(
     native_bot,  # noqa: F811
     service,
     flight_url,
     clock,
-    monkeypatch,
 ):
     _, tenant, _ = native_bot
-    monitor = service.create_monitor(tenant, flight_url, "long-custom-rows")
+    for index in range(12):
+        monitor = service.create_monitor(tenant, flight_url, f"long-custom-rows-{index}")
     observe(service, monitor, clock, 26900, "first")
-    row = "\n".join(["{route} {flights} {price} padding"] * 12)
+    row = "\n".join(["{route} {flights} {price_short} padding"] * 12)
     service.set_preferences(tenant, telegram_style="custom", telegram_templates={"flight_row": row})
-    assert _call(native_bot, "/flights").text.count("padding") == 12
-    # With several such flights the list would exceed one message.
-    monkeypatch.setattr("fareflare.telegram_bot._LIST_BUDGET", 200)
+    # Twelve rows of twelve lines are more than one message holds, so the list is paged.
     listing = _call(native_bot, "/flights")
-    assert "padding" not in listing.text
-    assert "DEN → DFW · Mar 14, 2027 · UA 414 · USD 269.00" in listing.text
+    shown = listing.text.count("padding") // 12
+    assert 1 < shown < 12 and f"Flights 1–{shown} of 12" in listing.text
+    following = _press(native_bot, listing, "Next flights")
+    assert f"Flights {shown + 1}–" in following.text and "padding" in following.text
+    # A single row longer than a page allows is not cut short: the default list is used.
+    service.set_preferences(tenant, telegram_templates={"flight_row": "{flights} " + "pad " * 190})
+    listing = _call(native_bot, "/flights")
+    assert "pad" not in listing.text
+    assert "🛫 DEN → DFW · Mar 14\n• UA 414 · $269 🔥 at the low" in listing.text

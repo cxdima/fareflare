@@ -146,7 +146,8 @@ def test_unsaved_telegram_preview_requires_session_csrf_and_never_persists(porta
     response = client.post("/v1/preferences/telegram-preview", headers=headers, json=body)
     assert response.status_code == 200
     assert response.json()["silent"] is True
-    assert "America/Chicago" in response.json()["text"]
+    assert response.json()["time_zone"] == "America/Chicago"
+    assert response.json()["text"].startswith("🔥 New low · $191")
     assert service.preferences(account_id) == original
     rejected = client.post(
         "/v1/preferences/telegram-preview",

@@ -3,7 +3,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from fareflare.service import MonitoringService, NotFound, Reading
+from fareflare.service import (
+    CapacityReached,
+    MonitoringService,
+    NotFound,
+    QuotaReached,
+    Reading,
+)
 from fareflare.store import Conflict, Document, DynamoStore, SQLiteStore
 
 
@@ -24,6 +30,36 @@ def test_customers_share_collection_but_not_monitor_ownership(service, flight_ur
         service.get_monitor("bob", first["id"])
     with pytest.raises(NotFound):
         service.history("bob", first["id"])
+
+
+def test_listing_reads_every_page_and_current_flights_leave_out_the_archive(
+    service, store, flight_url, monkeypatch
+):
+    created = [service.create_monitor("alice", flight_url, f"listing-{i}")["id"] for i in range(5)]
+    service.create_monitor("bob", flight_url, "listing-other")
+    service.set_status("alice", created[0], "cancelled")
+    service.set_status("alice", created[1], "paused")
+    whole_page = store.page
+
+    def two_at_a_time(partition, due_before=None, *, limit=100, cursor=None):
+        return whole_page(partition, due_before, limit=min(limit, 2), cursor=cursor)
+
+    # A listing must not stop at the first page the store returns.
+    monkeypatch.setattr(store, "page", two_at_a_time)
+    assert {m["id"] for m in service.list_monitors("alice")} == set(created)
+    current = service.current_monitors("alice")
+    assert {m["id"] for m in current} == set(created[1:])
+    assert {m["status"] for m in current} == {"paused", "pending"}
+    assert service.current_monitors("nobody") == []
+
+
+def test_capacity_errors_are_typed_so_callers_never_match_on_wording(service, flight_url):
+    service.monitor_limit = 1
+    service.create_monitor("alice", flight_url, "quota-first")
+    with pytest.raises(QuotaReached):
+        service.create_monitor("alice", flight_url, "quota-second")
+    # Both remain ordinary validation errors for callers that treat them alike.
+    assert issubclass(QuotaReached, ValueError) and issubclass(CapacityReached, ValueError)
 
 
 def test_idempotent_creation_and_conflicting_reuse(service, flight_url):

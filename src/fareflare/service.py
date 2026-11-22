@@ -48,6 +48,14 @@ class NotFound(LookupError):
     """Missing resource, including a resource owned by another tenant."""
 
 
+class QuotaReached(ValueError):
+    """The account already watches as many flights as it may."""
+
+
+class CapacityReached(ValueError):
+    """The installation is checking as many itineraries as it is configured for."""
+
+
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -170,7 +178,7 @@ class MonitoringService:
                 "tenant:" + tenant, "tenants", {"monitors": 0}
             )
             if tenant_doc.data["monitors"] >= self.monitor_limit or len(subscribers) >= 1000:
-                raise ValueError("Monitor quota reached")
+                raise QuotaReached("Monitor quota reached")
             current = {
                 **current,
                 "subscribers": [*subscribers, monitor_id],
@@ -223,7 +231,9 @@ class MonitoringService:
                 reserved = capacity.data["targets"]
                 if target["id"] not in reserved:
                     if len(reserved) >= self.global_target_limit:
-                        raise ValueError("Development collection capacity reached; try again later")
+                        raise CapacityReached(
+                            "Development collection capacity reached; try again later"
+                        )
                     reserved = [*reserved, target["id"]]
                 writes.append(capacity.update({"targets": reserved}))
             try:
@@ -264,12 +274,33 @@ class MonitoringService:
             or self._now() - target.data["latest"]["observed_at"] > monitor["interval_seconds"] * 2,
         }
 
-    def list_monitors(self, tenant: str) -> list[dict]:
+    def _monitor_documents(self, tenant: str) -> list[Document]:
         self._tenant(tenant)
-        return [
+        documents, cursor = [], None
+        while True:
+            page = self.store.page("monitors:" + tenant, limit=1000, cursor=cursor)
+            documents += page.items
+            cursor = page.cursor
+            if cursor is None:
+                return documents
+
+    def list_monitors(self, tenant: str) -> list[dict]:
+        """Every monitor of a tenant, stopped and departed ones included."""
+        return [self.get_monitor(tenant, d.data["id"]) for d in self._monitor_documents(tenant)]
+
+    def current_monitors(self, tenant: str) -> list[dict]:
+        """Flights still watched or paused, without the stopped and departed ones.
+
+        The archive only grows, so it is skipped from the index before any flight is
+        read in full; the status is then checked again on that fresh copy.
+        """
+        archived = ("cancelled", "expired")
+        monitors = (
             self.get_monitor(tenant, d.data["id"])
-            for d in self.store.page("monitors:" + tenant, limit=1000).items
-        ]
+            for d in self._monitor_documents(tenant)
+            if d.data["status"] not in archived
+        )
+        return [monitor for monitor in monitors if monitor["status"] not in archived]
 
     def set_status(self, tenant: str, monitor_id: str, status: str) -> dict:
         if status not in ("paused", "active", "cancelled"):

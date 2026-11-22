@@ -1,11 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   input,
   signal,
+  untracked,
 } from '@angular/core';
 import {
   FormField,
@@ -17,14 +20,19 @@ import {
   validate,
 } from '@angular/forms/signals';
 import { ApiService } from '../core/api.service';
+import { message } from '../core/format';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { observationFormatter, validTimeZone } from '../core/regional-formatting';
 import type {
+  MessagePreview,
   Preferences,
   PreviewKind,
   TelegramPreset,
+  TelegramStyle,
+  TelegramSwitch,
   TemplateCatalog,
   TemplateKey,
+  TemplatePlaceholder,
 } from '../core/types';
 import { ActionState } from './shared/action-state';
 
@@ -49,12 +57,7 @@ type TelegramModel = Pick<
   quiet_end: string;
 };
 type TemplateModel = Record<TemplateKey, string>;
-type Preview = {
-  text: string;
-  silent: boolean;
-  time_zone: string;
-  buttons?: { text: string; url: string }[];
-};
+type PlaceholderGroup = { name: string; items: TemplatePlaceholder[] };
 
 const defaultQuietHours = ['22:00', '07:00'] as const;
 const clockTime = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -68,6 +71,8 @@ const templateKeys: TemplateKey[] = [
 ];
 /** Mirrors the server limit so the editor stops at the same length. */
 const templateLimit = 800;
+/** Long enough that typing sends one preview request, short enough to feel immediate. */
+const previewDelay = 250;
 const emptyTemplates = (): TemplateModel => ({
   tracking_started: '',
   new_low: '',
@@ -92,7 +97,6 @@ export class PreferencesComponent implements OnInit {
   readonly displayAction = new ActionState();
   readonly telegramAction = new ActionState();
   readonly muteAction = new ActionState();
-  readonly previewAction = new ActionState();
   readonly catalogAction = new ActionState();
   readonly diagnosticsAction = new ActionState();
   readonly displaySaved = signal(false);
@@ -118,10 +122,16 @@ export class PreferencesComponent implements OnInit {
     { value: 'rebound', label: 'Price rebound' },
     { value: 'flight_list', label: 'Flight list' },
   ];
-  readonly presets: { value: TelegramPreset; label: string }[] = [
-    { value: 'detailed', label: 'Detailed' },
-    { value: 'compact', label: 'Compact' },
-    { value: 'classic', label: 'Classic with emoji' },
+  /** Every detail a built-in style can leave out. Each style offers the ones it shows. */
+  readonly switches: { key: TelegramSwitch; id: string; label: string }[] = [
+    { key: 'telegram_show_flight_numbers', id: 'show-flight-numbers', label: 'Flight numbers' },
+    { key: 'telegram_show_times', id: 'show-times', label: 'Departure and arrival times' },
+    {
+      key: 'telegram_show_observed_time',
+      id: 'show-observed-time',
+      label: 'Time the price was checked',
+    },
+    { key: 'telegram_show_fare', id: 'show-fare', label: 'Fare name' },
   ];
   readonly displayModel = signal<DisplayModel>({
     time_zone: this.deviceZone,
@@ -138,7 +148,7 @@ export class PreferencesComponent implements OnInit {
     );
   });
   readonly telegramModel = signal<TelegramModel>({
-    telegram_style: 'detailed',
+    telegram_style: 'compact',
     telegram_show_flight_numbers: true,
     telegram_show_times: true,
     telegram_show_observed_time: true,
@@ -152,12 +162,6 @@ export class PreferencesComponent implements OnInit {
   readonly custom = computed(() => this.telegramModel().telegram_style === 'custom');
   readonly telegram = form(this.telegramModel, (path) => {
     disabled(path, { when: () => this.store.saving() });
-    // A custom template states its own content, so these choices do not apply to it.
-    const fixed = { when: () => this.store.saving() || this.custom() };
-    disabled(path.telegram_show_flight_numbers, fixed);
-    disabled(path.telegram_show_times, fixed);
-    disabled(path.telegram_show_observed_time, fixed);
-    disabled(path.telegram_show_fare, fixed);
     validate(path.quiet_end, ({ value, valueOf }) => {
       if (!valueOf(path.quiet_enabled)) return null;
       const start = valueOf(path.quiet_start);
@@ -172,11 +176,30 @@ export class PreferencesComponent implements OnInit {
     for (const key of templateKeys) maxLength(path[key], templateLimit);
   });
   readonly catalog = signal<TemplateCatalog | null>(null);
+  readonly activeStyle = computed(() =>
+    this.catalog()?.styles.find((style) => style.value === this.telegramModel().telegram_style),
+  );
+  /** Built-in styles: the ones with wording of their own to copy. */
+  readonly presets = computed(
+    () => this.catalog()?.styles.filter((style) => style.value !== 'custom') ?? [],
+  );
+  /** A custom message states its own content, so it offers none of these. */
+  readonly shownSwitches = computed(() => {
+    const used = new Set(this.activeStyle()?.switches ?? []);
+    return this.switches.filter((item) => used.has(item.key));
+  });
   readonly activeTemplate = signal<TemplateKey>('new_low');
   readonly previewKind = signal<PreviewKind>('new_low');
   /** The built-in style a first custom draft starts from. */
-  private lastPreset: TelegramPreset = 'detailed';
+  private lastPreset: TelegramPreset = 'compact';
   readonly activeLength = computed(() => this.templateModel()[this.activeTemplate()].length);
+  /** Details the message being edited can show, under the headings the service gives them. */
+  readonly placeholderGroups = computed<PlaceholderGroup[]>(() => {
+    const groups = new Map<string, TemplatePlaceholder[]>();
+    for (const item of this.catalog()?.placeholders[this.activeTemplate()] ?? [])
+      groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
+    return [...groups].map(([name, items]) => ({ name, items }));
+  });
   readonly muteModel = signal({ muted: false, routes: '' });
   readonly mute = form(this.muteModel, (path) => {
     disabled(path, { when: () => this.store.saving() });
@@ -194,7 +217,10 @@ export class PreferencesComponent implements OnInit {
   readonly diagnostics = form(this.diagnosticsModel, (path) =>
     disabled(path, { when: () => this.store.saving() }),
   );
-  readonly preview = signal<Preview | null>(null);
+  readonly preview = signal<MessagePreview | null>(null);
+  readonly previewBusy = signal(false);
+  readonly previewError = signal('');
+  private previewRequest: AbortController | null = null;
   private readonly sampleTime = Math.floor(Date.now() / 1000);
   readonly displayExample = computed(() => {
     const value = this.displayModel();
@@ -208,10 +234,58 @@ export class PreferencesComponent implements OnInit {
       currency: 'USD',
     }).format(1234.5),
   );
-  readonly savedZone = computed(() => this.store.value().time_zone ?? 'UTC');
+  /** Message settings as the API expects them; templates travel only with the custom style. */
+  private readonly telegramChanges = computed<Partial<Preferences>>(() => {
+    const { quiet_enabled, quiet_start, quiet_end, ...shown } = this.telegramModel();
+    const changes: Partial<Preferences> = {
+      ...shown,
+      quiet_hours: quiet_enabled ? `${quiet_start}-${quiet_end}` : null,
+    };
+    if (!this.custom()) return changes;
+    const optional = new Set(
+      this.catalog()
+        ?.templates.filter((item) => item.optional)
+        .map((item) => item.key) ?? ['flight_group'],
+    );
+    const drafts = this.templateModel();
+    changes.telegram_templates = Object.fromEntries(
+      templateKeys
+        .filter((key) => drafts[key].trim() || optional.has(key))
+        .map((key) => [key, drafts[key]]),
+    );
+    return changes;
+  });
+  /** What the preview shows: the draft, without a quiet window that is still being typed. */
+  private readonly previewRequestBody = computed<Partial<Preferences>>(() => {
+    const { quiet_hours, ...changes } = this.telegramChanges();
+    return this.telegram.quiet_end().valid() ? { ...changes, quiet_hours } : changes;
+  });
+  /** Everything a preview depends on. A new value means the shown one is out of date. */
+  private readonly previewVersion = computed(() => {
+    const saved = this.store.value();
+    return JSON.stringify([
+      this.previewRequestBody(),
+      this.previewKind(),
+      saved.time_zone,
+      saved.locale,
+      saved.hour_cycle,
+    ]);
+  });
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.previewRequest?.abort());
+    // The preview follows the draft: it is asked for again a moment after the last change.
+    effect((onCleanup) => {
+      if (this.section() !== 'notifications' || !this.store.loaded() || !this.catalog()) return;
+      const version = this.previewVersion();
+      const timer = setTimeout(() => void this.refreshPreview(version), previewDelay);
+      onCleanup(() => clearTimeout(timer));
+    });
+  }
 
   ngOnInit(): void {
     void this.load();
+    void this.loadCatalog();
   }
 
   async load(): Promise<void> {
@@ -225,7 +299,6 @@ export class PreferencesComponent implements OnInit {
       this.applyTelegram(value);
       this.muteModel.set({ muted: value.muted, routes: value.muted_routes.join(', ') });
       this.diagnosticsModel.set({ diagnostics: value.diagnostics });
-      if (value.telegram_style === 'custom') void this.loadCatalog();
     });
   }
 
@@ -240,7 +313,6 @@ export class PreferencesComponent implements OnInit {
     await submit(this.display, async () =>
       this.displayAction.run(async () => {
         await this.store.save(this.displayModel());
-        this.preview.set(null);
         this.displaySaved.set(true);
       }),
     );
@@ -260,14 +332,15 @@ export class PreferencesComponent implements OnInit {
   }
 
   /** Choosing Custom starts from the wording of the style that was selected before it. */
-  async styleChanged(): Promise<void> {
+  chooseStyle(style: TelegramStyle): void {
+    if (style === this.telegramModel().telegram_style) return;
+    this.telegramModel.update((value) => ({ ...value, telegram_style: style }));
     this.telegramChanged();
-    const style = this.telegramModel().telegram_style;
     if (style !== 'custom') {
       this.lastPreset = style;
       return;
     }
-    const catalog = await this.loadCatalog();
+    const catalog = this.catalog();
     if (catalog && templateKeys.every((key) => !this.templateModel()[key]))
       this.templateModel.set({ ...catalog.presets[this.lastPreset] });
   }
@@ -279,15 +352,14 @@ export class PreferencesComponent implements OnInit {
     this.telegramChanged();
   }
 
+  /** Editing a message shows that message; the two list templates show the list. */
   editTemplate(key: string): void {
     this.activeTemplate.set(key as TemplateKey);
     this.previewKind.set(key.startsWith('flight_') ? 'flight_list' : (key as PreviewKind));
-    this.preview.set(null);
   }
 
   choosePreview(kind: string): void {
     this.previewKind.set(kind as PreviewKind);
-    this.preview.set(null);
   }
 
   /** Insert a placeholder where the cursor is, then return focus to the text. */
@@ -307,20 +379,32 @@ export class PreferencesComponent implements OnInit {
     });
   }
 
-  async updatePreview(): Promise<void> {
-    const version = this.previewVersion();
-    await this.previewAction.run(async () => {
-      const value = await this.api.request<Preview>(
-        `/v1/preferences/telegram-preview?message=${this.previewKind()}`,
-        { method: 'POST', body: this.telegramChanges() },
-      );
-      if (version === this.previewVersion()) this.preview.set(value);
-    });
-  }
-
   telegramChanged(): void {
     this.telegramSaved.set(false);
-    this.preview.set(null);
+  }
+
+  /** Ask for the preview of one version of the draft; only the newest answer is shown. */
+  private async refreshPreview(version: string): Promise<void> {
+    this.previewRequest?.abort();
+    const request = (this.previewRequest = new AbortController());
+    this.previewBusy.set(true);
+    try {
+      const value = await this.api.request<MessagePreview>(
+        `/v1/preferences/telegram-preview?message=${untracked(this.previewKind)}`,
+        { method: 'POST', body: untracked(this.previewRequestBody), signal: request.signal },
+      );
+      if (version !== untracked(this.previewVersion)) return;
+      this.preview.set(value);
+      this.previewError.set('');
+    } catch (cause) {
+      // A request replaced by a newer one has nothing to report.
+      if (!request.signal.aborted) this.previewError.set(message(cause));
+    } finally {
+      if (this.previewRequest === request) {
+        this.previewRequest = null;
+        this.previewBusy.set(false);
+      }
+    }
   }
 
   async saveMute(event: Event): Promise<void> {
@@ -350,47 +434,13 @@ export class PreferencesComponent implements OnInit {
     });
   }
 
-  private async loadCatalog(): Promise<TemplateCatalog | null> {
-    const loaded = this.catalog();
-    if (loaded) return loaded;
+  /** Styles, their wording and the details a message can show. Needed before anything is edited. */
+  async loadCatalog(): Promise<void> {
+    if (this.catalog()) return;
     const value = await this.catalogAction.run(() =>
       this.api.request<TemplateCatalog>('/v1/preferences/telegram-templates'),
     );
     if (value) this.catalog.set(value);
-    return value ?? null;
-  }
-
-  /** Message settings as the API expects them; templates travel only with the custom style. */
-  private telegramChanges(): Partial<Preferences> {
-    const { quiet_enabled, quiet_start, quiet_end, ...shown } = this.telegramModel();
-    const changes: Partial<Preferences> = {
-      ...shown,
-      quiet_hours: quiet_enabled ? `${quiet_start}-${quiet_end}` : null,
-    };
-    if (!this.custom()) return changes;
-    const optional = new Set(
-      this.catalog()
-        ?.templates.filter((item) => item.optional)
-        .map((item) => item.key) ?? ['flight_group'],
-    );
-    const drafts = this.templateModel();
-    changes.telegram_templates = Object.fromEntries(
-      templateKeys
-        .filter((key) => drafts[key].trim() || optional.has(key))
-        .map((key) => [key, drafts[key]]),
-    );
-    return changes;
-  }
-
-  private previewVersion(): string {
-    const saved = this.store.value();
-    return JSON.stringify([
-      this.telegramChanges(),
-      this.previewKind(),
-      saved.time_zone,
-      saved.locale,
-      saved.hour_cycle,
-    ]);
   }
 
   private applyTelegram(value: Preferences): void {

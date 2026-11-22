@@ -2,12 +2,14 @@
 
 import json
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fareflare.contracts import QuoteEvidence, Reading, SliceTimes
 from fareflare.links import import_link
+from fareflare.message_templates import plain_text
 from fareflare.preferences import Preferences, clock_time
 from fareflare.public_quotes import PageEvidence, slice_times, verified_reading
 from fareflare.telegram_messages import (
@@ -21,6 +23,7 @@ from fareflare.telegram_messages import (
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = 1793952000  # 2026-11-06 08:00 UTC
+TODAY = date(2026, 11, 6)
 EVIDENCE = QuoteEvidence("test", True, True, True, 1)
 OUTBOUND = SliceTimes("15:50", "18:54", 0, 124)
 
@@ -219,37 +222,46 @@ def test_clock_style_follows_the_account():
     assert clock_time("15:50", Preferences(locale="de-DE", hour_cycle="h12")) == "3:50 PM"
 
 
-def test_the_classic_alert_puts_times_beside_the_date(flight_url):
+def test_an_alert_gives_the_times_their_own_line_in_the_account_clock_style(flight_url):
     event = delivery(flight_url, STORED)
-    text = alert_message(event, Preferences(telegram_style="classic", hour_cycle="h23")).text
-    assert "\nMar 14, 2027  ·  15:50 → 18:54\n" in text
-    twelve = alert_message(event, Preferences(telegram_style="classic")).text
-    assert "\nMar 14, 2027  ·  3:50 PM → 6:54 PM\n" in twelve
-
-
-def test_detailed_and_compact_alerts_add_a_times_line_under_each_direction(flight_url):
-    event = delivery(flight_url, [STORED[0], RETURN], round_trip(flight_url))
-    for style in ("detailed", "compact"):
-        text = alert_message(event, Preferences(telegram_style=style)).text
-        assert (
-            "DEN → DFW · 03/14/2027 · UA 414\n3:50 PM → 6:54 PM · 2 hr 4 min\n"
-            "DFW → DEN · 03/21/2027 · UA 414\n11:20 PM → 12:38 AM +1 · 2 hr 18 min"
-        ) in text
+    assert alert_message(event, Preferences(hour_cycle="h23")).text.split("\n")[1:] == [
+        "DEN → DFW · Mar 14 · UA 414",
+        "15:50 → 18:54",
+    ]
+    assert alert_message(event, Preferences()).text.split("\n")[2] == "3:50 PM → 6:54 PM"
+    detailed = alert_message(event, Preferences(telegram_style="detailed")).text
+    assert detailed.split("\n")[2] == "3:50 PM → 6:54 PM · 2 hr 4 min"
 
 
 def test_a_round_trip_shows_the_return_times_on_their_own_line(flight_url):
     event = delivery(flight_url, [STORED[0], RETURN], round_trip(flight_url))
-    text = alert_message(event, Preferences(telegram_style="classic", hour_cycle="h23")).text
-    assert "\nMar 14, 2027  ·  15:50 → 18:54\n↩ Mar 21, 2027  ·  23:20 → 00:38 +1\n" in text
+    compact = alert_message(event, Preferences(hour_cycle="h23")).text
+    assert compact.split("\n")[1:] == [
+        "DEN ⇄ DFW · Mar 14 – Mar 21 · UA 414, UA 414",
+        "15:50 → 18:54",
+        "↩ 23:20 → 00:38 +1",
+    ]
+    detailed = alert_message(event, Preferences(telegram_style="detailed")).text
+    assert "\n3:50 PM → 6:54 PM · 2 hr 4 min\n↩ 11:20 PM → 12:38 AM +1 · 2 hr 18 min\n" in detailed
+
+
+def test_a_return_whose_times_are_unknown_leaves_no_stray_separator(flight_url):
+    # Only the outbound direction was read, so the schedule does not fit the trip.
+    event = delivery(flight_url, STORED, round_trip(flight_url))
+    for style in ("compact", "detailed"):
+        text = alert_message(event, Preferences(telegram_style=style)).text
+        assert "↩" not in text and " · \n" not in text and "\n · " not in text
+        assert all(line.strip(" ·") == line for line in text.split("\n"))
 
 
 def test_times_can_be_switched_off_for_built_in_styles_but_a_template_decides_for_itself(
     flight_url,
 ):
     event = delivery(flight_url, STORED)
-    for style in ("detailed", "compact", "classic"):
+    for style in ("detailed", "compact"):
         hidden = Preferences(telegram_style=style, telegram_show_times=False)
-        assert "3:50" not in alert_message(event, hidden).text
+        text = alert_message(event, hidden).text
+        assert "3:50" not in text and "2 hr 4 min" not in text
     custom = Preferences(
         telegram_style="custom",
         telegram_show_times=False,
@@ -275,9 +287,10 @@ def test_times_can_be_switched_off_for_built_in_styles_but_a_template_decides_fo
 )
 def test_stored_times_that_do_not_fit_are_ignored_rather_than_shown(flight_url, schedule):
     event = delivery(flight_url, schedule)
-    for style in ("detailed", "compact", "classic"):
+    for style in ("detailed", "compact"):
         text = alert_message(event, Preferences(telegram_style=style)).text
-        assert ("→ 6:54" not in text and "→ 25" not in text and "Mar 14" in text) or "03/14" in text
+        assert "→ 6:54" not in text and "→ 25" not in text and "3:50" not in text
+        assert "DEN → DFW · Mar 14 · UA 414" in text
     assert recorded_times(schedule, event["itinerary"]["segments"]) == []
 
 
@@ -321,24 +334,40 @@ def flight(number, departs, amount=26900, low=21900, segments=None):
     }
 
 
-def test_the_classic_flight_list_shows_times_and_a_return_line(flight_url):
+def listed(monitors, prefs):
+    return plain_text(flight_list(monitors, prefs, TODAY)[0]).split("\n")
+
+
+def test_the_compact_flight_list_shows_times_and_a_return_line(flight_url):
     monitors = [flight("414", "15:50"), flight("900", "07:05", segments=round_trip(flight_url))]
-    plain, _ = flight_list(monitors, Preferences(telegram_style="classic", hour_cycle="h23"), 2027)
-    assert "  • UA 414  15:50 → 18:54 · $269 (low $219)" in plain
-    assert "      ↩ Mar 21  ·  23:20 → 00:38 +1" in plain
-    assert plain.count("      ↩ Mar 21  ·  23:20 → 00:38 +1") == 1
+    assert listed(monitors, Preferences(hour_cycle="h23")) == [
+        "🛫 DEN → DFW · Mar 14",
+        "• UA 414 15:50→18:54 · $269 (low $219)",
+        "",
+        "🛫 DEN ⇄ DFW · Mar 14 – Mar 21",
+        "• UA 414, UA 414 07:05→18:54 · $269 (low $219)",
+        "   ↩ 23:20→00:38 +1",
+    ]
+    # A 12-hour clock names AM or PM once when both ends of a flight share it.
+    assert listed(monitors[:1], Preferences())[1] == "• UA 414 3:50→6:54 PM · $269 (low $219)"
 
 
-def test_other_list_styles_show_the_departure(flight_url):
-    monitors = [flight("414", "15:50")]
-    detailed, _ = flight_list(monitors, Preferences(), 2027)
-    assert "UA 414 · 3:50 PM → 6:54 PM · Watching" in detailed
-    compact, _ = flight_list(monitors, Preferences(telegram_style="compact"), 2027)
-    assert compact == ["DEN → DFW · Mar 14 3:50 PM · UA 414 · USD 269.00"]
-    hidden, _ = flight_list(
-        monitors, Preferences(telegram_style="compact", telegram_show_times=False), 2027
+def test_the_detailed_flight_list_shows_times_and_a_return_line(flight_url):
+    monitors = [flight("900", "07:05", segments=round_trip(flight_url))]
+    assert listed(monitors, Preferences(telegram_style="detailed")) == [
+        "DEN ⇄ DFW · Mar 14 – Mar 21",
+        "UA 414, UA 414 · 7:05 AM → 6:54 PM · $269",
+        "↩ 11:20 PM → 12:38 AM +1",
+        "Lowest $219",
+    ]
+
+
+def test_a_list_always_shows_what_tells_its_flights_apart():
+    # The choices under "Include in alerts" are about alerts.
+    alerts_only = Preferences(telegram_show_times=False, telegram_show_flight_numbers=False)
+    assert listed([flight("414", "15:50")], alerts_only)[1] == (
+        "• UA 414 3:50→6:54 PM · $269 (low $219)"
     )
-    assert hidden == ["DEN → DFW · Mar 14 · UA 414 · USD 269.00"]
 
 
 def test_times_follow_the_offer_actually_priced_by_a_route_search(flight_url):
@@ -350,7 +379,15 @@ def test_times_follow_the_offer_actually_priced_by_a_route_search(flight_url):
     assert [item["departs"] for item in monitor_times(monitor)] == ["15:50"]
 
 
-@pytest.mark.parametrize("kind", ["new_low", "flight_list"])
-def test_previews_include_times_so_the_editor_shows_what_they_look_like(kind):
-    prefs = Preferences(telegram_style="classic", hour_cycle="h23")
-    assert "15:50 → 18:54" in preview_message(kind, prefs, None, NOW).text
+@pytest.mark.parametrize(
+    "kind, style, shown",
+    [
+        ("new_low", "compact", "15:50 → 18:54"),
+        ("new_low", "detailed", "15:50 → 18:54 · 2 hr 4 min"),
+        ("flight_list", "compact", "UA 414 15:50→18:54"),
+        ("flight_list", "detailed", "UA 414 · 15:50 → 18:54"),
+    ],
+)
+def test_previews_include_times_so_the_editor_shows_what_they_look_like(kind, style, shown):
+    prefs = Preferences(telegram_style=style, hour_cycle="h23")
+    assert shown in preview_message(kind, prefs, None, NOW).message.text

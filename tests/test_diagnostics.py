@@ -255,13 +255,13 @@ def test_the_bot_explains_failures_plainly_and_shows_codes_only_on_request(
     _, tenant, _ = native_bot
     monitor = service.create_monitor(tenant, flight_url, "bot-diagnostics")
     fail(service, clock, times=2)
-    detail = _press(native_bot, _call(native_bot, "/flights"), "DEN → DFW · Mar 14, 2027 · UA 414")
+    detail = _press(native_bot, _call(native_bot, "/flights"), "Manage this flight")
     assert "The last check could not finish. Fareflare will try again." in detail.text
     assert "timeout" not in detail.text and "Diagnostic" not in detail.text
     assert "Diagnostic notices" not in _call(native_bot, "/settings").text
 
     service.set_preferences(tenant, diagnostics=True)
-    detail = _press(native_bot, _call(native_bot, "/flights"), "DEN → DFW · Mar 14, 2027 · UA 414")
+    detail = _press(native_bot, _call(native_bot, "/flights"), "Manage this flight")
     assert "Diagnostic code: timeout · failed checks in a row: 2" in detail.text
 
     settings = _call(native_bot, "/settings")
@@ -276,7 +276,7 @@ def test_a_blocked_flight_tells_the_reader_what_to_do(native_bot, service, fligh
     _, tenant, _ = native_bot
     service.create_monitor(tenant, flight_url, "bot-blocked")
     fail(service, clock, code="unsupported_itinerary")
-    detail = _press(native_bot, _call(native_bot, "/flights"), "DEN → DFW · Mar 14, 2027 · UA 414")
+    detail = _press(native_bot, _call(native_bot, "/flights"), "Manage this flight")
     assert "Price checks have stopped. Choose Retry collection to try again." in detail.text
     assert "unsupported_itinerary" not in detail.text
 

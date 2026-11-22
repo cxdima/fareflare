@@ -31,6 +31,17 @@ class Offer:
     constraints_digest: str  # Includes unknown provider pricing constraints.
 
 
+#: Every currency an amount may be written in: its minor-unit digits and its symbol.
+CURRENCIES: dict[str, tuple[int, str]] = {
+    "USD": (2, "$"),
+    "CAD": (2, "CA$"),
+    "EUR": (2, "€"),
+    "GBP": (2, "£"),
+    "AUD": (2, "A$"),
+    "JPY": (0, "¥"),
+}
+
+
 @dataclass(frozen=True)
 class Money:
     amount_minor: int
@@ -38,17 +49,24 @@ class Money:
 
     @property
     def exponent(self) -> int:
-        # Only currencies with an explicitly supported exponent may be formatted.
-        if self.currency == "JPY":
-            return 0
-        if self.currency in ("USD", "CAD", "EUR", "GBP", "AUD"):
-            return 2
-        raise ValueError("Unsupported currency exponent")
+        """Digits after the decimal point. Only a listed currency may be formatted."""
+        return self._currency[0]
+
+    @property
+    def symbol(self) -> str:
+        return self._currency[1]
+
+    @property
+    def _currency(self) -> tuple[int, str]:
+        try:
+            return CURRENCIES[self.currency]
+        except KeyError:
+            raise ValueError("Unsupported currency") from None
 
     def display(self) -> str:
         exponent = self.exponent
         whole, fraction = divmod(self.amount_minor, 10**exponent)
-        return f"{self.currency} {whole:,}" + (f".{fraction:02d}" if exponent else "")
+        return f"{self.currency} {whole:,}" + (f".{fraction:0{exponent}d}" if exponent else "")
 
 
 @dataclass(frozen=True)

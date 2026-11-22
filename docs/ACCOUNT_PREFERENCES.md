@@ -5,7 +5,7 @@ Open **Account settings** to configure display formats, Telegram messages and mu
 Choose a section to focus on one task:
 
 - **Display:** time zone, regional format and clock style; this section opens by default.
-- **Notifications:** Telegram message detail, a sample preview, silent delivery and muting.
+- **Notifications:** Telegram message style with a live preview, silent delivery and muting.
 - **Connections:** connect or disconnect Telegram and manage approved MCP applications.
 - **Security:** account recovery guidance and password-confirmed deletion.
 
@@ -18,12 +18,12 @@ Section buttons work with the keyboard and indicate the current section. Switchi
 | `time_zone` | `null` | An IANA name such as `America/Chicago`; adjusts for daylight saving. |
 | `locale` | `en-US` | Date/number formatting: `en-US`, `en-GB`, `de-DE`, `fr-FR`, `es-ES`, `uk-UA`. |
 | `hour_cycle` | `auto` | Regional default, `h12` (12 hour), or `h23` (00–23). |
-| `telegram_style` | `detailed` | `detailed`, `compact`, `classic` (emoji, shows what changed) or `custom`. |
+| `telegram_style` | `compact` | `compact`, `detailed` or `custom`. |
 | `telegram_templates` | `{}` | Your own wording, used by the `custom` style. See [below](#message-styles-and-templates). |
-| `telegram_show_flight_numbers` | `true` | Include flight numbers. |
-| `telegram_show_times` | `true` | Include departure and arrival times when they are known. |
-| `telegram_show_observed_time` | `true` | Include when the fare was checked, with its time zone. |
-| `telegram_show_fare` | `true` | Include the fare name when available. |
+| `telegram_show_flight_numbers` | `true` | Include flight numbers in alerts. |
+| `telegram_show_times` | `true` | Include departure and arrival times in alerts when they are known. |
+| `telegram_show_observed_time` | `true` | Detailed alerts: include when the fare was checked. |
+| `telegram_show_fare` | `true` | Detailed alerts: include the fare name when available. |
 | `telegram_show_buttons` | `true` | Show link buttons beneath Telegram alerts. |
 | `telegram_silent` | `false` | Send Telegram alerts without notification sound; webhooks are unaffected. |
 | `quiet_hours` | `null` | A daily window such as `22:00-07:00` during which Telegram messages make no sound. See [below](#quiet-hours). |
@@ -35,54 +35,74 @@ With no saved time zone, the website uses the device's zone and Telegram uses UT
 
 Observation timestamps are instants; departure dates remain the airport's calendar date. CSV timestamps stay ISO 8601 UTC. Regional formatting preserves the quoted currency and amount: it does not convert USD to EUR or change collection currency. Interface and Telegram prose remain English.
 
-Price and route remain in Telegram alerts. Validated flight/dashboard links appear as native buttons, without raw booking URLs or internal IDs in the visible body. **Preview message** renders sample data using the selected message options and saved display settings, with noninteractive example button labels. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged. These changes are deployed; the [Telegram verification record](TELEGRAM_VERIFICATION.md) distinguishes completed checks from unverified human receipt.
+Price and route remain in Telegram alerts. Validated flight/dashboard links appear as native buttons, without raw booking URLs or internal IDs in the visible body. The **Preview** beside the settings renders sample data with the options as they stand and the saved display settings, and follows every change without a button to press. Its example buttons are labels only. It neither saves preferences nor sends a Telegram message. Structured webhook payloads remain unchanged. These changes are deployed; the [Telegram verification record](TELEGRAM_VERIFICATION.md) distinguishes completed checks from unverified human receipt.
 
 After connecting once through the website, the [Telegram bot](TELEGRAM.md) offers the built-in message styles, sound and global muting through `/settings`. Time zone, regional format, individual detail fields and route muting remain in Account settings.
 
 ## Message styles and templates
 
-**Account settings → Notifications → Message style** chooses how Telegram alerts and the `/flights` list are worded. The flight-number, flight-time, checked-time and fare checkboxes tune the built-in styles.
+**Account settings → Notifications → Message style** chooses how Telegram alerts and the `/flights` list are worded. Every style writes prices with their symbol (`$246`, never `USD 246.00`) and leaves out empty cents.
 
-| Style | Example of a new low |
-| --- | --- |
-| Detailed | `USD 246.00` / `New observed low` / route, date and flights / `4:42 PM → 5:58 PM · 1 hr 16 min` / total and fare / time checked |
-| Compact | The same facts with total and fare on one line |
-| Classic with emoji | `📉 New low!  $246  (was $254, −$8 · −3%)` / `🛫 DFW → DEN` / `United  ·  UA 1753` / `Mar 10  ·  16:42 → 17:58` / link / time |
-| Custom | Whatever your templates say |
+| Style | A new low | The flight list |
+| --- | --- | --- |
+| Compact (default) | `🔥 New low · $191 (was $199)` / `DEN → DFW · Mar 14 · UA 414` / `3:50 PM → 6:54 PM` | One line per flight under a shared route heading |
+| Detailed | The same, plus `(was $199, −$8 · −4%)`, the flight length, `United · Economy · Total for 1 adult` and `Checked 11/22/2026 8:13 PM UTC` | Three lines per flight |
+| Custom | Whatever your templates say | Whatever your templates say |
 
-Departure and arrival times are the airport's own clock times, shown in your 12- or 24-hour style (**Display → Clock**). They are read from the same page as the price, so a flight shows them after its first successful check; an arrival on a later day is marked `+1`. If the times cannot be read with certainty they are left out, and the price is still recorded.
+The four alerts open the same way, so they can be told apart at a glance: `✈️ Now tracking`, `🔥 New low`, `🎯 Target reached` and `📈 Price rose`.
 
-In the classic list, flights on the same route and day are ordered by departure, and a flight at its lowest recorded price is marked `🔥 at the low`; otherwise the row shows `(low $231)`. "Low" always means the lowest price this monitor has recorded since it began tracking, not a market-wide low.
+**Include in alerts** lists only the details the selected style shows: flight numbers and times for Compact, and also the fare name and the time of the check for Detailed. These switches change alerts. The flight list always shows flight numbers and times, because they are what tell two flights on one route apart. A custom message says exactly what its wording says, so it offers no switches.
+
+An alert that reaches Telegram ten minutes or more after its price was checked says when the check was made (`Checked 11/06/2026 8:00 AM UTC`), in every style and whatever the switches say. A price for more than one traveller says so beside the amount (`$382 for 2 adults`).
+
+Departure and arrival times are the airport's own clock times, shown in your 12- or 24-hour style (**Display → Clock**). They are read from the same page as the price, so a flight shows them after its first successful check; an arrival on a later day is marked `+1`. If the times cannot be read with certainty they are left out, and the price is still recorded. Dates are written short (`Mar 14`, or `Mar 14 – Mar 21` for a return trip); the year is added only when the day is too far ahead for the month and day to name it.
+
+The compact list groups flights on the same route and day under one heading, in departure order:
+
+```text
+🛫 DEN → DFW · Mar 14
+• UA 1565 7:05→10:02 AM · $214 🔥 at the low
+• UA 414 3:50→6:54 PM · $269 (low $219)
+• UA 1832 7:40→10:41 PM · $269 (low $199) · Paused
+```
+
+A flight at its lowest recorded price is marked `🔥 at the low`; otherwise the row shows that low. "Low" always means the lowest price this monitor has recorded since it began tracking, not a market-wide low. A return trip adds a second line, `↩ 5:09→8:02 PM`.
 
 ### Writing your own
 
-Choose **Custom — write your own**. The editor starts from the style you had selected, offers every available detail as a button, and previews each message with sample data before you save. There are six templates: `tracking_started`, `new_low`, `below_price`, `rebound`, `flight_group` (an optional list heading) and `flight_row`. A message without its own template uses the detailed wording.
+Choose **Custom**. The editor starts from the style you had selected and lists every available detail under a heading (Price, Alert, Trip, Flight, Times, More) with an example of what it shows; choosing one adds it where the cursor is. The preview follows the wording as you type and says what is wrong with a template before you save it. There are six templates: `tracking_started`, `new_low`, `below_price`, `rebound`, `flight_group` (an optional list heading) and `flight_row`. A message without its own template uses the compact wording.
 
 | You write | It means |
 | --- | --- |
 | `{price_short}` | A detail from the list below. An unknown name is rejected when you save. |
-| `[ · Fare: {fare}]` | Optional: shown only when every detail inside has a value. |
+| `[ (was {previous_low_short})]` | Optional: shown only when every detail inside has a value. |
 | `**bold**`, `__italic__`, `` `monospace` `` | Emphasis. It must close on the same line. |
 | `\[` or `\{` | The character itself, not template syntax. |
 
-A line with nothing left to show is removed, and repeated blank lines collapse. For example:
+A separator such as `·` left beside a detail that has no value is dropped, a line with nothing left to show is removed, and repeated blank lines collapse. Words are never dropped; put them in `[square brackets]` with the detail they describe. The compact new-low alert, for example, is this template:
 
 ```text
-{emoji} **{headline}**  **{price_short}**[  __({change_summary})__]
-🛫 **{route}**
-[{airline}][  ·  `{flights}`]
-{date_short}[  ·  {times}]
-[↩ {return_date_short}][  ·  {return_times}]
-{link}
+{emoji} **{headline}** · **{price_short}**[ {party_note}][ __(was {previous_low_short})__]
+{route} · {dates_short} · {flights}
+{times}
+[↩ {return_times}]
+[__{late_note}__]
 ```
 
-Templates are text, not programs. There are no conditions, loops, calculations or formatting options, so a template cannot read anything beyond the listed details. Each template may hold up to 800 characters, 20 lines and 40 placeholders. If a template would produce an empty message for a particular alert, the detailed wording is sent instead, so an alert is never lost.
+Templates are text, not programs. There are no conditions, loops, calculations or formatting options, so a template cannot read anything beyond the listed details. Each template may hold up to 800 characters, 20 lines and 40 placeholders. If a template would produce an empty message for a particular alert, the compact wording is sent instead, so an alert is never lost. The same holds for the list: if a row template leaves a flight with nothing to show, or with more than Telegram can carry, the whole list uses the compact wording.
 
-**Alert details:** `emoji`, `headline`, `reason`, `price`, `price_short`, `previous_price`, `previous_price_short`, `previous_low`, `previous_low_short`, `change`, `change_percent`, `change_summary`, `route`, `origin`, `destination`, `date`, `date_short`, `return_date`, `return_date_short`, `dates`, `flights`, `airline`, `times`, `depart_time`, `arrive_time`, `duration`, `return_times`, `return_depart_time`, `return_arrive_time`, `return_duration`, `itinerary`, `passengers`, `total`, `fare`, `details`, `observed`, `observed_short`, `link`.
+**Alert details**
 
-**List row details:** the trip and flight details above, plus `status`, `status_note` (only when a flight needs attention), `price`, `price_short`, `low`, `low_short`, `low_note`, `low_status` and `checked`. A list heading may use the trip details. Consecutive flights with the same heading share it.
+- Price: `price_short`, `previous_low_short`, `previous_price_short`, `change`, `change_percent`, `change_summary`, `price`, `previous_low`, `previous_price`
+- Alert: `emoji`, `headline`, `reason`
+- Trip: `route`, `dates_short`, `date_short`, `return_date_short`, `date`, `return_date`, `dates`, `origin`, `destination`
+- Flight: `flights`, `airline`, `passengers`
+- Times: `times`, `times_short`, `depart_time`, `arrive_time`, `duration`, `return_times`, `return_times_short`, `return_depart_time`, `return_arrive_time`, `return_duration`
+- More: `fare`, `total`, `party_note`, `details`, `observed_short`, `observed`, `late_note`, `itinerary`, `link`
 
-`price` writes the currency code (`USD 246.00`); `price_short` uses its symbol and drops empty cents (`$246`). A new low and a rebound are compared with the previous low; a reached target is compared with the previous price. Using `{link}` in a template replaces the **View flight** button. `GET /v1/preferences/telegram-templates` returns the authoritative list with descriptions, the built-in templates and the limits.
+**List row details:** the Trip, Flight and Times details above, plus `price_short`, `low_note`, `low_short`, `low_status`, `price`, `low`, `status_note` (only when a flight needs attention), `status` and `checked`. A list heading may use the Trip details. Consecutive flights with the same heading share it.
+
+`price_short` uses the currency's symbol and drops empty cents (`$246`); `price` keeps the currency code (`USD 246.00`) for wording that needs it. `times` is written out (`3:50 PM → 6:54 PM`) and `times_short` is the tight form the list uses (`3:50→6:54 PM`). A new low and a rebound are compared with the previous low; a reached target is compared with the previous price. Using `{link}` in a template replaces the **View flight** button. `GET /v1/preferences/telegram-templates` returns the authoritative list with descriptions, examples and groups, the styles with the switches each one uses, the built-in templates and the limits.
 
 ## Technical details are opt-in
 

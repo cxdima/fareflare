@@ -59,11 +59,12 @@ class TelegramSink:
         if chat is None:
             return False
         try:
-            message = alert_message(delivery, self._preferences, self._public_url)
+            now = self._clock()
+            message = alert_message(delivery, self._preferences, self._public_url, now=now)
             payload = {
                 **message.payload(),
                 "chat_id": chat,
-                "disable_notification": sends_silently(self._preferences, self._clock()),
+                "disable_notification": sends_silently(self._preferences, now),
             }
             with httpx.Client(
                 timeout=10, follow_redirects=False, trust_env=False, transport=self._transport

@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from fareflare.contracts import Money
-from fareflare.telegram_templates import TelegramStyle, validate_templates
+from fareflare.telegram_templates import DEFAULT_STYLE, TelegramStyle, validate_templates
 
 Locale = Literal["en-US", "en-GB", "de-DE", "fr-FR", "es-ES", "uk-UA"]
 HourCycle = Literal["auto", "h12", "h23"]
@@ -28,10 +28,11 @@ _NUMBER_SEPARATORS: dict[Locale, tuple[str, str]] = {
     "de-DE": (".", ","),
     "fr-FR": (" ", ","),
     "es-ES": (".", ","),
-    "uk-UA": (" ", ","),
+    "uk-UA": ("\N{NO-BREAK SPACE}", ","),
 }
+# How far ahead a month and day still name one obvious date; fares go on sale later than this.
+_NEAR_DAYS = 300
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-_SYMBOLS = {"USD": "$", "CAD": "CA$", "EUR": "€", "GBP": "£", "AUD": "A$", "JPY": "¥"}
 # These regions conventionally write the amount first: 246,50 $.
 _SYMBOL_AFTER: frozenset[str] = frozenset({"de-DE", "fr-FR", "es-ES", "uk-UA"})
 _QUIET_HOURS = re.compile(r"((?:[01]\d|2[0-3]):[0-5]\d)-((?:[01]\d|2[0-3]):[0-5]\d)")
@@ -45,19 +46,25 @@ class Preferences(BaseModel):
     locale: Locale = "en-US"
     hour_cycle: HourCycle = "auto"
     telegram_style: TelegramStyle = Field(
-        default="detailed",
+        default=DEFAULT_STYLE,
         description="A built-in message style, or custom to use telegram_templates.",
     )
     telegram_templates: dict[str, str] = Field(
         default_factory=dict,
         description="Message templates used by the custom style, keyed by message name.",
     )
-    telegram_show_flight_numbers: bool = True
+    telegram_show_flight_numbers: bool = Field(
+        default=True, description="Include flight numbers in built-in alert styles."
+    )
     telegram_show_times: bool = Field(
         default=True, description="Include departure and arrival times when they are known."
     )
-    telegram_show_observed_time: bool = True
-    telegram_show_fare: bool = True
+    telegram_show_observed_time: bool = Field(
+        default=True, description="Include when the price was checked, in the detailed style."
+    )
+    telegram_show_fare: bool = Field(
+        default=True, description="Include the fare name, in the detailed style."
+    )
     telegram_show_buttons: bool = Field(
         default=True, description="Show link buttons beneath Telegram price alerts."
     )
@@ -145,10 +152,26 @@ def regional_date(value: date, locale: Locale) -> str:
     return value.strftime(_DATE_FORMATS[locale])
 
 
-def short_date(value: date, reference_year: int | None = None) -> str:
-    """Mar 10, adding the year only when it differs from the reference year."""
+def _year_goes_without_saying(value: date, today: date | None) -> bool:
+    """A day in the current year, or within the coming months, is clear without its year."""
+    return today is None or value.year == today.year or 0 <= (value - today).days <= _NEAR_DAYS
+
+
+def short_date(value: date, today: date | None = None) -> str:
+    """Mar 10, with the year only when the reader could not otherwise tell it."""
     text = f"{_MONTHS[value.month - 1]} {value.day}"
-    return text if reference_year in (None, value.year) else f"{text}, {value.year}"
+    return text if _year_goes_without_saying(value, today) else f"{text}, {value.year}"
+
+
+def short_dates(first: date, last: date | None = None, today: date | None = None) -> str:
+    """The days of a trip: Mar 10, or Mar 10 – Mar 14 when it returns on another day."""
+    if last is None or last == first:
+        return short_date(first, today)
+    if all(_year_goes_without_saying(day, today) for day in (first, last)):
+        return f"{short_date(first)} – {short_date(last)}"
+    if first.year == last.year:
+        return f"{short_date(first)} – {short_date(last)}, {last.year}"
+    return f"{short_date(first)}, {first.year} – {short_date(last)}, {last.year}"
 
 
 def _twelve_hour(preferences: Preferences) -> bool:
@@ -163,6 +186,15 @@ def clock_time(value: str, preferences: Preferences) -> str:
     if not _twelve_hour(preferences):
         return f"{hour:02d}:{minute}"
     return f"{hour % 12 or 12}:{minute} {'PM' if hour >= 12 else 'AM'}"
+
+
+def clock_range(departs: str, arrives: str, preferences: Preferences) -> str:
+    """Two clock times written tightly for a list: 4:42→5:58 PM, 11:50 AM→1:05 PM, 16:42→17:58."""
+    start, end = clock_time(departs, preferences), clock_time(arrives, preferences)
+    # Both in the same half of a 12-hour day: say AM or PM once, after the range.
+    if start[-2:] == end[-2:] and start.endswith(("AM", "PM")):
+        start = start[:-3]
+    return f"{start}→{end}"
 
 
 def observed_time(seconds: int, preferences: Preferences, *, zone_label: bool = True) -> str:
@@ -213,7 +245,7 @@ def regional_price(amount_minor: int, currency: str, locale: Locale) -> str:
     grouping, decimal = _NUMBER_SEPARATORS[locale]
     number = f"{whole:,}".replace(",", grouping)
     if value.exponent:
-        number += f"{decimal}{fraction:02d}"
+        number += f"{decimal}{fraction:0{value.exponent}d}"
     return f"{currency} {number}"
 
 
@@ -223,17 +255,11 @@ def short_price(amount_minor: int, currency: str, locale: Locale, *, signed: boo
     whole, fraction = divmod(value.amount_minor, 10**value.exponent)
     grouping, decimal = _NUMBER_SEPARATORS[locale]
     number = f"{whole:,}".replace(",", grouping)
-    if value.exponent and fraction:
-        number += f"{decimal}{fraction:02d}"
-    symbol = _SYMBOLS[currency]
-    text = f"{number} {symbol}" if locale in _SYMBOL_AFTER else f"{symbol}{number}"
+    if fraction:
+        number += f"{decimal}{fraction:0{value.exponent}d}"
+    # The space does not break, so an amount and its symbol never part across two lines.
+    after = f"{number}\N{NO-BREAK SPACE}{value.symbol}"
+    text = after if locale in _SYMBOL_AFTER else f"{value.symbol}{number}"
     if not signed or amount_minor == 0:
         return text
     return ("−" if amount_minor < 0 else "+") + text
-
-
-def telegram_text(delivery: dict, preferences: Preferences) -> str:
-    """Plain-text body of a price alert, as rendered for this account."""
-    from fareflare.telegram_messages import alert_message
-
-    return alert_message(delivery, preferences).text

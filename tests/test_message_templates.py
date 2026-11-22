@@ -12,7 +12,10 @@ from fareflare.message_templates import (
     TemplateError,
     normalize_template,
     parse_template,
+    plain_text,
     render,
+    telegram_html,
+    template_fields,
 )
 
 WORDS = frozenset({"price", "fare", "route", "link", "note"})
@@ -93,6 +96,60 @@ def test_lines_without_content_disappear_and_blank_lines_collapse():
 def test_literal_label_without_a_group_is_kept_so_groups_are_the_way_to_hide_it():
     assert show("Fare: {fare}").text == "Fare:"
     assert show("[Fare: {fare}]").text == ""
+
+
+@pytest.mark.parametrize(
+    "values, expected",
+    [
+        ({"route": "DEN", "fare": "Economy", "price": "$1"}, "DEN · Economy · $1"),
+        ({"route": "DEN", "price": "$1"}, "DEN · $1"),  # a gap in the middle
+        ({"fare": "Economy", "price": "$1"}, "Economy · $1"),  # at the start
+        ({"route": "DEN", "fare": "Economy"}, "DEN · Economy"),  # at the end
+        ({"fare": "Economy"}, "Economy"),
+        ({}, ""),
+    ],
+)
+def test_a_separator_beside_a_missing_value_is_dropped(values, expected):
+    assert show("{route} · {fare} · {price}", **values).text == expected
+
+
+def test_separators_of_different_kinds_keep_the_one_before_the_value_that_follows():
+    row = "• `{route}` {fare} · **{price}** __{note}__ | {link}"
+    assert show(row, route="UA 1", fare="3:50", price="$1", note="low").text == (
+        "• UA 1 3:50 · $1 low"
+    )
+    # Without the times, the dot that introduces the price stays and the space goes.
+    assert show(row, route="UA 1", price="$1").text == "• UA 1 · $1"
+    assert show(row, route="UA 1", price="$1").html == "• <code>UA 1</code> · <b>$1</b>"
+    assert show(row, route="UA 1", price="$1", link="Paused").text == "• UA 1 · $1 | Paused"
+    # Leading text of the author's own stays even when it is made of separator characters.
+    assert show(row, price="$1").text == "• $1"
+
+
+def test_only_separators_are_dropped_never_words_or_text_inside_a_value():
+    assert show("{route} to {fare}", route="DEN").text == "DEN to"
+    assert show("{route} · to · {fare}", route="DEN").text == "DEN · to ·"
+    assert show("{route} — {fare}", route="DEN - DFW").text == "DEN - DFW"
+    # A group that stays is a detail like any other; one that goes leaves no separator.
+    assert show("{price}[ · {fare}] · {route}", price="$1", route="DEN").text == "$1 · DEN"
+    assert show("[↩ {fare}] · {note}", fare="9:05").text == "↩ 9:05"
+    assert show("[↩ {fare}] · {note}", note="2 hr").text == "2 hr"
+    assert show("[↩ {fare}] · {note}").text == ""
+
+
+def test_rendered_lines_are_the_single_source_of_text_and_markup():
+    result = show("**{price}** · {fare}\n{route}", price="$1", route="DEN")
+    assert result.lines == ((Run("$1", bold=True),), (Run("DEN"),))
+    assert plain_text(result.lines) == result.text == "$1\nDEN"
+    assert telegram_html(result.lines) == result.html == "<b>$1</b>\nDEN"
+
+
+def test_template_fields_lists_placeholders_wherever_they_are_nested():
+    template = "**{price}**[ __({fare})__]\n{route} · {route}\n\\{note\\}"
+    assert template_fields(template, WORDS) == {"price", "fare", "route"}
+    assert template_fields("no placeholders", WORDS) == frozenset()
+    with pytest.raises(TemplateError):
+        template_fields("{nope}", WORDS)
 
 
 def test_multi_line_values_keep_their_own_styles_and_line_breaks():

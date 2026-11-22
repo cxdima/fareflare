@@ -76,15 +76,18 @@ def _press(native, message, label):
     return _call(native, callback=_token(message, label))
 
 
+def _labels(message):
+    return [button["text"] for row in message.reply_markup["inline_keyboard"] for button in row]
+
+
 def _detail(native, monitor):
-    message = _call(native, "/flights")
-    button = next(
-        button
-        for row in message.reply_markup["inline_keyboard"]
-        for button in row
-        if button["text"].startswith("DEN → DFW")
-    )
-    return _call(native, callback=button["callback_data"])
+    """Open a flight the way a reader does: from the list, through the picker if there is one."""
+    flights = _call(native, "/flights")
+    if "Manage this flight" in _labels(flights):
+        return _press(native, flights, "Manage this flight")
+    leg = monitor["target"]["segments"][0]["legs"][0]
+    picker = _press(native, flights, "Manage a flight")
+    return _press(native, picker, f"DEN → DFW · Mar 14 · {leg['airline']} {leg['number']}")
 
 
 def test_add_requires_confirmation_and_replay_never_duplicates(
@@ -179,28 +182,91 @@ def test_quota_error_is_useful_and_retains_the_confirmation(native_bot, service,
     assert service.monitors_page(native_bot[1])["active_count"] == 1
 
 
-def test_flights_and_history_are_bounded_and_paginate(native_bot, service, flight_url, clock):
+def test_flights_and_history_are_bounded_and_paginate(
+    native_bot, service, flight_url, clock, monkeypatch
+):
     tenant = native_bot[1]
     for i in range(6):
         service.create_monitor(tenant, flight_url, f"flight-page-{i}")
+    whole = _call(native_bot, "/flights")
+    assert whole.text.split("\n")[:3] == ["Your flights (6)", "", "🛫 DEN → DFW · Mar 14"]
+    assert whole.text.count("• UA 414") == 6 and "Next flights" not in _labels(whole)
+    # A page holds what fits in one message, not a fixed number of flights.
+    monkeypatch.setattr("fareflare.telegram_bot._LIST_BUDGET", 150)
     flights = _call(native_bot, "/flights")
-    assert flights.text.count("DEN → DFW") == 5
+    assert flights.text.count("• UA 414") == 4 and "Flights 1–4 of 6" in flights.text
     next_page = _press(native_bot, flights, "Next flights")
-    assert next_page.text.count("DEN → DFW") == 1
-    assert _press(native_bot, next_page, "First page").text.count("DEN → DFW") == 5
+    assert next_page.text.count("• UA 414") == 2 and "Flights 5–6 of 6" in next_page.text
+    assert next_page.text.count("🛫 DEN → DFW") == 1 and "Next flights" not in _labels(next_page)
+    assert _press(native_bot, next_page, "First page").text.count("• UA 414") == 4
     monitor = service.monitors_page(tenant)["items"][0]
-    for i in range(7):
+    for i in range(12):
         clock[0] += 1
         service.record(
             Reading(monitor["target_id"], 10000 + i * 100, "USD", clock[0], "test"), f"reading-{i}"
         )
-    detail = _detail(native_bot, monitor)
+    picker = _press(native_bot, _call(native_bot, "/flights"), "Manage a flight")
+    assert picker.text == "Choose a flight" and len(_labels(picker)) == 7
+    detail = _call(
+        native_bot, callback=picker.reply_markup["inline_keyboard"][0][0]["callback_data"]
+    )
     prices = _press(native_bot, detail, "Recent prices")
-    assert "USD 106.00" in prices.text and "USD 100.00" not in prices.text
-    assert "Lowest in these readings: USD 102.00" in prices.text
+    assert prices.text.split("\n")[0] == "Recorded prices: DEN → DFW"
+    assert "$111 · " in prices.text and "$102 · " in prices.text and "$101 · " not in prices.text
+    assert "Lowest of these: $102" in prices.text and "USD" not in prices.text
     previous = _press(native_bot, prices, "Earlier prices")
-    assert "USD 100.00" in previous.text and "USD 106.00" not in previous.text
-    assert "USD 106.00" in _press(native_bot, previous, "Latest prices").text
+    assert "$100 · " in previous.text and "$111 · " not in previous.text
+    assert "$111 · " in _press(native_bot, previous, "Latest prices").text
+
+
+def test_the_list_shows_current_flights_only_and_one_flight_opens_directly(
+    native_bot, service, flight_url, clock
+):
+    tenant = native_bot[1]
+    empty = _call(native_bot, "/flights")
+    assert empty.text.startswith("Your flights\n\nNo flights yet.")
+    assert "Manage a flight" not in _labels(empty) and "Watch a flight" in _labels(empty)
+    kept = service.create_monitor(tenant, _other_flight(flight_url, "100"), "kept-flight")
+    stopped = service.create_monitor(tenant, _other_flight(flight_url, "200"), "stopped-flight")
+    paused = service.create_monitor(tenant, _other_flight(flight_url, "300"), "paused-flight")
+    service.set_status(tenant, stopped["id"], "cancelled")
+    service.set_status(tenant, paused["id"], "paused")
+    flights = _call(native_bot, "/flights")
+    assert flights.text.startswith("Your flights (2)")
+    assert "UA 100" in flights.text and "UA 300 · Paused" in flights.text
+    assert "UA 200" not in flights.text
+    assert service.current_monitors(tenant) != [] and len(service.list_monitors(tenant)) == 3
+    picker = _press(native_bot, flights, "Manage a flight")
+    assert _labels(picker) == [
+        "DEN → DFW · Mar 14 · UA 100",
+        "DEN → DFW · Mar 14 · UA 300",
+        "Back to my flights",
+    ]
+    service.set_status(tenant, paused["id"], "cancelled")
+    alone = _call(native_bot, "/flights")
+    assert "Manage a flight" not in _labels(alone)
+    detail = _press(native_bot, alone, "Manage this flight")
+    assert detail.text.split("\n")[:3] == ["DEN → DFW · Mar 14", "", "UA 100"]
+    assert kept["id"] == service.current_monitors(tenant)[0]["id"]
+
+
+def test_choosing_a_flight_is_paged_when_there_are_many(native_bot, service, flight_url):
+    tenant = native_bot[1]
+    for number in range(100, 111):
+        service.create_monitor(tenant, _other_flight(flight_url, str(number)), f"many-{number}")
+    picker = _press(native_bot, _call(native_bot, "/flights"), "Manage a flight")
+    assert "Flights 1–8 of 11" in picker.text
+    assert _labels(picker)[:1] == ["DEN → DFW · Mar 14 · UA 100"] and len(_labels(picker)) == 10
+    more = _press(native_bot, picker, "More flights")
+    assert "Flights 9–11 of 11" in more.text
+    assert _labels(more) == [
+        "DEN → DFW · Mar 14 · UA 108",
+        "DEN → DFW · Mar 14 · UA 109",
+        "DEN → DFW · Mar 14 · UA 110",
+        "First flights",
+        "Back to my flights",
+    ]
+    assert "Flights 1–8 of 11" in _press(native_bot, more, "First flights").text
 
 
 def _other_flight(url, number):
@@ -238,14 +304,35 @@ def test_a_day_is_listed_by_departure_time_and_detail_shows_the_times(
         )
     service.process_events()
     untimed = service.create_monitor(tenant, _other_flight(flight_url, "555"), "same-day-untimed")
-    service.set_preferences(tenant, telegram_style="classic", hour_cycle="h23")
+    service.set_preferences(tenant, hour_cycle="h23")
     flights = _call(native_bot, "/flights")
-    rows = [line for line in flights.text.split("\n") if line.startswith("  • ")]
+    rows = [line for line in flights.text.split("\n") if line.startswith("• ")]
     assert [row.split()[2] for row in rows] == ["100", "414", "900", "555"]
-    assert "  • UA 100  07:05 → 22:41 · $200 🔥 at the low" in rows
-    assert untimed["latest"] is None and rows[-1] == "  • UA 555 · Awaiting check"
+    assert "• UA 100 07:05→22:41 · $200 🔥 at the low" in rows
+    assert untimed["latest"] is None and rows[-1] == "• UA 555 · Awaiting check"
+    assert "<code>UA 100</code> 07:05→22:41 · <b>$200</b> <i>🔥 at the low</i>" in flights.html
+    # The line under the list says when the newest of these prices was checked.
+    assert flights.text.split("\n")[-1] == "Latest check 11/02/2026 21:00 UTC"
+    assert flights.html.split("\n")[-1] == "<i>Latest check 11/02/2026 21:00 UTC</i>"
     detail = _detail(native_bot, monitor)
-    assert "07:05 → 22:41 · 2 hr 1 min" in detail.text
+    assert detail.text.split("\n")[:6] == [
+        "DEN → DFW · Mar 14",
+        "",
+        "UA 100 · 07:05 → 22:41 · 2 hr 1 min",
+        "1 adult · Economy",
+        "",
+        "$200 🔥 at the low",
+    ]
+    # The same flights in the other built-in style: one block each, in the same order.
+    service.set_preferences(tenant, telegram_style="detailed")
+    blocks = _call(native_bot, "/flights").text.split("\n\n")[1:-1]
+    assert blocks[0] == "DEN → DFW · Mar 14\nUA 100 · 07:05 → 22:41 · $200\n🔥 At its lowest"
+    assert [block.split("\n")[1].split(" · ")[0] for block in blocks] == [
+        "UA 100",
+        "UA 414",
+        "UA 900",
+        "UA 555",
+    ]
 
 
 def test_pause_resume_and_stop_confirmations_use_shared_service(native_bot, service, flight_url):
@@ -276,14 +363,19 @@ def test_settings_keep_localization_and_explicit_actions_are_single_use(native_b
     assert "already applied" in _press(native_bot, settings, "Mute alerts").text
     silent = _press(native_bot, unmuted, "Send silently")
     styles = _press(native_bot, silent, "Message style")
-    assert "Current style: Detailed" in styles.text and "Example alert" in styles.text
-    chosen = _press(native_bot, styles, "Compact")
-    assert "Message style saved." in chosen.text and "Current style: Compact" in chosen.text
+    assert "Compact: an example with sample data." in styles.text
+    assert "🔥 New low · 191" in styles.text and "🔥 <b>New low</b>" in styles.html
+    # Only styles that have wording are offered; custom wording is written on the website.
+    assert _labels(styles)[:3] == ["✓ Compact", "Detailed", "Write your own messages"]
+    chosen = _press(native_bot, styles, "Detailed")
+    assert "Message style saved." in chosen.text
+    assert "Detailed: an example with sample data." in chosen.text
+    assert _labels(chosen)[:2] == ["Compact", "✓ Detailed"]
     prefs = service.preferences(tenant)
     assert (
         prefs["muted"] is False
         and prefs["telegram_silent"] is True
-        and prefs["telegram_style"] == "compact"
+        and prefs["telegram_style"] == "detailed"
     )
     assert prefs["locale"] == "de-DE" and prefs["muted_routes"] == ["SFO-NRT"]
 
@@ -371,7 +463,10 @@ def test_provider_text_is_escaped_and_observed_times_use_saved_zone(
         "escaped-reading",
     )
     detail = _detail(native_bot, monitor)
-    assert "USD 123.45" in detail.text and "America/Chicago" in detail.text
+    # 21:00 UTC is 15:00 in Chicago, and a saved zone is the reader's own, so it has no label.
+    assert "$123.45" in detail.text and "Checked 11/02/2026 15:00\n" in detail.text
+    assert "USD" not in detail.text and "America/Chicago" not in detail.text
+    assert "<b>$123.45</b>" in detail.html
     assert "&lt;b&gt;Fare&lt;/b&gt;" in detail.html
     assert '<a href="https://bad.test">' not in detail.html
     assert "\n<a" not in detail.text
@@ -388,7 +483,7 @@ def test_native_rule_prompt_confirms_locale_price_and_preserves_rebound_setting(
     _press(native_bot, rules, "Set target price")
     assert "valid USD amount" in _call(native_bot, "1.234,50").text
     preview = _call(native_bot, "250,50")
-    assert "USD 250,50" in preview.text
+    assert "reaches or crosses below 250,50\xa0$." in preview.text
     assert service.get_monitor(tenant, monitor["id"])["policy"]["kind"] == "new_low"
     saved = _press(native_bot, preview, "Save alert rule")
     policy = service.get_monitor(tenant, monitor["id"])["policy"]
@@ -397,10 +492,12 @@ def test_native_rule_prompt_confirms_locale_price_and_preserves_rebound_setting(
         and policy["threshold_minor"] == 25050
         and policy["notify_rebounds"]
     )
+    assert "Notify on: a price at or below 250,50\xa0$" in saved.text
     rules = _press(native_bot, saved, "New observed lows")
     _press(native_bot, rules, "Set minimum drop")
     preview = _call(native_bot, "0")
-    _press(native_bot, preview, "Save alert rule")
+    assert "Alert on every new observed low." in preview.text
+    assert "Minimum drop: none" in _press(native_bot, preview, "Save alert rule").text
     policy = service.get_monitor(tenant, monitor["id"])["policy"]
     assert (
         policy["kind"] == "new_low" and policy["min_drop_minor"] == 0 and policy["notify_rebounds"]

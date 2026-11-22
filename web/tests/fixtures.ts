@@ -37,6 +37,109 @@ export const monitor = {
   policy: { kind: 'new_low', min_drop_minor: 0, threshold_minor: null, notify_rebounds: false },
 };
 
+const templateKeys = [
+  'tracking_started',
+  'new_low',
+  'below_price',
+  'rebound',
+  'flight_group',
+  'flight_row',
+] as const;
+const run = (text: string, style: { bold?: boolean; italic?: boolean; code?: boolean } = {}) => ({
+  text,
+  bold: false,
+  italic: false,
+  code: false,
+  link: false,
+  ...style,
+});
+/** What GET /v1/preferences/telegram-templates returns, cut down to two details per message. */
+export const templateCatalog = {
+  styles: [
+    {
+      value: 'compact',
+      label: 'Compact',
+      description: 'The price, what changed, the flight and its times.',
+      switches: ['telegram_show_flight_numbers', 'telegram_show_times'],
+    },
+    {
+      value: 'detailed',
+      label: 'Detailed',
+      description: 'Adds the airline, flight length, fare and time of the check.',
+      switches: [
+        'telegram_show_flight_numbers',
+        'telegram_show_times',
+        'telegram_show_observed_time',
+        'telegram_show_fare',
+      ],
+    },
+    {
+      value: 'custom',
+      label: 'Custom',
+      description: 'Your own wording for every message.',
+      switches: [],
+    },
+  ],
+  default_style: 'compact',
+  templates: [
+    { key: 'tracking_started', label: 'Tracking started', optional: false },
+    { key: 'new_low', label: 'New low', optional: false },
+    { key: 'below_price', label: 'Target reached', optional: false },
+    { key: 'rebound', label: 'Price rebound', optional: false },
+    { key: 'flight_group', label: 'Flight list heading', optional: true },
+    { key: 'flight_row', label: 'Flight list row', optional: false },
+  ],
+  placeholders: Object.fromEntries(
+    templateKeys.map((key) => [
+      key,
+      [
+        {
+          name: 'price_short',
+          description: 'Price with a symbol',
+          example: '$246',
+          group: 'Price',
+        },
+        { name: 'route', description: 'Airports', example: 'DFW → DEN', group: 'Trip' },
+        { name: 'dates_short', description: 'Travel days', example: 'Mar 10', group: 'Trip' },
+      ],
+    ]),
+  ),
+  presets: Object.fromEntries(
+    ['compact', 'detailed'].map((style) => [
+      style,
+      {
+        tracking_started: `${style} started {route}`,
+        new_low: `${style} low {route}`,
+        below_price: `${style} target {route}`,
+        rebound: `${style} rebound {route}`,
+        flight_group: style === 'compact' ? '🛫 {route}' : '',
+        flight_row: `${style} row {route}`,
+      },
+    ]),
+  ),
+  limits: { characters: 800, lines: 20, placeholders: 40 },
+};
+/** What POST /v1/preferences/telegram-preview returns for a new low in the compact style. */
+export const messagePreview = {
+  message: 'new_low',
+  text: '🔥 New low · $191 (was $199)\nDEN → DFW · Mar 14 · UA 414\n3:50 PM → 6:54 PM',
+  lines: [
+    [
+      run('🔥 '),
+      run('New low', { bold: true }),
+      run(' · '),
+      run('$191', { bold: true }),
+      run(' '),
+      run('(was $199)', { italic: true }),
+    ],
+    [run('DEN → DFW · Mar 14 · UA 414')],
+    [run('3:50 PM → 6:54 PM')],
+  ],
+  buttons: [{ text: 'View flight', url: 'https://www.google.com/travel/flights' }],
+  silent: false,
+  time_zone: 'UTC',
+};
+
 export async function mock(page: BrowserPage, signedIn = true) {
   const monitors: Record<string, unknown>[] = signedIn ? [structuredClone(monitor)] : [];
   const webhooks: Record<string, unknown>[] = [];
@@ -244,6 +347,8 @@ export async function mock(page: BrowserPage, signedIn = true) {
       });
     if (path === '/v1/preferences')
       return reply(method === 'GET' ? { muted: false, muted_routes: [] } : body);
+    if (path === '/v1/preferences/telegram-templates') return reply(templateCatalog);
+    if (path === '/v1/preferences/telegram-preview') return reply(messagePreview);
     if (path === '/v1/telegram') return reply({ enabled: false, connected: false });
     if (path === '/v1/status')
       return reply({

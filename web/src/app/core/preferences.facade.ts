@@ -9,7 +9,7 @@ export const defaultPreferences: Preferences = {
   time_zone: null,
   locale: 'en-US',
   hour_cycle: 'auto',
-  telegram_style: 'detailed',
+  telegram_style: 'compact',
   telegram_templates: {},
   telegram_show_flight_numbers: true,
   telegram_show_times: true,

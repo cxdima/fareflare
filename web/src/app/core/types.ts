@@ -140,17 +140,51 @@ export type Preferences = {
   quiet_hours: string | null;
   diagnostics: boolean;
 };
-export type TelegramStyle = 'detailed' | 'compact' | 'classic' | 'custom';
+export type TelegramStyle = 'compact' | 'detailed' | 'custom';
 export type TelegramPreset = Exclude<TelegramStyle, 'custom'>;
+/** The "include in alerts" choices; each built-in style acts on some of them. */
+export type TelegramSwitch =
+  | 'telegram_show_flight_numbers'
+  | 'telegram_show_times'
+  | 'telegram_show_observed_time'
+  | 'telegram_show_fare';
 export type TemplateKey =
   'tracking_started' | 'new_low' | 'below_price' | 'rebound' | 'flight_group' | 'flight_row';
 export type PreviewKind = Exclude<TemplateKey, 'flight_group' | 'flight_row'> | 'flight_list';
-export type TemplatePlaceholder = { name: string; description: string; example: string };
+export type TemplatePlaceholder = {
+  name: string;
+  description: string;
+  example: string;
+  group: string;
+};
 export type TemplateCatalog = {
+  styles: {
+    value: TelegramStyle;
+    label: string;
+    description: string;
+    switches: TelegramSwitch[];
+  }[];
+  default_style: TelegramPreset;
   templates: { key: TemplateKey; label: string; optional: boolean }[];
   placeholders: Record<TemplateKey, TemplatePlaceholder[]>;
   presets: Record<TelegramPreset, Record<TemplateKey, string>>;
   limits: { characters: number; lines: number; placeholders: number };
+};
+/** Text of one style inside a message line. A link is marked, never addressed. */
+export type MessageRun = {
+  text: string;
+  bold: boolean;
+  italic: boolean;
+  code: boolean;
+  link: boolean;
+};
+export type MessagePreview = {
+  message: PreviewKind;
+  text: string;
+  lines: MessageRun[][];
+  buttons: { text: string; url: string }[];
+  silent: boolean;
+  time_zone: string;
 };
 
 export type StatusLevel = 'operational' | 'degraded' | 'major' | 'unknown';

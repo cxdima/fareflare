@@ -12,6 +12,7 @@ from fareflare.delivery import TelegramSink
 from fareflare.domain import AlertPolicy, evaluate
 from fareflare.link_resolver import GoogleLinkResolver
 from fareflare.links import InvalidLink, import_link
+from fareflare.preferences import Preferences
 from fareflare.service import Reading
 from fareflare.store import Document
 from fareflare.worker import Worker
@@ -201,7 +202,7 @@ def test_telegram_uses_server_destination_and_handles_failure():
     }
     assert sink.send(delivery)
     assert seen[0]["chat_id"] == "111"
-    assert "JPY 48,706" in seen[0]["text"]
+    assert "<b>¥48,706</b>" in seen[0]["text"] and "JPY" not in seen[0]["text"]
     assert seen[0]["parse_mode"] == "HTML"
     assert not sink.send({**delivery, "tenant": "bob"})
     failure = TelegramSink(
@@ -349,11 +350,20 @@ def test_telegram_alert_shows_the_flight_party_and_human_readable_time(service, 
         messages.append(json.loads(request.content)["text"])
         return httpx.Response(200, json={"ok": True})
 
-    sink = TelegramSink("123:" + "a" * 25, {"alice": "111"}, httpx.MockTransport(route))
+    sink = TelegramSink(
+        "123:" + "a" * 25,
+        {"alice": "111"},
+        httpx.MockTransport(route),
+        preferences=Preferences(telegram_style="detailed"),
+        clock=lambda: clock[0],
+    )
     assert service.deliver_due(sink) == 1
-    assert "<b>DEN → DFW</b> · 03/14/2027 · UA 414" in messages[0]
-    assert "Total for 1 adult" in messages[0]
-    assert "11/02/2026" in messages[0] and "UTC" in messages[0]
+    assert messages[0].split("\n") == [
+        "✈️ <b>Now tracking</b> · <b>$309</b>",
+        "DEN → DFW · Mar 14 · UA 414",
+        "United · Economy · Total for 1 adult",
+        "<i>Checked 11/02/2026 9:00 PM UTC</i>",
+    ]
 
 
 @pytest.mark.parametrize("shadow", [False, True])

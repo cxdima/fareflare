@@ -421,18 +421,31 @@ def create_app(
             service.preferences(tenant), body.model_dump(exclude_unset=True)
         )
         preview = preview_message(message, preferences, public_url, int(service.clock()))
-        buttons = [
-            {"text": button["text"], "url": button["url"]}
-            for row in (preview.reply_markup or {}).get("inline_keyboard", [])
-            for button in row
-            if "url" in button
-        ]
-        heading = "Example flight list" if message == "flight_list" else "Example alert"
+        sample = preview.message
         return {
             "message": message,
-            "text": f"{heading} — sample data\n\n" + preview.text,
-            "buttons": buttons,
-            # Whether a message sent at this moment would arrive without sound.
+            # The message as Telegram shows it: plain text, and the same lines with their
+            # emphasis so an editor can draw it without parsing markup.
+            "text": sample.text,
+            "lines": [
+                [
+                    {
+                        "text": run.text,
+                        "bold": run.bold,
+                        "italic": run.italic,
+                        "code": run.code,
+                        "link": run.href is not None,
+                    }
+                    for run in line
+                ]
+                for line in preview.lines
+            ],
+            "buttons": [
+                {"text": button["text"], "url": button["url"]}
+                for row in (sample.reply_markup or {}).get("inline_keyboard", [])
+                for button in row
+                if "url" in button
+            ],
             "silent": sends_silently(preferences, service.clock()),
             "time_zone": preferences.time_zone or "UTC",
         }

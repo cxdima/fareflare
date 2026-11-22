@@ -9,7 +9,7 @@ import pytest
 
 from fareflare.delivery import TelegramSink
 from fareflare.links import import_link
-from fareflare.preferences import Preferences, telegram_text
+from fareflare.preferences import Preferences
 from fareflare.telegram_messages import (
     TelegramMessage,
     alert_message,
@@ -55,12 +55,12 @@ def test_alert_has_price_route_hierarchy_exact_plain_preview_and_validated_butto
     event = delivery(flight_url)
     message = alert_message(event, Preferences(), "https://fareflare.example")
     payload = message.payload()
-    assert message.text.startswith("USD 191.00\nNew observed low\n\nDEN → DFW")
-    assert payload["text"].startswith("<b>USD 191.00</b>\nNew observed low\n\n<b>DEN → DFW</b>")
-    assert (
-        ParsedMessage(payload["text"]).text == message.text == telegram_text(event, Preferences())
+    assert message.text == "🔥 New low · $191 for 2 adults\nDEN → DFW · Mar 14 · UA 414"
+    assert payload["text"] == (
+        "🔥 <b>New low</b> · <b>$191</b> for 2 adults\nDEN → DFW · Mar 14 · UA 414"
     )
-    assert "Alert " not in message.text and "https://" not in message.text
+    assert ParsedMessage(payload["text"]).text == message.text
+    assert "https://" not in message.text
     assert payload["link_preview_options"] == {"is_disabled": True}
     assert payload["reply_markup"] == {
         "inline_keyboard": [
@@ -86,12 +86,13 @@ def test_provider_fare_is_literal_bounded_text_not_telegram_markup(flight_url, m
     event = delivery(flight_url)
     event["observation"]["fare_name"] = malicious
     original = deepcopy(event)
-    message = alert_message(event, Preferences())
+    message = alert_message(event, Preferences(telegram_style="detailed"))
     parsed = ParsedMessage(message.html)
     assert parsed.text == message.text
-    assert set(parsed.tags) == {"b"}
-    fare = next(line for line in message.text.splitlines() if line.startswith("Fare: "))
-    assert len(fare) <= 126 and "\x00" not in fare and "\u202e" not in fare
+    assert set(parsed.tags) == {"b", "i"}
+    line = next(line for line in message.text.splitlines() if line.startswith("United · "))
+    fare = line.removeprefix("United · ").removesuffix(" · Total for 2 adults")
+    assert fare != line and 0 < len(fare) <= 120 and "\x00" not in fare and "\u202e" not in fare
     assert event == original
 
 
@@ -162,8 +163,8 @@ def test_empty_or_oversized_messages_fail_before_transport(text):
 @pytest.mark.parametrize(
     ("currency", "minor", "expected"),
     [
-        ("USD", 123456, "USD 1.234,56"),
-        ("JPY", 48706, "JPY 48.706"),
+        ("USD", 123456, "1.234,56\xa0$"),
+        ("JPY", 48706, "48.706\xa0¥"),
     ],
 )
 def test_delivery_respects_compact_visibility_regional_format_and_silent_mode(
@@ -191,22 +192,23 @@ def test_delivery_respects_compact_visibility_regional_format_and_silent_mode(
         httpx.MockTransport(transport),
         preferences=preferences,
         public_url="https://fareflare.example",
+        clock=lambda: event["observation"]["observed_at"],
     )
     assert sink.send(event)
     payload = sent[0]
     assert payload["disable_notification"] is True and payload["chat_id"] == "123"
     plain = ParsedMessage(payload["text"]).text
-    assert plain.startswith(expected)
-    assert "14.03.2027" in plain and "Total for 2 adults" in plain
-    assert all(value not in plain for value in ("UA 414", "Fare:", "Observed", "Alert "))
+    assert plain.split("\n") == [f"🔥 New low · {expected} for 2 adults", "DEN → DFW · Mar 14"]
     assert len(payload["reply_markup"]["inline_keyboard"][0]) == 2
 
 
-def test_compact_keeps_optional_details_together_without_losing_observation_zone(flight_url):
-    prefs = Preferences(telegram_style="compact", time_zone="Asia/Kolkata", hour_cycle="h23")
+def test_detailed_keeps_optional_details_together_and_tells_time_in_the_reader_zone(flight_url):
+    prefs = Preferences(telegram_style="detailed", time_zone="Asia/Kolkata", hour_cycle="h23")
     message = alert_message(delivery(flight_url), prefs)
-    assert "Total for 2 adults · Fare: Economy" in message.text
-    assert "Asia/Kolkata (UTC+05:30)" in message.text
+    assert message.text.split("\n")[2:] == [
+        "United · Economy · Total for 2 adults",
+        "Checked 11/06/2026 13:30",
+    ]
     assert ParsedMessage(message.html).text == message.text
 
 

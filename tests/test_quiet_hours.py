@@ -124,7 +124,7 @@ def test_an_alert_inside_the_window_is_sent_without_sound(moment, silent):
     )
     assert sink.send({**sample(), "tenant": "alice"})
     # The alert itself is unchanged and is never held back.
-    assert sent[0]["disable_notification"] is silent and "USD" in sent[0]["text"]
+    assert sent[0]["disable_notification"] is silent and "$1,234.56" in sent[0]["text"]
 
 
 def test_connected_accounts_get_quiet_alerts_and_notices(connected, service, flight_url, clock):  # noqa: F811

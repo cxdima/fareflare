@@ -129,395 +129,380 @@
         <p>Pick a ready-made style, or write each message your own way.</p>
       </div>
     </div>
-    <form class="form-stack" (submit)="saveTelegram($event)">
-      <div class="telegram-layout">
-        <div class="telegram-settings">
+    @if (catalog(); as available) {
+      <form class="form-stack" (submit)="saveTelegram($event)">
+        <div class="telegram-layout">
           <div class="style-field">
-            <label for="telegram-style" class="form-label">Message style</label
-            ><select
-              id="telegram-style"
-              class="form-select"
-              [formField]="telegram.telegram_style"
-              aria-describedby="telegram-style-help"
-              (change)="styleChanged()"
-            >
-              <option value="detailed">Detailed itinerary</option>
-              <option value="compact">Compact, price first</option>
-              <option value="classic">Classic with emoji</option>
-              <option value="custom">Custom — write your own</option>
-            </select>
-            <p id="telegram-style-help" class="form-text">
-              Classic shows how much the price changed, for example “New low! $246 (was $254)”.
-            </p>
-          </div>
-          <fieldset class="toggle-group">
-            <legend>Include in alerts</legend>
-            @if (custom()) {
-              <p class="toggle-note">
-                A custom message shows exactly what its template says, so these choices do not
-                apply.
-              </p>
-            }
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="show-flight-numbers" class="toggle-label">Flight numbers</label>
-              </div>
-              <input
-                id="show-flight-numbers"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_show_flight_numbers"
-                (change)="telegramChanged()"
-              />
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="show-times" class="toggle-label">Departure and arrival times</label>
-              </div>
-              <input
-                id="show-times"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_show_times"
-                (change)="telegramChanged()"
-              />
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="show-observed-time" class="toggle-label"
-                  >Time the price was checked</label
-                >
-              </div>
-              <input
-                id="show-observed-time"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_show_observed_time"
-                (change)="telegramChanged()"
-              />
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="show-fare" class="toggle-label">Fare name</label>
-              </div>
-              <input
-                id="show-fare"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_show_fare"
-                (change)="telegramChanged()"
-              />
-            </div>
-          </fieldset>
-          <fieldset class="toggle-group">
-            <legend>How alerts arrive</legend>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="show-buttons" class="toggle-label">Buttons under alerts</label>
-                <p class="form-text" id="show-buttons-help">
-                  Quick links to the flight and to your Fareflare dashboard.
-                </p>
-              </div>
-              <input
-                id="show-buttons"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_show_buttons"
-                aria-describedby="show-buttons-help"
-                (change)="telegramChanged()"
-              />
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="silent-telegram" class="toggle-label">Send silently</label>
-                <p class="form-text" id="silent-telegram-help">
-                  Telegram receives the alert immediately without a notification sound.
-                </p>
-              </div>
-              <input
-                id="silent-telegram"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.telegram_silent"
-                aria-describedby="silent-telegram-help"
-                (change)="telegramChanged()"
-              />
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-copy">
-                <label for="quiet-hours" class="toggle-label">Quiet hours</label>
-                <p class="form-text" id="quiet-hours-help">
-                  During these hours alerts still arrive at once, but without a sound. Times use
-                  your time zone.
-                </p>
-              </div>
-              <input
-                id="quiet-hours"
-                class="form-check-input switch"
-                type="checkbox"
-                role="switch"
-                [formField]="telegram.quiet_enabled"
-                aria-describedby="quiet-hours-help"
-                (change)="telegramChanged()"
-              />
-            </div>
+            <span id="telegram-style-label" class="form-label">Message style</span>
             <div
-              class="drawer"
-              [class.drawer-open]="telegramModel().quiet_enabled"
-              [attr.inert]="telegramModel().quiet_enabled ? null : ''"
+              class="style-control"
+              role="group"
+              aria-labelledby="telegram-style-label"
+              aria-describedby="telegram-style-help"
             >
-              <div class="drawer-body">
-                <div class="quiet-box">
-                  <div class="quiet-window">
-                    <div>
-                      <label for="quiet-start" class="form-label">From</label
-                      ><input
-                        id="quiet-start"
-                        class="form-control"
-                        type="time"
-                        [formField]="telegram.quiet_start"
-                        (change)="telegramChanged()"
-                      />
-                    </div>
-                    <span class="quiet-arrow" aria-hidden="true"
-                      ><i class="bi bi-arrow-right"></i
-                    ></span>
-                    <div>
-                      <label for="quiet-end" class="form-label">Until</label
-                      ><input
-                        id="quiet-end"
-                        class="form-control"
-                        type="time"
-                        [formField]="telegram.quiet_end"
-                        aria-describedby="quiet-hours-error"
-                        (change)="telegramChanged()"
-                      />
-                    </div>
-                  </div>
-                  <p id="quiet-hours-error" class="field-error">
-                    {{ telegram.quiet_end().errors()[0]?.message }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </fieldset>
-        </div>
-        <aside class="telegram-preview" aria-labelledby="telegram-preview-title">
-          <div class="preview-heading">
-            <h3 id="telegram-preview-title">Message preview</h3>
-            <span>Sample · nothing is sent</span>
-          </div>
-          <div class="preview-choice">
-            <label for="preview-kind" class="form-label">Show an example of</label
-            ><select
-              id="preview-kind"
-              class="form-select"
-              [value]="previewKind()"
-              [disabled]="store.saving()"
-              (change)="choosePreview($any($event.target).value)"
-            >
-              @for (kind of previewKinds; track kind.value) {
-                <option [value]="kind.value" [selected]="kind.value === previewKind()">
-                  {{ kind.label }}
-                </option>
+              @for (style of available.styles; track style.value) {
+                <button
+                  type="button"
+                  class="btn style-button"
+                  [attr.aria-pressed]="telegramModel().telegram_style === style.value"
+                  [disabled]="store.saving()"
+                  (click)="chooseStyle(style.value)"
+                >
+                  {{ style.label }}
+                </button>
               }
-            </select>
-          </div>
-          <div class="chat">
-            <div class="chat-head">
-              <img src="/assets/fareflare-mark.png?v=3" width="36" height="36" alt="" />
-              <p><strong>Fareflare</strong><span>bot</span></p>
             </div>
-            <div class="chat-body" [attr.aria-busy]="previewAction.busy()">
-              @if (preview(); as sample) {
-                <div class="bubble">
-                  <pre>{{ sample.text }}</pre>
-                  <span class="bubble-meta">
-                    @if (sample.silent) {
-                      <i class="bi bi-bell-slash" aria-hidden="true"></i>
-                    }
-                    {{ sample.silent ? 'Silent' : 'With sound' }}</span
-                  >
-                </div>
-                @if (sample.buttons?.length) {
-                  <div class="preview-actions" role="group" aria-label="Example Telegram buttons">
-                    @for (button of sample.buttons; track button.text) {
-                      <span class="preview-action"
-                        ><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i
-                        >{{ button.text }}</span
-                      >
-                    }
+            <p id="telegram-style-help" class="form-text">{{ activeStyle()?.description }}</p>
+          </div>
+          <aside class="telegram-preview" aria-labelledby="telegram-preview-title">
+            <div class="preview-heading">
+              <h3 id="telegram-preview-title">Preview</h3>
+              <span>Sample data · nothing is sent</span>
+            </div>
+            <div class="preview-choice">
+              <label for="preview-kind" class="form-label">Show an example of</label
+              ><select
+                id="preview-kind"
+                class="form-select"
+                [value]="previewKind()"
+                [disabled]="store.saving()"
+                (change)="choosePreview($any($event.target).value)"
+              >
+                @for (kind of previewKinds; track kind.value) {
+                  <option [value]="kind.value" [selected]="kind.value === previewKind()">
+                    {{ kind.label }}
+                  </option>
+                }
+              </select>
+            </div>
+            <div class="chat">
+              <div class="chat-head">
+                <img src="/assets/fareflare-mark.png?v=3" width="36" height="36" alt="" />
+                <p><strong>Fareflare</strong><span>bot</span></p>
+              </div>
+              <div class="chat-body" [attr.aria-busy]="previewBusy()">
+                @if (preview(); as sample) {
+                  <div class="bubble">
+                    <p class="bubble-text">
+                      @for (line of sample.lines; track $index) {
+                        <span class="bubble-line">
+                          @for (run of line; track $index) {
+                            <span
+                              class="run"
+                              [class.run-bold]="run.bold"
+                              [class.run-italic]="run.italic"
+                              [class.run-code]="run.code"
+                              [class.run-link]="run.link"
+                              >{{ run.text }}</span
+                            >
+                          }
+                        </span>
+                      }
+                    </p>
+                    <span class="bubble-meta">
+                      @if (sample.silent) {
+                        <i class="bi bi-bell-slash" aria-hidden="true"></i>
+                      }
+                      {{ sample.silent ? 'Silent' : 'With sound' }}</span
+                    >
+                  </div>
+                  @if (sample.buttons.length) {
+                    <div class="preview-actions" role="group" aria-label="Example Telegram buttons">
+                      @for (button of sample.buttons; track button.text) {
+                        <span class="preview-action"
+                          ><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i
+                          >{{ button.text }}</span
+                        >
+                      }
+                    </div>
+                  }
+                } @else {
+                  <div class="bubble bubble-empty" aria-hidden="true">
+                    <span></span><span></span><span></span>
                   </div>
                 }
-              } @else {
-                <div class="bubble bubble-empty" aria-hidden="true">
-                  <span></span><span></span><span></span>
-                </div>
-                <p class="preview-placeholder">
-                  Preview an example with your selected details. Nothing will be sent to Telegram.
-                </p>
-              }
-            </div>
-          </div>
-          @if (previewAction.error()) {
-            <p class="field-error" role="alert">{{ previewAction.error() }}</p>
-          }
-          <div class="preview-foot">
-            <button
-              type="button"
-              class="btn btn-primary"
-              [disabled]="previewAction.busy() || store.saving()"
-              (click)="updatePreview()"
-            >
-              <i class="bi bi-eye" aria-hidden="true"></i
-              >{{ previewAction.busy() ? 'Loading preview…' : 'Preview message' }}
-            </button>
-            <p class="settings-note">
-              @if (preview(); as sample) {
-                {{ sample.silent ? 'Silent delivery' : 'Standard notification' }}. Time zone:
-                {{ sample.time_zone }}.
-              } @else {
-                Uses your saved display settings ({{ savedZone() }}).
-              }
-            </p>
-          </div>
-        </aside>
-      </div>
-      @if (custom()) {
-        <fieldset class="template-editor">
-          <legend>Your own wording</legend>
-          @if (catalog(); as available) {
-            <p class="settings-note">
-              Words in <code>{{ '{braces}' }}</code> are replaced with flight details. Put a part in
-              <code>[square brackets]</code> to hide it whenever a detail inside it is missing.
-            </p>
-            <div class="template-toolbar">
-              <div>
-                <label for="template-key" class="form-label">Message to edit</label
-                ><select
-                  id="template-key"
-                  class="form-select"
-                  [disabled]="store.saving()"
-                  (change)="editTemplate($any($event.target).value)"
-                >
-                  @for (item of available.templates; track item.key) {
-                    <option [value]="item.key" [selected]="item.key === activeTemplate()">
-                      {{ item.label }}
-                    </option>
-                  }
-                </select>
-              </div>
-              <div>
-                <label for="template-preset" class="form-label">Start from a style</label>
-                <div class="template-preset">
-                  <select
-                    #preset
-                    id="template-preset"
-                    class="form-select"
-                    [disabled]="store.saving()"
-                  >
-                    @for (item of presets; track item.value) {
-                      <option [value]="item.value">{{ item.label }}</option>
-                    }
-                  </select>
-                  <button
-                    type="button"
-                    class="btn btn-outline-primary"
-                    [disabled]="store.saving()"
-                    (click)="startFrom(preset.value)"
-                  >
-                    Copy wording
-                  </button>
-                </div>
               </div>
             </div>
-            @for (item of available.templates; track item.key) {
-              <div class="template-field" [hidden]="item.key !== activeTemplate()">
-                <label [for]="'template-' + item.key" class="form-label"
-                  >{{ item.label }} message</label
-                >
-                <textarea
-                  #area
-                  [id]="'template-' + item.key"
-                  class="form-control template-input"
-                  rows="8"
-                  spellcheck="false"
-                  [attr.aria-describedby]="'template-help-' + item.key"
-                  [formField]="templates[item.key]"
-                  (input)="telegramChanged()"
-                ></textarea>
-                <p [id]="'template-help-' + item.key" class="form-text">
-                  {{ activeLength() }} of {{ available.limits.characters }} characters.
-                  @if (item.optional) {
-                    Leave this empty for a list without headings.
-                  }
-                </p>
-                <div
-                  class="placeholder-list"
-                  role="group"
-                  [attr.aria-label]="'Details you can add to the ' + item.label + ' message'"
-                >
-                  @for (placeholder of available.placeholders[item.key]; track placeholder.name) {
-                    <button
-                      type="button"
-                      class="placeholder-chip"
-                      [disabled]="store.saving()"
-                      [title]="placeholder.description + ' — for example ' + placeholder.example"
-                      (click)="insert(item.key, placeholder.name, area)"
-                    >
-                      {{ '{' + placeholder.name + '}' }}
-                    </button>
-                  }
-                </div>
-              </div>
+            @if (previewError()) {
+              <p class="field-error" role="alert">{{ previewError() }}</p>
             }
-            <details class="format-details">
-              <summary>Formatting help</summary>
-              <ul class="template-help">
-                <li><code>**bold**</code>, <code>__italic__</code> and <code>`monospace`</code></li>
-                <li>
-                  <code>[Fare: {{ '{fare}' }}]</code> appears only when the fare name is known.
-                </li>
-                <li>A line with nothing left to show is removed automatically.</li>
-                <li>
-                  Put a backslash before a bracket, brace or asterisk to show it as written:
-                  <code>\[</code>.
-                </li>
-              </ul>
-            </details>
-          } @else if (catalogAction.error()) {
-            <p class="field-error" role="alert">{{ catalogAction.error() }}</p>
-          } @else {
-            <p class="settings-note" role="status">Loading the message editor…</p>
-          }
-        </fieldset>
-      }
-      @if (telegramAction.error()) {
-        <div class="alert alert-danger" role="alert">{{ telegramAction.error() }}</div>
-      }
-      <div class="telegram-footer">
-        <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
-          {{ telegramAction.busy() ? 'Saving…' : 'Save Telegram settings' }}
-        </button>
-        @if (telegramSaved()) {
-          <p class="settings-success" role="status">
-            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>Telegram message settings
-            saved.
-          </p>
-        } @else {
-          <p class="settings-note">
-            Price and route stay in every built-in style. Webhook event data stays structured and
-            unchanged.
-          </p>
+          </aside>
+          <div class="telegram-settings">
+            @if (custom()) {
+              <fieldset class="template-editor">
+                <legend>Your own wording</legend>
+                <p class="settings-note">
+                  Words in <code>{{ '{braces}' }}</code> are replaced with flight details. Put a
+                  part in <code>[square brackets]</code> to hide it whenever a detail inside it is
+                  missing.
+                </p>
+                <div class="template-toolbar">
+                  <div>
+                    <label for="template-key" class="form-label">Message to edit</label
+                    ><select
+                      id="template-key"
+                      class="form-select"
+                      [disabled]="store.saving()"
+                      (change)="editTemplate($any($event.target).value)"
+                    >
+                      @for (item of available.templates; track item.key) {
+                        <option [value]="item.key" [selected]="item.key === activeTemplate()">
+                          {{ item.label }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div>
+                    <label for="template-preset" class="form-label">Start from a style</label>
+                    <div class="template-preset">
+                      <select
+                        #preset
+                        id="template-preset"
+                        class="form-select"
+                        [disabled]="store.saving()"
+                      >
+                        @for (item of presets(); track item.value) {
+                          <option [value]="item.value">{{ item.label }}</option>
+                        }
+                      </select>
+                      <button
+                        type="button"
+                        class="btn btn-outline-primary"
+                        [disabled]="store.saving()"
+                        (click)="startFrom(preset.value)"
+                      >
+                        Copy wording
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                @for (item of available.templates; track item.key) {
+                  @if (item.key === activeTemplate()) {
+                    <div class="template-field">
+                      <label [for]="'template-' + item.key" class="form-label"
+                        >{{ item.label }} message</label
+                      >
+                      <textarea
+                        #area
+                        [id]="'template-' + item.key"
+                        class="form-control template-input"
+                        rows="6"
+                        spellcheck="false"
+                        [attr.aria-describedby]="'template-help-' + item.key"
+                        [formField]="templates[item.key]"
+                        (input)="telegramChanged()"
+                      ></textarea>
+                      <p [id]="'template-help-' + item.key" class="form-text">
+                        {{ activeLength() }} of {{ available.limits.characters }} characters.
+                        @if (item.optional) {
+                          Leave this empty for a list without headings.
+                        }
+                      </p>
+                      <div
+                        class="placeholder-groups"
+                        role="group"
+                        [attr.aria-label]="'Details you can add to the ' + item.label + ' message'"
+                      >
+                        <p class="placeholder-hint">
+                          Choose a detail to add it where the cursor is. Each one shows an example.
+                        </p>
+                        @for (group of placeholderGroups(); track group.name) {
+                          <div class="placeholder-group">
+                            <span class="placeholder-group-name">{{ group.name }}</span>
+                            <div class="placeholder-list">
+                              @for (placeholder of group.items; track placeholder.name) {
+                                <button
+                                  type="button"
+                                  class="placeholder-chip"
+                                  [disabled]="store.saving()"
+                                  [title]="placeholder.description"
+                                  (click)="insert(item.key, placeholder.name, area)"
+                                >
+                                  <code>{{ '{' + placeholder.name + '}' }}</code
+                                  >&ngsp;<span class="placeholder-example">{{
+                                    placeholder.example
+                                  }}</span>
+                                </button>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+                <details class="format-details">
+                  <summary>Formatting help</summary>
+                  <ul class="template-help">
+                    <li>
+                      <code>**bold**</code>, <code>__italic__</code> and <code>`monospace`</code>
+                    </li>
+                    <li>
+                      <code>[Fare: {{ '{fare}' }}]</code> appears only when the fare name is known.
+                    </li>
+                    <li>
+                      A separator such as <code>·</code> beside a missing detail is dropped, and a
+                      line with nothing left to show is removed.
+                    </li>
+                    <li>
+                      Put a backslash before a bracket, brace or asterisk to show it as written:
+                      <code>\[</code>.
+                    </li>
+                  </ul>
+                </details>
+              </fieldset>
+            }
+            @if (shownSwitches().length) {
+              <fieldset class="toggle-group">
+                <legend>Include in alerts</legend>
+                @for (item of shownSwitches(); track item.key) {
+                  <div class="toggle-row">
+                    <div class="toggle-copy">
+                      <label [for]="item.id" class="toggle-label">{{ item.label }}</label>
+                    </div>
+                    <input
+                      [id]="item.id"
+                      class="form-check-input switch"
+                      type="checkbox"
+                      role="switch"
+                      [formField]="telegram[item.key]"
+                      (change)="telegramChanged()"
+                    />
+                  </div>
+                }
+              </fieldset>
+            }
+            <fieldset class="toggle-group">
+              <legend>How alerts arrive</legend>
+              <div class="toggle-row">
+                <div class="toggle-copy">
+                  <label for="show-buttons" class="toggle-label">Buttons under alerts</label>
+                  <p class="form-text" id="show-buttons-help">
+                    Quick links to the flight and to your Fareflare dashboard.
+                  </p>
+                </div>
+                <input
+                  id="show-buttons"
+                  class="form-check-input switch"
+                  type="checkbox"
+                  role="switch"
+                  [formField]="telegram.telegram_show_buttons"
+                  aria-describedby="show-buttons-help"
+                  (change)="telegramChanged()"
+                />
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-copy">
+                  <label for="silent-telegram" class="toggle-label">Send silently</label>
+                  <p class="form-text" id="silent-telegram-help">
+                    Telegram receives the alert immediately without a notification sound.
+                  </p>
+                </div>
+                <input
+                  id="silent-telegram"
+                  class="form-check-input switch"
+                  type="checkbox"
+                  role="switch"
+                  [formField]="telegram.telegram_silent"
+                  aria-describedby="silent-telegram-help"
+                  (change)="telegramChanged()"
+                />
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-copy">
+                  <label for="quiet-hours" class="toggle-label">Quiet hours</label>
+                  <p class="form-text" id="quiet-hours-help">
+                    During these hours alerts still arrive at once, but without a sound. Times use
+                    your time zone.
+                  </p>
+                </div>
+                <input
+                  id="quiet-hours"
+                  class="form-check-input switch"
+                  type="checkbox"
+                  role="switch"
+                  [formField]="telegram.quiet_enabled"
+                  aria-describedby="quiet-hours-help"
+                  (change)="telegramChanged()"
+                />
+              </div>
+              <div
+                class="drawer"
+                [class.drawer-open]="telegramModel().quiet_enabled"
+                [attr.inert]="telegramModel().quiet_enabled ? null : ''"
+              >
+                <div class="drawer-body">
+                  <div class="quiet-box">
+                    <div class="quiet-window">
+                      <div>
+                        <label for="quiet-start" class="form-label">From</label
+                        ><input
+                          id="quiet-start"
+                          class="form-control"
+                          type="time"
+                          [formField]="telegram.quiet_start"
+                          (change)="telegramChanged()"
+                        />
+                      </div>
+                      <span class="quiet-arrow" aria-hidden="true"
+                        ><i class="bi bi-arrow-right"></i
+                      ></span>
+                      <div>
+                        <label for="quiet-end" class="form-label">Until</label
+                        ><input
+                          id="quiet-end"
+                          class="form-control"
+                          type="time"
+                          [formField]="telegram.quiet_end"
+                          aria-describedby="quiet-hours-error"
+                          (change)="telegramChanged()"
+                        />
+                      </div>
+                    </div>
+                    <p id="quiet-hours-error" class="field-error">
+                      {{ telegram.quiet_end().errors()[0]?.message }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+        @if (telegramAction.error()) {
+          <div class="alert alert-danger" role="alert">{{ telegramAction.error() }}</div>
         }
+        <div class="telegram-footer">
+          <button type="submit" class="btn btn-primary" [disabled]="store.saving()">
+            {{ telegramAction.busy() ? 'Saving…' : 'Save Telegram settings' }}
+          </button>
+          @if (telegramSaved()) {
+            <p class="settings-success" role="status">
+              <i class="bi bi-check-circle-fill" aria-hidden="true"></i>Telegram message settings
+              saved.
+            </p>
+          } @else {
+            <p class="settings-note">
+              The flight list in Telegram uses the same style. Webhook event data stays structured
+              and unchanged.
+            </p>
+          }
+        </div>
+      </form>
+    } @else if (catalogAction.error()) {
+      <div class="alert alert-danger" role="alert">
+        {{ catalogAction.error()
+        }}<button
+          type="button"
+          class="btn btn-link"
+          [disabled]="catalogAction.busy()"
+          (click)="loadCatalog()"
+        >
+          Retry message styles
+        </button>
       </div>
-    </form>
+    } @else {
+      <p class="settings-note" role="status">Loading message styles…</p>
+    }
   </section>
   <section
     class="panel preference-panel notification-panel"

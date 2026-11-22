@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from fareflare.api import create_app
-from fareflare.preferences import Preferences, observed_time, regional_price, telegram_text
+from fareflare.preferences import Preferences, observed_time, regional_price
 from fareflare.service import Reading
 from fareflare.store import Conflict
 from tests.test_hosted_mcp import application, tool
@@ -183,9 +183,12 @@ def test_preview_is_authenticated_uses_unsaved_values_and_has_no_side_effect(ser
         assert response.status_code == 200
         assert response.headers["cache-control"] == "no-store"
         data = response.json()
-        assert data["text"].startswith("Example alert — sample data\n\n")
-        assert "America/Chicago" in data["text"] and "UA 414" not in data["text"]
-        assert "USD 191,00" in data["text"]
+        # The saved region, with the unsaved clock style and without flight numbers.
+        assert data["text"].split("\n") == [
+            "🔥 New low · 191\xa0$ (was 199\xa0$)",
+            "DEN → DFW · Mar 14",
+            "15:50 → 18:54",
+        ]
         assert data["silent"] is True and data["time_zone"] == "America/Chicago"
         assert (
             client.put(
@@ -278,8 +281,8 @@ def test_compact_message_respects_independent_fields_and_keeps_trip_party(flight
 
     value = sample()
     value["itinerary"]["url"] = flight_url
-    detailed = telegram_text(value, Preferences())
-    compact = telegram_text(
+    detailed = alert_message(value, Preferences(telegram_style="detailed")).text
+    compact = alert_message(
         value,
         Preferences(
             telegram_style="compact",
@@ -287,13 +290,15 @@ def test_compact_message_respects_independent_fields_and_keeps_trip_party(flight
             telegram_show_fare=False,
             telegram_show_observed_time=False,
         ),
-    )
-    assert "UA 414" in detailed and "Fare: <b>Economy" in detailed
-    assert "03/14/2027" in compact  # Airport-local calendar date, never zone shifted.
-    assert "Total for 2 adults" in compact
-    assert all(text not in compact for text in ("UA 414", "Fare:", "Observed", "Alert "))
+    ).text
+    assert "UA 414" in detailed and 'United · <b>Economy & "basic"</b> · Total for 2' in detailed
+    assert compact.split("\n") == [
+        # A price for a party says so; the day is the airport's own, never zone shifted.
+        "🔥 New low · $1,234.56 for 2 adults",
+        "DEN → DFW · Mar 14",
+    ]
     assert len(compact.splitlines()) < len(detailed.splitlines())
-    assert "https://" not in compact
+    assert "https://" not in compact and "USD" not in compact + detailed
     assert (
         alert_message(value, Preferences())
         .reply_markup["inline_keyboard"][0][0]["url"]
@@ -323,10 +328,14 @@ def test_telegram_send_escapes_provider_text_and_honors_silent_transport_flag():
         "123:" + "x" * 25,
         {"alice": "123"},
         httpx.MockTransport(transport),
-        preferences=Preferences(time_zone="America/Chicago", telegram_silent=True),
+        preferences=Preferences(
+            telegram_style="detailed", time_zone="America/Chicago", telegram_silent=True
+        ),
+        clock=lambda: instant("2026-11-01T06:30:00"),
     )
     assert sink.send({**sample(), "tenant": "alice"})
     assert sent[0]["disable_notification"] is True
     assert sent[0]["parse_mode"] == "HTML"
     assert "&lt;b&gt;Economy &amp; &quot;basic&quot;&lt;/b&gt;" in sent[0]["text"]
-    assert "America/Chicago" in sent[0]["text"]
+    # In the reader's own zone, which therefore needs no label.
+    assert "<i>Checked 11/01/2026 1:30 AM</i>" in sent[0]["text"]
