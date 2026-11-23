@@ -103,9 +103,9 @@
       </details>
     </section>
     <p class="status-note">
-      A price check that cannot finish is retried within a couple of minutes, so a few failed checks
-      an hour are normal. Trouble is reported when checks stop running or most of them fail. Times
-      are shown in your device’s time zone.
+      A price check that cannot finish is tried again 15 minutes later, so a few failed checks an
+      hour are normal. Trouble is reported when checks stop running or most of them fail. Times are
+      shown in your device’s time zone.
     </p>
   } @else if (failed()) {
     <section class="status-banner" data-status="major" role="alert">

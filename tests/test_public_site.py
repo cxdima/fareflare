@@ -4,10 +4,12 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from html import unescape
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from fareflare.contracts import CHECK_INTERVAL_SECONDS, RETRY_SECONDS
 from fareflare.portal import create_portal
 from fareflare.product_config import ProductConfig
 from fareflare.service import MonitoringService
@@ -216,6 +218,23 @@ def test_artwork_and_fonts_carry_their_type_without_a_system_type_table(public_s
         response = client.get(path)
         assert response.status_code == 200
         assert response.headers["content-type"] == kind
+
+
+def test_pages_written_by_hand_state_the_schedule_the_service_keeps():
+    # These pages are plain text in the web app, so nothing but this test ties their
+    # numbers to the schedule the collector follows.
+    interval, retry = CHECK_INTERVAL_SECONDS // 60, RETRY_SECONDS // 60
+    pages = Path(__file__).parents[1] / "web/src/app/public"
+
+    def text(name):
+        return " ".join((pages / name).read_text().split())
+
+    assert text("landing.component.html").count(f"Checks start at {interval}-minute") == 2
+    assert f"Checks start at {interval}-minute intervals." in text("rule-demo.component.html")
+    assert f"is tried again {retry} minutes later" in text("status.component.html")
+    guides = json.dumps(content_document(ProductConfig.from_env({})))
+    assert f"minimum requested interval of {interval} minutes" in guides
+    assert guides.count(f"tried again {retry} minutes later") == 4 and "backoff" not in guides
 
 
 def test_content_tracks_config_and_never_executes_brand_text():

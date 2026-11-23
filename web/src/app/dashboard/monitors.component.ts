@@ -218,9 +218,9 @@ export class MonitorsComponent {
     });
   }
   /**
-   * Whether failed checks are worth a note. One failed check is retried within a
-   * couple of minutes and usually succeeds, so it is not; a run of them is, and so
-   * is a stop. A service that does not count failures keeps the note.
+   * Whether failed checks are worth a note. One failed check is tried again a
+   * quarter of an hour later and usually succeeds, so it is not; a run of them is,
+   * and so is a stop. A service that does not count failures keeps the note.
    */
   failing(item: Monitor): boolean {
     return (

@@ -145,8 +145,8 @@ class CollectionFailure(ValueError):
     # Google turned the anonymous browser away: its robot check, its error page (the
     # booking options answered with an internal error while a normal browser gets
     # fares), a consent page or a sign-in page. Nobody can clear these for the worker's
-    # browser and they pass by themselves, so they are retried like any failure, only
-    # after a longer wait.
+    # browser and they pass by themselves, so they are retried like any failure. The
+    # run that meets one checks nothing else: asking again at once gets the same answer.
     REFUSED = frozenset({"challenge", "provider_error", "consent_required", "login_required"})
     CODES = (
         BLOCKING
