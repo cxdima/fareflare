@@ -4,7 +4,7 @@ Notable changes to Fareflare. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2.1.0 — unreleased
+## 2.1.0 — 2026-11-23
 
 ### Added
 
@@ -306,6 +306,14 @@ Notable changes to Fareflare. The format follows
   TypeScript to 6.0.3 and Selenium to 4.52, and refreshed both container base
   images. The Selenium and base-image updates were checked with a real price read
   inside the rebuilt worker image.
+- Updated the Lambda runtime client (awslambdaric) from 2.0.12 to 4.2.3, boto3 to
+  1.43.127, FastAPI to 0.162.2 and Hypothesis to 6.170.15. The runtime client starts
+  both functions, so both rebuilt images were invoked through the Lambda emulator:
+  the API's full check, and the worker's start, a successful invocation and a
+  refused event.
+- **Image repositories keep their newest 10 images** (`images_kept`) and delete
+  older ones; they used to keep every release for ever. Ten releases remain to roll
+  back to.
 - One version number is published by the Python package, the API and the dashboard.
 - Paths that carried an earlier codename were renamed. Update local scripts:
 

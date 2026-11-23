@@ -50,6 +50,11 @@ resource "aws_ecr_repository" "api" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "api" {
+  repository = aws_ecr_repository.api.name
+  policy     = local.image_retention
+}
+
 resource "aws_apigatewayv2_api" "public" {
   name          = "${var.name}-api"
   protocol_type = "HTTP"

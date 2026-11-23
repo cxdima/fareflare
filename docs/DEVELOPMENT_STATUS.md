@@ -7,18 +7,37 @@ workspace. See [workspace design verification](UI_REFINEMENT_VERIFICATION.md) fo
 visual review and release evidence, and [Telegram verification](TELEGRAM_VERIFICATION.md)
 for the preceding bot release. Actual Telegram receipt has not been verified.
 
+## Hosted release 2.1.0
+
+Version 2.1.0 is what runs at https://fareflare.dev as of 2026-11-23; the
+[changelog](../CHANGELOG.md) lists what it contains. A flight is checked every 10
+minutes unless a longer interval is chosen, and a check that fails is tried again
+15 minutes later. Both are kept to the worker run: the worker runs once a minute,
+a 10-minute flight is checked by every tenth run. The hosted limits are 100
+monitors per account and 100 shared itineraries, of which about 40 stay on time at
+10-minute intervals. Verification for this release: 1568 backend tests at 94%
+coverage, 138 browser tests, and 60 checks against the live site.
+
+Price checks depend on Google serving a flight page to an anonymous automated
+browser, and it does not always: about one check in ten fails on an ordinary day,
+and there are spells in which most do. Such checks are retried and never stop a
+flight, but prices are older while a spell lasts. The
+[status page](https://fareflare.dev/status) shows the current share.
+
 ## Public domain release
 
-The service is now https://fareflare.dev with public signup and 100 monitors per
+The service moved to https://fareflare.dev with public signup and 100 monitors per
 account. Terraform manages Route 53, ACM and the Regional custom domain. The
 Python package and environment keys use `fareflare`/`FAREFLARE_`. Signup-specific
 and account-route rate limits supplement existing gateway and API protections.
 [Public launch verification](PUBLIC_LAUNCH.md) records migration, security limits,
 949 backend tests, 78 frontend tests and 45 live checks. Existing deployment IDs
-and stored account data are preserved. Shared collection remains capped at 20
-unique targets independently of the per-account monitor limit.
+and stored account data were preserved. Shared collection was capped at 20 unique
+targets at the time; it is 100 now.
 
-## Current development revision
+## Earlier development revision
+
+The sections below record earlier releases as they were verified then.
 
 - **Telegram bot — deployed:** native private-chat
   controls for adding Google Flights links with confirmation, paginated flights

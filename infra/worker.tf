@@ -71,6 +71,36 @@ resource "aws_ecr_repository" "worker" {
   }
 }
 
+variable "images_kept" {
+  description = "Images kept in each repository, newest first; older ones are deleted. Every release pushes an image under a tag that is never reused, so the repositories otherwise grow without end. A release deploys the image it has just pushed, so the running image is always among those kept, and the others are what a rollback can return to."
+  type        = number
+  default     = 10
+  validation {
+    condition     = var.images_kept >= 3 && var.images_kept <= 100 && floor(var.images_kept) == var.images_kept
+    error_message = "Keep between 3 and 100 images."
+  }
+}
+
+locals {
+  image_retention = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep the newest images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = var.images_kept
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
+resource "aws_ecr_lifecycle_policy" "worker" {
+  repository = aws_ecr_repository.worker.name
+  policy     = local.image_retention
+}
+
 resource "aws_iam_role" "worker" {
   count = var.image_uri == "" ? 0 : 1
   name  = "${var.name}-worker"

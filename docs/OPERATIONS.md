@@ -64,6 +64,13 @@ Docker to that registry, push both images, and retrieve their ECR image digests.
 Set `api_image_uri` and `image_uri` to `REPOSITORY@sha256:DIGEST`. Record the source
 revision, browser base, new digests, and previous digests privately.
 
+Each repository keeps its newest 10 images (`images_kept`) and deletes older ones
+within a day, so a rollback can return to any of the last ten releases. Images
+share almost all their layers: what a repository stores is far less than the sum of
+its image sizes. Lambda needs the image it runs to stay in the repository, and it
+does, because a release deploys the image it has just pushed. If you push images
+without deploying them, do not push more than `images_kept` in a row.
+
 With the CDN on, upload the website's files to S3 before the new API image goes live,
 so every script a new page names is already there (see [CDN](#cdn-cloudfront)):
 
