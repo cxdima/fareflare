@@ -225,6 +225,16 @@ itineraries on 10-minute intervals stay on time; past that every itinerary is
 checked less often than asked. Admin → Overview shows how much of the shared limit
 is used.
 
+A flight keeps its interval to the run. Every time a run sets (a flight's next
+check, the retry of a failed check, the retry of a check whose worker stopped) is
+counted from the start of that run, and a scheduled run takes every flight due
+within half the time until the next run, so each check goes to the run nearest its
+time. On the one-minute schedule a 10-minute flight is checked by every tenth run
+and a failed check is tried again by the fifteenth run after it. The schedule
+tells the worker its period in the event it sends (`period_seconds`, from
+`worker_schedule_minutes`); a run started by hand has none and takes only what is
+already due. A flight cannot be checked more often than the worker runs.
+
 Accounts sign up with an email address and a password, and can add passkeys and
 two-step sign-in. A taken address is reported at sign-up, so anyone can learn
 whether an address has an account. A password reset goes only to a confirmed

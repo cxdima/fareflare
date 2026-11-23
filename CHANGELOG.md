@@ -326,6 +326,17 @@ Notable changes to Fareflare. The format follows
 
 ### Fixed
 
+- **A flight is checked at its interval, not a minute later.** Every check ran one
+  worker run after its time: a 15-minute flight was checked every 16 minutes on the
+  hosted one-minute schedule, and a retry came a minute late too. The next check was
+  counted from the moment a price was recorded, a few seconds into a run, so it
+  always just missed the run it was meant for and waited for the following one.
+  Times are now counted from the start of the run, and a scheduled run takes every
+  flight due within half the time until the next run. A 10-minute flight is checked
+  by every tenth run, and a failed check is tried again by the fifteenth run after
+  it, whatever a check takes and however the runs' start times wander. The schedule
+  tells the worker how often it runs (`period_seconds` in its event); the local
+  `worker` commands take `--period` for the same purpose.
 - **The website answered "Too Many Requests" and left out artwork.** Every file was a
   Lambda invocation behind API Gateway's account-wide throttle; one visit to the
   landing page made about 190 requests, and dozens came back 429 or 503 (the phone in
@@ -466,6 +477,10 @@ From a full review of how someone could hurt an account holder or the operator:
   next check.
 - Clients that compared `collection_status` with `"backoff"` must compare it with
   `"retrying"`.
+- Apply Terraform with this release: it adds `period_seconds` to the schedule's
+  event. A worker that is not told its period still checks every flight one run
+  late. A `worker` command run from cron needs `--period` with the seconds between
+  runs.
 
 ## 2.0.0
 

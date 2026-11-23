@@ -267,6 +267,10 @@ another terminal, and schedule it for continuous monitoring:
 PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
 ```
 
+When you schedule it, add the seconds between runs, for example `--period 300` from
+a five-minute cron job. Flights then keep their interval instead of running one
+pass late.
+
 `make demo` replays synthetic prices through the real pipeline without any network.
 Run `make help` for every command.
 

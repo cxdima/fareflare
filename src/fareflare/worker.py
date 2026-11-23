@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
@@ -9,6 +10,20 @@ from typing import cast
 
 from fareflare.contracts import DeliverySink, PriceProvider
 from fareflare.service import MonitoringService
+
+
+def add_period_option(parser: argparse.ArgumentParser) -> None:
+    """The option of a worker command that says how often the command is scheduled."""
+    parser.add_argument(
+        "--period",
+        type=int,
+        default=0,
+        metavar="SECONDS",
+        help=(
+            "Seconds between runs when this command is scheduled, so each check goes to "
+            "the run nearest its time; leave it out for a run made by hand"
+        ),
+    )
 
 
 class Worker:
@@ -21,8 +36,17 @@ class Worker:
     ):
         self.service, self.provider, self.sink, self.monotonic = service, provider, sink, monotonic
 
-    def tick(self, max_targets: int = 1, budget_seconds: int = 150) -> dict:
-        if not 1 <= max_targets <= 20 or not 1 <= budget_seconds <= 900:
+    def tick(
+        self, max_targets: int = 1, budget_seconds: int = 150, period_seconds: int = 0
+    ) -> dict:
+        """One bounded run.
+
+        ``period_seconds`` is the time between runs when they are scheduled, and 0 for
+        a run made by hand: it lets each check go to the run nearest its time.
+        """
+        if not (
+            1 <= max_targets <= 20 and 1 <= budget_seconds <= 900 and 0 <= period_seconds <= 3600
+        ):
             raise ValueError("Invalid worker budget")
         started = self.monotonic()
         counts = {
@@ -54,6 +78,7 @@ class Worker:
             batch = self.service.collect_batch(
                 provider,
                 limit=max_targets,
+                early_seconds=period_seconds // 2,
                 should_continue=lambda: self.monotonic() - started <= budget_seconds - 120,
             )
             event_ids.extend(batch.event_ids)

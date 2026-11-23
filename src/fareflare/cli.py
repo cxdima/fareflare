@@ -14,6 +14,7 @@ from pathlib import Path
 from fareflare.links import import_link
 from fareflare.service import MonitoringService, Reading
 from fareflare.store import SQLiteStore
+from fareflare.worker import add_period_option
 
 
 def load_local_config(path: Path) -> dict:
@@ -76,6 +77,7 @@ def main(argv: list[str] | None = None) -> None:
         "worker", help="Run a bounded worker tick; notifications suppressed by default"
     )
     worker.add_argument("--limit", type=int, default=1, choices=range(1, 21))
+    add_period_option(worker)
     worker.add_argument(
         "--deliver-webhooks",
         action="store_true",
@@ -182,7 +184,7 @@ def main(argv: list[str] | None = None) -> None:
             service,
             PublicGoogleFlightsProvider(args.chrome_binary, args.chromedriver),
             sink,
-        ).tick(max_targets=args.limit)
+        ).tick(max_targets=args.limit, period_seconds=args.period)
         # The status page reads the same record a scheduled worker writes.
         record_run(service.store, int(time.time()), result)
         print(json.dumps(result))

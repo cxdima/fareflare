@@ -50,7 +50,9 @@ PYTHONPATH=src .venv/bin/python -m fareflare.product_cli worker --limit 5
 ```
 
 Use `--chrome-binary` and `--chromedriver` for explicit executable paths. Run the
-worker periodically; each invocation collects only due monitors. Local delivery
+worker periodically; each invocation collects only due monitors. Tell a scheduled
+worker how often it runs with `--period` (seconds between runs), so each check goes
+to the run nearest its time and flights keep their interval. Local delivery
 supports the dashboard inbox and verified HTTPS webhooks. `make demo` and `make webhook-demo` exercise
 the durable pipeline using clearly labeled synthetic prices without external calls.
 

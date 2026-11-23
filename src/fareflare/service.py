@@ -372,8 +372,19 @@ class MonitoringService:
             active.append(monitor)
         return active
 
-    def record(self, reading: Reading, run_id: str, lease_token: str | None = None) -> bool:
-        """Commit a checked observation and pending event atomically; no delivery I/O."""
+    def record(
+        self,
+        reading: Reading,
+        run_id: str,
+        lease_token: str | None = None,
+        *,
+        started: int | None = None,
+    ) -> bool:
+        """Commit a checked observation and pending event atomically; no delivery I/O.
+
+        ``started`` is when the run that made this check began: the next check is
+        counted from it. A reading recorded outside a run counts from now.
+        """
         if (
             type(reading.amount_minor) is not int
             or not 0 < reading.amount_minor <= 100_000_000
@@ -441,9 +452,10 @@ class MonitoringService:
             if data.pop("failure_noticed", False)
             else []
         )
+        counted_from = self._now() if started is None else started
         self.store.commit(
             [
-                target.update(data, due=self._now() + data["interval_seconds"]),
+                target.update(data, due=counted_from + data["interval_seconds"]),
                 Document(
                     "observation:" + event_id,
                     "history:" + reading.target_id,
@@ -629,8 +641,24 @@ class MonitoringService:
         provider: PriceProvider,
         limit: int = 20,
         *,
+        early_seconds: int = 0,
         should_continue: Callable[[], bool] | None = None,
     ) -> CollectionBatch:
+        """Check the flights that are due, the longest overdue first.
+
+        Every time this run sets is counted from its own start: a flight's next check,
+        and the retry of a check that fails or is never settled. A flight checked by
+        one run therefore comes due exactly when a later run starts, however long its
+        check took.
+
+        Scheduled runs do not start at the same second each time. A worker passes half
+        the time between its runs as ``early_seconds``, and a run then takes every
+        flight due within that time, so each check goes to the run nearest its time.
+        Without it a check always waits for the first run after its time, and every
+        interval is one run longer than asked.
+        """
+        if early_seconds < 0:
+            raise ValueError("A run cannot take checks from the past")
         event_ids = []
         counts = {"collected": 0, "failed": 0, "skipped": 0}
         codes: dict[str, int] = {}
@@ -639,16 +667,18 @@ class MonitoringService:
         switches = self.store.get("configuration:admin")
         if switches and switches.data.get("collection_paused"):
             return CollectionBatch(counts, (), codes)
+        started = self._now()
+        due_by = started + early_seconds
         # Discover one bounded page. Re-querying its head after each collection
         # can return the same stale GSI row and starve other due targets.
-        for candidate in self.store.page("targets", self._now(), limit=limit).items:
+        for candidate in self.store.page("targets", due_by, limit=limit).items:
             if should_continue is not None and not should_continue():
                 break
             target = self.store.get(candidate.key)
             if (
                 target is None
                 or target.partition != "targets"
-                or target.due > self._now()
+                or target.due > due_by
                 or target.data.get("lease_until", 0) > self._now()
             ):
                 counts["skipped"] += 1
@@ -692,7 +722,7 @@ class MonitoringService:
             try:
                 # Until this check is settled the flight is due at its retry time, so a
                 # worker that stops before it finishes leaves the check to be run again.
-                self.store.commit([target.update(leased, due=self._now() + RETRY_SECONDS)])
+                self.store.commit([target.update(leased, due=started + RETRY_SECONDS)])
             except Conflict:
                 counts["skipped"] += 1
                 continue
@@ -700,7 +730,7 @@ class MonitoringService:
                 reading = provider.collect(leased["spec"])
                 if reading.target_id != leased["spec"]["id"]:
                     raise ValueError("Provider returned a different itinerary")
-                self.record(reading, token, lease_token=token)
+                self.record(reading, token, lease_token=token, started=started)
                 event_ids.append(_digest(reading.target_id + ":" + token))
                 counts["collected"] += 1
             except Exception as exc:  # noqa: BLE001 - any provider fault becomes a finite code
@@ -739,7 +769,7 @@ class MonitoringService:
                                 current.update(
                                     data,
                                     partition="targets" if failure.retryable else "targets_blocked",
-                                    due=self._now() + RETRY_SECONDS,
+                                    due=started + RETRY_SECONDS,
                                 ),
                                 *notices,
                             ]

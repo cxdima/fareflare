@@ -60,7 +60,10 @@ def handler(event, context):
     budget = min(150, max(1, int(context.get_remaining_time_in_millis() / 1000) - 10))
     worker = build_worker()
     result = worker.tick(
-        max_targets=int(os.environ.get("FAREFLARE_MAX_TARGETS", "1")), budget_seconds=budget
+        max_targets=int(os.environ.get("FAREFLARE_MAX_TARGETS", "1")),
+        budget_seconds=budget,
+        # The schedule states how often it runs; a run started by hand has no period.
+        period_seconds=int(event.get("period_seconds", 0)),
     )
     record_run(worker.service.store, int(time.time()), result)
     # No itinerary, account, cookies, credentials, or provider exception messages.

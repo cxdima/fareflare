@@ -13,6 +13,7 @@ from fareflare.mailer import FileMailer, mailer_from_env
 from fareflare.passwords import breach_check_from_env
 from fareflare.product_config import ProductConfig
 from fareflare.store import SQLiteStore
+from fareflare.worker import add_period_option
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -29,6 +30,7 @@ def main(argv: list[str] | None = None) -> None:
         "worker", help="Collect a bounded batch and deliver verified customer alerts"
     )
     worker.add_argument("--limit", type=int, choices=range(1, 21), default=5)
+    add_period_option(worker)
     worker.add_argument("--chrome-binary")
     worker.add_argument("--chromedriver")
     args = parser.parse_args(argv)
@@ -70,7 +72,7 @@ def main(argv: list[str] | None = None) -> None:
                     service,
                     PublicGoogleFlightsProvider(args.chrome_binary, args.chromedriver),
                     sink,
-                ).tick(max_targets=args.limit)
+                ).tick(max_targets=args.limit, period_seconds=args.period)
             )
         )
         return

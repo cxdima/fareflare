@@ -156,7 +156,8 @@ resource "aws_cloudwatch_event_target" "worker" {
   count = var.image_uri == "" ? 0 : 1
   rule  = aws_cloudwatch_event_rule.worker[0].name
   arn   = aws_lambda_function.worker[0].arn
-  input = jsonencode({ source = "fareflare.scheduler" })
+  # The worker is told how often it runs, so each check goes to the run nearest its time.
+  input = jsonencode({ source = "fareflare.scheduler", period_seconds = var.worker_schedule_minutes * 60 })
   retry_policy {
     maximum_event_age_in_seconds = 60
     maximum_retry_attempts       = 0

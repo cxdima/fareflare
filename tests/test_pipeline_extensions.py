@@ -271,7 +271,10 @@ def test_lambda_runtime_defaults_to_shadow_and_rejects_other_events(service, mon
     worker.tick.return_value = {"collected": 1, "shadow": True}
     monkeypatch.setattr(runtime, "build_worker", lambda: worker)
     assert runtime.handler({"source": "fareflare.scheduler"}, context)["shadow"] is True
-    worker.tick.assert_called_once_with(max_targets=1, budget_seconds=150)
+    worker.tick.assert_called_once_with(max_targets=1, budget_seconds=150, period_seconds=0)
+    # The schedule states how often it runs, and the worker is told.
+    runtime.handler({"source": "fareflare.scheduler", "period_seconds": 60}, context)
+    worker.tick.assert_called_with(max_targets=1, budget_seconds=150, period_seconds=60)
     assert service.store.get("health:worker").data["collected"] == 1
 
 
