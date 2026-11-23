@@ -128,11 +128,11 @@
   display: grid;
   gap: 1.75rem;
 }
-.style-field .form-label {
+.segment-field .form-label {
   display: block;
 }
-/* A segment switch: one pill track, the chosen style in ink. */
-.style-control {
+/* A segment switch: one pill track, the chosen option in ink. */
+.segment-control {
   display: inline-flex;
   gap: 0.2rem;
   max-width: 100%;
@@ -140,7 +140,7 @@
   border-radius: 999px;
   background: var(--ff-paper);
 }
-.style-button {
+.segment-button {
   min-height: 44px;
   padding: 0 1.15rem;
   border: 0;
@@ -148,15 +148,15 @@
   color: var(--ff-ink);
   font-size: 0.9rem;
 }
-.style-button[aria-pressed='true'] {
+.segment-button[aria-pressed='true'] {
   background: var(--ff-ink);
   color: #fff;
 }
-.style-button:hover:not([aria-pressed='true'], :disabled) {
+.segment-button:hover:not([aria-pressed='true'], :disabled) {
   background: var(--ff-paper-deep);
   color: var(--ff-ink);
 }
-.style-field .form-text {
+.segment-field .form-text {
   max-width: 52ch;
   margin: 0.6rem 0 0;
 }
@@ -253,11 +253,37 @@
   font-size: 0.76rem;
   font-weight: 600;
 }
-.preview-choice .form-label {
+/* What the example shows: a name and its choice on one line, twice. */
+.preview-choices {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.preview-choices .form-label {
+  margin: 0;
   font-size: 0.78rem;
 }
-.preview-choice .form-select {
+.preview-choices .form-select {
   background-color: var(--ff-card);
+}
+/* Remarks on the wording. They are notes, not errors, so nothing here is red. */
+.preview-hints {
+  display: grid;
+  gap: 0.35rem;
+}
+.preview-hints:empty {
+  display: none;
+}
+.preview-hint {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--ff-ink-2);
+  font-size: 0.82rem;
+}
+.preview-hint .bi {
+  flex: none;
 }
 .chat {
   overflow: hidden;
@@ -423,10 +449,10 @@
     grid-column: 1;
     grid-row: auto;
   }
-  .style-control {
+  .segment-control {
     display: flex;
   }
-  .style-button {
+  .segment-button {
     flex: 1;
     min-width: 0;
     padding-inline: 0.4rem;
@@ -454,16 +480,10 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   gap: 1rem;
 }
-.template-preset {
+.template-wording {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-}
-.template-preset .form-select {
-  flex: 1;
-  min-width: 8rem;
-}
-.template-preset .btn {
-  flex: none;
 }
 .template-input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

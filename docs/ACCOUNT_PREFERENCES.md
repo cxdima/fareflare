@@ -25,6 +25,7 @@ Section buttons work with the keyboard and indicate the current section. Switchi
 | `telegram_show_observed_time` | `true` | Detailed alerts: include when the fare was checked. |
 | `telegram_show_fare` | `true` | Detailed alerts: include the fare name when available. |
 | `telegram_show_buttons` | `true` | Show link buttons beneath Telegram alerts. |
+| `telegram_list_order` | `departure` | In the Telegram flight list, what comes first among flights on the same route and day: the earliest `departure`, or the lowest `price`. |
 | `telegram_silent` | `false` | Send Telegram alerts without notification sound; webhooks are unaffected. |
 | `quiet_hours` | `null` | A daily window such as `22:00-07:00` during which Telegram messages make no sound. See [below](#quiet-hours). |
 | `muted` | `false` | Stop outgoing notifications, including webhooks, while collection/history continue. |
@@ -61,16 +62,31 @@ The compact list groups flights on the same route and day under one heading, in 
 
 ```text
 🛫 DEN → DFW · Mar 14
-• UA 1565 7:05→10:02 AM · $214 🔥 at the low
-• UA 414 3:50→6:54 PM · $269 (low $219)
-• UA 1832 7:40→10:41 PM · $269 (low $199) · Paused
+• UA 1565 7:05→10:02 AM · $214 (low $199)
+• UA 414 3:50→6:54 PM · $191 🔥 at the low
+• UA 1832 7:40→10:41 PM · $269 (low $219) · Paused
 ```
 
 A flight at its lowest recorded price is marked `🔥 at the low`; otherwise the row shows that low. "Low" always means the lowest price this monitor has recorded since it began tracking, not a market-wide low. A return trip adds a second line, `↩ 5:09→8:02 PM`.
 
+**Flight list order** decides what comes first under a heading. **By departure** (the default) starts with the earliest flight; **By price** starts with the cheapest, and two flights at the same price keep their departure order. A flight with no recorded price, or no recorded times, comes last. Days and routes always stay in calendar order, so the cheapest flight of another day does not jump ahead. The bot offers the same choice under `/flights`.
+
+### The preview
+
+The preview beside the settings is rendered by the service with the settings as they stand, saved or not, and nothing is sent. **Message** chooses one of the four alerts or the flight list. **Sample** chooses the situation the sample data is in, because a message has to read well in all of them:
+
+| Sample | What it shows |
+| --- | --- |
+| One-way trip | One flight with its times. |
+| Round trip for two | A return flight and a price for two adults: the `↩` line and `for 2 adults`. |
+| Times not known yet | A flight before its first successful check: no times anywhere. |
+| Alert that arrives late | A price checked 25 minutes before the alert, which adds the `Checked …` line. |
+
+The sample trip leaves sixteen weeks after the preview is made, so its dates are always ahead. With your own wording, the preview also remarks when a message does not show the price, or does not show which flight it is about. A remark is a note, not an error: the wording can be saved as it is.
+
 ### Writing your own
 
-Choose **Custom**. The editor starts from the style you had selected and lists every available detail under a heading (Price, Alert, Trip, Flight, Times, More) with an example of what it shows; choosing one adds it where the cursor is. The preview follows the wording as you type and says what is wrong with a template before you save it. There are six templates: `tracking_started`, `new_low`, `below_price`, `rebound`, `flight_group` (an optional list heading) and `flight_row`. A message without its own template uses the compact wording.
+Choose **Custom**. The editor starts from the style you had selected and lists every available detail under a heading (Price, Alert, Trip, Flight, Times, More) with an example of what it shows; choosing one adds it where the cursor is. **Reset this message to** Compact or Detailed replaces the message being edited with that style's wording and leaves the other messages alone. The preview follows the wording as you type and says what is wrong with a template before you save it. There are six templates: `tracking_started`, `new_low`, `below_price`, `rebound`, `flight_group` (an optional list heading) and `flight_row`. A message without its own template uses the compact wording.
 
 | You write | It means |
 | --- | --- |
@@ -95,14 +111,14 @@ Templates are text, not programs. There are no conditions, loops, calculations o
 
 - Price: `price_short`, `previous_low_short`, `previous_price_short`, `change`, `change_percent`, `change_summary`, `price`, `previous_low`, `previous_price`
 - Alert: `emoji`, `headline`, `reason`
-- Trip: `route`, `dates_short`, `date_short`, `return_date_short`, `date`, `return_date`, `dates`, `origin`, `destination`
-- Flight: `flights`, `airline`, `passengers`
+- Trip: `route`, `dates_short`, `date_short`, `return_date_short`, `weekday`, `return_weekday`, `days_until`, `date`, `return_date`, `dates`, `origin`, `destination`
+- Flight: `flights`, `airline`, `stops`, `return_stops`, `cabin`, `passengers`
 - Times: `times`, `times_short`, `depart_time`, `arrive_time`, `duration`, `return_times`, `return_times_short`, `return_depart_time`, `return_arrive_time`, `return_duration`
 - More: `fare`, `total`, `party_note`, `details`, `observed_short`, `observed`, `late_note`, `itinerary`, `link`
 
 **List row details:** the Trip, Flight and Times details above, plus `price_short`, `low_note`, `low_short`, `low_status`, `price`, `low`, `status_note` (only when a flight needs attention), `status` and `checked`. A list heading may use the Trip details. Consecutive flights with the same heading share it.
 
-`price_short` uses the currency's symbol and drops empty cents (`$246`); `price` keeps the currency code (`USD 246.00`) for wording that needs it. `times` is written out (`3:50 PM → 6:54 PM`) and `times_short` is the tight form the list uses (`3:50→6:54 PM`). A new low and a rebound are compared with the previous low; a reached target is compared with the previous price. Using `{link}` in a template replaces the **View flight** button. `GET /v1/preferences/telegram-templates` returns the authoritative list with descriptions, examples and groups, the styles with the switches each one uses, the built-in templates and the limits.
+`price_short` uses the currency's symbol and drops empty cents (`$246`); `price` keeps the currency code (`USD 246.00`) for wording that needs it. `times` is written out (`3:50 PM → 6:54 PM`) and `times_short` is the tight form the list uses (`3:50→6:54 PM`). `weekday` is the day of the week in English (`Sat`). `days_until` counts in your time zone from the day the price was checked, or from today in the flight list (`in 12 days`, `tomorrow`, `today`), and is empty once the departure day has passed. `stops` is `Nonstop`, `1 stop` or `2 stops`, and is empty while the flights of that direction are not known. A new low and a rebound are compared with the previous low; a reached target is compared with the previous price. Using `{link}` in a template replaces the **View flight** button. `GET /v1/preferences/telegram-templates` returns the authoritative list with descriptions, examples and groups, the styles with the switches each one uses, the name of every switch, the built-in templates, the limits, and what the preview can show (`previews` and `samples`).
 
 ## Technical details are opt-in
 
@@ -121,7 +137,7 @@ Muting, pausing a flight or turning the setting off drops pending notices rather
 {"time_zone":"America/Chicago","hour_cycle":"h23","telegram_silent":true}
 ```
 
-`POST /v1/preferences/telegram-preview` accepts the same partial preference fields and returns `text`, `buttons` (label/URL pairs), `silent` and the effective `time_zone`. Add `?message=` with `tracking_started`, `new_low` (the default), `below_price`, `rebound` or `flight_list` to choose what is rendered. `telegram_templates` is replaced as a whole when supplied, so send every template you want to keep. The website displays button labels without opening the sample links. Browser mutations require the session's CSRF token. API keys use bearer authentication.
+`POST /v1/preferences/telegram-preview` accepts the same partial preference fields and returns `text`, `lines` (the same message as styled runs), `buttons` (label/URL pairs), `hints` (remarks on wording that leaves out the price or the flight; empty for the built-in styles), `silent` and the effective `time_zone`. Add `?message=` with `tracking_started`, `new_low` (the default), `below_price`, `rebound` or `flight_list` to choose what is rendered, and `?sample=` with `one_way` (the default), `round_trip`, `untimed` or `late` to choose the situation of the sample data. `telegram_templates` is replaced as a whole when supplied, so send every template you want to keep. The website displays button labels without opening the sample links. Browser mutations require the session's CSRF token. API keys use bearer authentication.
 
 MCP exposes `get_preferences` and `set_preferences`. Pass the partial object through `settings`; the existing `muted` and `muted_routes` arguments remain supported.
 

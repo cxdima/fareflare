@@ -13,18 +13,17 @@ import secrets
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import date
 from urllib.parse import urlsplit
 
 from fareflare.accounts import Accounts, AuthenticationFailed
 from fareflare.domain import AlertPolicy
 from fareflare.message_templates import Run, plain_text, telegram_html
 from fareflare.preferences import (
+    ListOrder,
     Preferences,
     merge_preferences,
     observed_time,
     quiet_hours_label,
-    regional_date,
     short_price,
 )
 from fareflare.service import CapacityReached, MonitoringService, NotFound, QuotaReached
@@ -32,22 +31,25 @@ from fareflare.store import Conflict, Document, Store
 from fareflare.telegram_messages import (
     STATUS_LABELS,
     TelegramMessage,
+    cabin_name,
     flight_list,
     flight_numbers,
-    flight_order,
     flight_row_values,
     local_date,
     monitor_segments,
     monitor_times,
+    ordered_flights,
     party,
     preview_message,
     safe_flight_url,
     schedule_lines,
     single_line,
+    trip_route,
+    trip_values,
     utf16_length,
 )
 from fareflare.telegram_rules import parse_amount, price_example
-from fareflare.telegram_templates import PRESETS, STYLES
+from fareflare.telegram_templates import PRESETS, STYLES, SWITCHES, style_switches
 
 _TOKEN = re.compile(r"ff:([A-Za-z0-9_-]{24})\Z")
 _MENU_SECONDS = 15 * 60
@@ -62,7 +64,8 @@ _CHOICES = 8
 _READINGS = 10
 # Offered with one tap; any other window is set in Account settings.
 _DEFAULT_QUIET_HOURS = "22:00-07:00"
-_CABINS = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}
+# The flight list's orders: what each is called on the button that switches to it.
+_LIST_ORDERS: dict[ListOrder, str] = {"departure": "Sort by departure", "price": "Sort by price"}
 # A line of a view: plain words, or runs that carry their own emphasis.
 Line = str | tuple[Run, ...]
 
@@ -463,21 +466,9 @@ class TelegramBot:
         )
 
     @staticmethod
-    def _route(target: dict) -> str:
-        legs = target["segments"][0]["legs"]
-        return legs[0]["origin"] + " → " + legs[-1]["destination"]
-
-    @staticmethod
-    def _dates(target: dict, prefs: Preferences) -> str:
-        return " / ".join(
-            regional_date(date.fromisoformat(segment["date"]), prefs.locale)
-            for segment in target["segments"]
-        )
-
-    @staticmethod
     def _travellers(target: dict) -> str:
         """Who travels and in which cabin: ``1 adult · Economy``."""
-        return f"{party(target['adults'])} · {_CABINS.get(target['cabin'], 'Cabin not specified')}"
+        return f"{party(target['adults'])} · {cabin_name(target['cabin']) or 'Cabin not specified'}"
 
     @staticmethod
     def _flights_of(segments: list[dict], target: dict) -> str:
@@ -486,13 +477,17 @@ class TelegramBot:
             "Route search" if target.get("kind") == "search" else ""
         )
 
-    def _current(self, tenant: str) -> list[dict]:
-        """The flights being watched or paused, in the order every list shows them."""
-        return sorted(self.service.current_monitors(tenant), key=flight_order)
+    def _current(self, tenant: str, prefs: Preferences) -> list[dict]:
+        """The flights being watched or paused, in the order this account lists them."""
+        return ordered_flights(self.service.current_monitors(tenant), prefs)
 
-    def _flights(self, ctx: _Context, start: int = 0) -> TelegramMessage:
+    def _prefer(self, ctx: _Context, label: str, changes: dict, view: str) -> dict:
+        """A button that saves settings and returns to the view it was pressed in."""
+        return self._button(ctx, label, "prefer", {"changes": changes, "view": view})
+
+    def _flights(self, ctx: _Context, start: int = 0, notice: str | None = None) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
-        monitors = self._current(ctx.tenant)
+        monitors = self._current(ctx.tenant, prefs)
         if not 0 < start < len(monitors):
             start = 0
         lines, shown = flight_list(
@@ -522,14 +517,21 @@ class TelegramBot:
             )
         elif monitors:
             actions.insert(0, self._button(ctx, "Manage a flight", "choose"))
-        rows += [actions, [self._button(ctx, "Alert settings", "settings")]]
+        settings = [self._button(ctx, "Alert settings", "settings")]
+        if len(monitors) > 1:
+            # Offer the order the list is not in.
+            other: ListOrder = "price" if prefs.telegram_list_order == "departure" else "departure"
+            settings.insert(
+                0, self._prefer(ctx, _LIST_ORDERS[other], {"telegram_list_order": other}, "flights")
+            )
+        rows += [actions, settings]
         title = "Your flights" + (f" ({len(monitors)})" if monitors else "")
-        return self._message(ctx, title, body, rows)
+        return self._message(ctx, title, body, rows, notice)
 
     def _choose(self, ctx: _Context, start: int = 0) -> TelegramMessage:
         """Pick one flight to open. The list itself stays free of a button per flight."""
         prefs = self._preferences(ctx.tenant)
-        monitors = self._current(ctx.tenant)
+        monitors = self._current(ctx.tenant, prefs)
         if not monitors:
             return self._flights(ctx)
         if not 0 < start < len(monitors):
@@ -672,7 +674,8 @@ class TelegramBot:
         if cursor:
             rows.append([self._button(ctx, "Latest prices", "history", {"id": identifier})])
         rows.append([self._button(ctx, "Back to flight", "detail", {"id": identifier})])
-        return self._message(ctx, "Recorded prices: " + self._route(monitor["target"]), lines, rows)
+        title = "Recorded prices: " + trip_route(monitor["target"]["segments"])
+        return self._message(ctx, title, lines, rows)
 
     def _settings(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
         prefs = self._preferences(ctx.tenant)
@@ -691,29 +694,29 @@ class TelegramBot:
         ]
         rows = [
             [
-                self._button(
+                self._prefer(
                     ctx,
                     "Turn alerts on" if prefs.muted else "Mute alerts",
-                    "preferences",
                     {"muted": not prefs.muted},
+                    "settings",
                 )
             ],
             [
-                self._button(
+                self._prefer(
                     ctx,
                     "Enable notification sound" if prefs.telegram_silent else "Send silently",
-                    "preferences",
                     {"telegram_silent": not prefs.telegram_silent},
+                    "settings",
                 )
             ],
             [
-                self._button(
+                self._prefer(
                     ctx,
                     "Turn off quiet hours"
                     if prefs.quiet_hours
                     else "Go quiet " + quiet_hours_label(_DEFAULT_QUIET_HOURS, prefs),
-                    "preferences",
                     {"quiet_hours": None if prefs.quiet_hours else _DEFAULT_QUIET_HOURS},
+                    "settings",
                 )
             ],
             [self._button(ctx, "Message style", "styles")],
@@ -723,8 +726,8 @@ class TelegramBot:
             lines.append("Diagnostic notices: on")
             rows.append(
                 [
-                    self._button(
-                        ctx, "Turn off diagnostic notices", "preferences", {"diagnostics": False}
+                    self._prefer(
+                        ctx, "Turn off diagnostic notices", {"diagnostics": False}, "settings"
                     )
                 ]
             )
@@ -736,23 +739,34 @@ class TelegramBot:
         return self._message(ctx, "Your alert settings", lines, rows, notice)
 
     def _styles(self, ctx: _Context, notice: str | None = None) -> TelegramMessage:
+        """Choose a style and what its alerts include, beside an example of the result."""
         prefs = self._preferences(ctx.tenant)
         sample = preview_message("new_low", prefs, None, self._now())
         styles = list(PRESETS)
         if prefs.telegram_templates or prefs.telegram_style == "custom":
             styles.append("custom")
+
+        def choice(chosen: bool, label: str, changes: dict) -> dict:
+            return self._prefer(ctx, ("✓ " if chosen else "") + label, changes, "styles")
+
         rows = [
             [
-                self._button(
-                    ctx,
-                    ("✓ " if style == prefs.telegram_style else "") + STYLES[style][0],
-                    "preferences",
-                    {"telegram_style": style},
+                choice(style == prefs.telegram_style, STYLES[style][0], {"telegram_style": style})
+                for style in styles
+            ],
+            # The details this style's alerts can leave out; own wording has none.
+            *(
+                [choice(shown, SWITCHES[name].label, {name: not shown})]
+                for name in style_switches(prefs.telegram_style)
+                for shown in [getattr(prefs, name)]
+            ),
+            [
+                choice(
+                    prefs.telegram_show_buttons,
+                    "Buttons under alerts",
+                    {"telegram_show_buttons": not prefs.telegram_show_buttons},
                 )
-            ]
-            for style in styles
-        ]
-        rows += [
+            ],
             [{"text": "Write your own messages", "url": self.public_url + "/app#settings"}],
             [self._button(ctx, "Back to alert settings", "settings")],
         ]
@@ -763,12 +777,20 @@ class TelegramBot:
         ]
         return self._message(ctx, "Message style", lines, rows, notice)
 
+    def _saved(self, ctx: _Context, view: str) -> TelegramMessage:
+        """The view a setting was changed in, saying that it was saved."""
+        if view == "styles":
+            return self._styles(ctx, "Message settings saved.")
+        if view == "flights":
+            return self._flights(ctx, notice="Flight list order saved.")
+        return self._settings(ctx, "Alert settings saved.")
+
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
         try:
             target = self.service.link_importer(url)
             if self.service.capability_check:
                 self.service.capability_check(target)
-            if self.service._departure_day_elapsed(target):
+            if self.service.departure_day_elapsed(target):
                 return self._plain(
                     "That itinerary has already departed. Choose a future flight and send its Google Flights link."
                 )
@@ -795,9 +817,9 @@ class TelegramBot:
         interval = max(900, self.service.min_interval_seconds)
         return self._message(
             ctx,
-            "Watch " + self._route(target) + "?",
+            "Watch " + trip_route(target["segments"]) + "?",
             [
-                self._dates(target, prefs),
+                str(trip_values(target["segments"], prefs, None)["dates"]),
                 self._flights_of(target["segments"], target),
                 self._travellers(target),
                 "Currency: " + target["currency"],
@@ -826,7 +848,7 @@ class TelegramBot:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
         return self._message(
             ctx,
-            "Stop watching " + self._route(monitor["target"]) + "?",
+            "Stop watching " + trip_route(monitor["target"]["segments"]) + "?",
             [
                 "This flight will stop checking prices and sending alerts. Recorded history remains available.",
                 "A stopped flight cannot be resumed; you can add its link again.",
@@ -909,9 +931,8 @@ class TelegramBot:
             ],
             [self._button(ctx, "Back to flight", "detail", {"id": identifier})],
         ]
-        return self._message(
-            ctx, "Alert rules: " + self._route(monitor["target"]), lines, rows, notice
-        )
+        title = "Alert rules: " + trip_route(monitor["target"]["segments"])
+        return self._message(ctx, title, lines, rows, notice)
 
     def _price_prompt(self, ctx: _Context, identifier: str, field_name: str) -> TelegramMessage:
         monitor = self.service.get_monitor(ctx.tenant, identifier)
@@ -943,7 +964,7 @@ class TelegramBot:
             ctx,
             "Set a " + ("minimum drop" if field_name == "drop" else "target price"),
             [
-                self._route(monitor["target"]),
+                trip_route(monitor["target"]["segments"]),
                 "Currency: " + currency,
                 "Send the amount, for example " + price_example(currency, prefs.locale) + ".",
                 "Do not include currency symbols or thousands separators.",
@@ -1025,7 +1046,7 @@ class TelegramBot:
             ctx,
             "Save this alert rule?",
             [
-                self._route(monitor["target"]),
+                trip_route(monitor["target"]["segments"]),
                 description,
                 "",
                 "This changes future alerts. It does not change the flight or its currency.",
@@ -1117,12 +1138,10 @@ class TelegramBot:
             service.retry_collection(ctx.tenant, params["monitor_id"])
             guarded.complete()
             return self._detail(ctx, params["monitor_id"], "A new collection attempt is scheduled.")
-        if kind == "preferences":
-            service.set_preferences(ctx.tenant, **params)
+        if kind == "prefer":
+            service.set_preferences(ctx.tenant, **params["changes"])
             guarded.complete()
-            if "telegram_style" in params:
-                return self._styles(ctx, "Message style saved.")
-            return self._settings(ctx, "Alert settings saved.")
+            return self._saved(ctx, params["view"])
         if kind == "policy":
             service.set_policy(ctx.tenant, params["monitor_id"], AlertPolicy(**params["policy"]))
             guarded.complete()

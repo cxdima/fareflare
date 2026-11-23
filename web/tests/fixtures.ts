@@ -81,6 +81,12 @@ export const templateCatalog = {
     },
   ],
   default_style: 'compact',
+  switches: [
+    { name: 'telegram_show_flight_numbers', label: 'Flight numbers' },
+    { name: 'telegram_show_times', label: 'Departure and arrival times' },
+    { name: 'telegram_show_observed_time', label: 'Time the price was checked' },
+    { name: 'telegram_show_fare', label: 'Fare name' },
+  ],
   templates: [
     { key: 'tracking_started', label: 'Tracking started', optional: false },
     { key: 'new_low', label: 'New low', optional: false },
@@ -118,10 +124,24 @@ export const templateCatalog = {
     ]),
   ),
   limits: { characters: 800, lines: 20, placeholders: 40 },
+  previews: [
+    { value: 'tracking_started', label: 'Tracking started' },
+    { value: 'new_low', label: 'New low' },
+    { value: 'below_price', label: 'Target reached' },
+    { value: 'rebound', label: 'Price rebound' },
+    { value: 'flight_list', label: 'Flight list' },
+  ],
+  samples: [
+    { value: 'one_way', label: 'One-way trip' },
+    { value: 'round_trip', label: 'Round trip for two' },
+    { value: 'untimed', label: 'Times not known yet' },
+    { value: 'late', label: 'Alert that arrives late' },
+  ],
 };
 /** What POST /v1/preferences/telegram-preview returns for a new low in the compact style. */
 export const messagePreview = {
   message: 'new_low',
+  sample: 'one_way',
   text: '🔥 New low · $191 (was $199)\nDEN → DFW · Mar 14 · UA 414\n3:50 PM → 6:54 PM',
   lines: [
     [
@@ -136,6 +156,7 @@ export const messagePreview = {
     [run('3:50 PM → 6:54 PM')],
   ],
   buttons: [{ text: 'View flight', url: 'https://www.google.com/travel/flights' }],
+  hints: [] as string[],
   silent: false,
   time_zone: 'UTC',
 };

@@ -50,9 +50,13 @@ recorded price is marked `🔥 at the low`; otherwise the line shows that low:
 
 ```text
 🛫 DEN → DFW · Mar 14
-• UA 1565 7:05→10:02 AM · $214 🔥 at the low
-• UA 414 3:50→6:54 PM · $269 (low $219)
+• UA 1565 7:05→10:02 AM · $214 (low $199)
+• UA 414 3:50→6:54 PM · $191 🔥 at the low
 ```
+
+With two or more flights, **Sort by price** puts the cheapest flight of each route
+and day first, and **Sort by departure** returns to the earliest. The choice is saved
+for the account, so the next list and the flight picker use it too.
 
 A long list comes in pages: **Next flights** shows the rest. Choose **Manage a
 flight** and then the flight (or **Manage this flight** when there is only one) to
@@ -92,7 +96,10 @@ Rule changes apply to future observations.
 ## Messages and delivery
 
 `/settings` offers silent Telegram notifications, global muting and **Message
-style**: Compact or Detailed, each shown with an example before you choose it.
+style**: Compact or Detailed, shown with an example that follows each choice. Under
+the styles, the same menu switches the details the chosen style includes (flight
+numbers and times; for Detailed also the fare name and the time of the check) and
+the buttons under alerts; a ✓ marks what is on.
 Your own wording is written in
 [Account settings](ACCOUNT_PREFERENCES.md#message-styles-and-templates) and then
 appears in this menu as **Custom**. **Mute alerts also mutes webhook delivery**; checks and history

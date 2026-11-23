@@ -8,15 +8,16 @@ infers a saving, a forecast or a market-wide low.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
-from html import escape
+from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from fareflare.airlines import airline_name
-from fareflare.links import import_link
+from fareflare.links import import_link, itinerary_link
 from fareflare.message_templates import (
     DIRECTIONAL,
     Lines,
@@ -28,22 +29,28 @@ from fareflare.message_templates import (
     telegram_html,
 )
 from fareflare.preferences import (
+    ListOrder,
     Preferences,
     clock_range,
     clock_time,
+    days_until,
     observed_time,
     regional_date,
     regional_price,
     short_date,
     short_dates,
     short_price,
+    weekday,
 )
 from fareflare.product_config import ProductConfig
 from fareflare.telegram_templates import (
     ALERT_KEYS,
     DEFAULT_STYLE,
+    LABELS,
     PRESETS,
     VOCABULARY,
+    AlertKey,
+    template_hints,
     templates_for,
 )
 
@@ -74,11 +81,15 @@ _FAILURE_MEANING = {
     "browser_start_failed": "the browser could not start",
     "browser_failed": "the browser stopped unexpectedly",
 }
-_SAMPLE_URL = (
-    "https://www.google.com/travel/flights?tfs=CBoQAho_EgoyMDI3LTAzLTE0Ih8KA0RFThIKMjAyNy0wMy0x"
-    "NBoDREZXKgJVQTIDNDE0agcIARIDREVOcgcIARIDREZXQAFIAVIDVVNEyAEB&curr=USD&hl=en-US&gl=US&gsas=1"
-)
-PREVIEW_KINDS = (*ALERT_KEYS, "flight_list")
+CABINS = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}
+# What an editor can preview: each alert, and the flight list as a whole.
+PreviewKind = Literal[AlertKey, "flight_list"]
+PREVIEWS: dict[PreviewKind, str] = {
+    **{key: LABELS[key] for key in ALERT_KEYS},
+    "flight_list": "Flight list",
+}
+# Situations the sample data can be in.
+PreviewSample = Literal["one_way", "round_trip", "untimed", "late"]
 _HHMM = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d\Z")
 # Telegram limits the visible text; this bounds the request when links repeat.
 _MAX_TEXT = 4096
@@ -192,20 +203,53 @@ def party(adults: object) -> str:
     return f"{adults} adult" + ("s" if adults > 1 else "")
 
 
-def _trip_values(
+def cabin_name(cabin: object) -> str:
+    """The cabin as travellers call it, or nothing for one that is not recorded."""
+    return CABINS.get(cabin, "") if type(cabin) is int else ""
+
+
+def _stops(segment: dict) -> str:
+    """Nonstop, 1 stop, 2 stops. Nothing unless every flight of the direction is known."""
+    legs = segment["legs"]
+    if not legs or not all(leg.get("airline") and leg.get("number") for leg in legs):
+        return ""
+    stops = len(legs) - 1
+    return f"{stops} stop" + ("s" if stops > 1 else "") if stops else "Nonstop"
+
+
+def _flight_values(segments: list[dict], cabin: object, adults: object) -> dict[str, Value]:
+    """What is flown, in which cabin and by whom."""
+    values: dict[str, Value] = {
+        "airline": _airlines(segments),
+        "cabin": cabin_name(cabin),
+        "passengers": party(adults),
+    }
+    for prefix, segment in zip(("", "return_"), segments, strict=False):
+        values[prefix + "stops"] = _stops(segment)
+    return values
+
+
+def trip_route(segments: list[dict]) -> str:
+    """DEN → DFW, or DEN ⇄ DFW for a trip that returns to where it began."""
+    first, last = segments[0]["legs"], segments[-1]["legs"]
+    origin = single_line(str(first[0]["origin"]), 8)
+    destination = single_line(str(first[-1]["destination"]), 8)
+    round_trip = len(segments) > 1 and last[-1]["destination"] == first[0]["origin"]
+    return f"{origin} {'⇄' if round_trip else '→'} {destination}"
+
+
+def trip_values(
     segments: list[dict], preferences: Preferences, today: date | None
 ) -> dict[str, Value]:
+    """Where and when a trip goes. ``today`` is the reader's day, when it is known."""
     if not segments:
         return {}
     first, last = segments[0], segments[-1]
-    origin = single_line(str(first["legs"][0]["origin"]), 8)
-    destination = single_line(str(first["legs"][-1]["destination"]), 8)
-    round_trip = len(segments) > 1 and last["legs"][-1]["destination"] == first["legs"][0]["origin"]
     departure = date.fromisoformat(first["date"])
     values: dict[str, Value] = {
-        "route": f"{origin} {'⇄' if round_trip else '→'} {destination}",
-        "origin": origin,
-        "destination": destination,
+        "route": trip_route(segments),
+        "origin": single_line(str(first["legs"][0]["origin"]), 8),
+        "destination": single_line(str(first["legs"][-1]["destination"]), 8),
         "date": regional_date(departure, preferences.locale),
         "date_short": short_date(departure, today),
         "dates_short": short_dates(departure, None, today),
@@ -213,11 +257,14 @@ def _trip_values(
             regional_date(date.fromisoformat(segment["date"]), preferences.locale)
             for segment in segments
         ),
+        "weekday": weekday(departure),
+        "days_until": days_until(departure, today),
     }
     if len(segments) > 1:
         returning = date.fromisoformat(last["date"])
         values["return_date"] = regional_date(returning, preferences.locale)
         values["return_date_short"] = short_date(returning, today)
+        values["return_weekday"] = weekday(returning)
         values["dates_short"] = short_dates(departure, returning, today)
     return values
 
@@ -350,11 +397,10 @@ def alert_values(
         "price_short": short_price(
             observation["amount_minor"], observation["currency"], preferences.locale
         ),
-        "passengers": party(itinerary.get("adults")),
-        "airline": _airlines(segments),
         "flights": ", ".join(flight_numbers(segments)) if flights else "",
         "itinerary": _itinerary(segments, preferences, flights, times),
-        **_trip_values(segments, preferences, local_date(observation["observed_at"], preferences)),
+        **_flight_values(segments, itinerary.get("cabin"), itinerary.get("adults")),
+        **trip_values(segments, preferences, local_date(observation["observed_at"], preferences)),
         **_time_values(times, preferences),
         **_comparison(delivery, preferences),
     }
@@ -462,11 +508,10 @@ def flight_row_values(
     status = STATUS_LABELS.get(monitor["status"], "Unknown")
     numbers = flight_numbers(segments)
     values: dict[str, Value] = {
-        **_trip_values(target["segments"], preferences, today),
+        **trip_values(target["segments"], preferences, today),
         **_time_values(monitor_times(monitor), preferences),
+        **_flight_values(segments, target.get("cabin"), target.get("adults")),
         "flights": ", ".join(numbers) or ("Route search" if target.get("kind") == "search" else ""),
-        "airline": _airlines(segments),
-        "passengers": party(target.get("adults")),
         "status": status,
     }
     if monitor["status"] == "active":
@@ -491,23 +536,34 @@ def flight_row_values(
     return values
 
 
-def flight_order(monitor: dict) -> tuple[str, ...]:
+def _flight_order(monitor: dict, order: ListOrder) -> tuple:
     """Sort key for a list of flights.
 
     Day, route and return day come first, because flights that share them share a
-    heading. Within those, the earliest departure leads and a flight with no recorded
-    time comes last; the flight number and identifier keep the order the same every time.
+    heading. Under a heading the earliest departure leads, or the lowest price when the
+    list is ordered by price; a flight with no recorded time or price comes last. The
+    flight number and identifier keep the order the same every time.
     """
     segments = monitor["target"]["segments"]
     legs = segments[0]["legs"]
+    latest = monitor.get("latest")
+    departs = next((item["departs"] for item in monitor_times(monitor)), "99:99")
+    # Amounts compare within one currency only.
+    price = (0, latest["currency"], latest["amount_minor"]) if latest else (1, "", 0)
     return (
         segments[0]["date"],
         f"{legs[0]['origin']} {legs[-1]['destination']}",
         segments[-1]["date"] if len(segments) > 1 else "",
-        next((item["departs"] for item in monitor_times(monitor)), "99:99"),
+        *((price, departs) if order == "price" else (departs,)),
         " ".join(flight_numbers(monitor_segments(monitor))),
         str(monitor.get("id", "")),
     )
+
+
+def ordered_flights(monitors: Iterable[dict], preferences: Preferences) -> list[dict]:
+    """Flights in the order every list shows them to this account."""
+    order = preferences.telegram_list_order
+    return sorted(monitors, key=lambda monitor: _flight_order(monitor, order))
 
 
 def flight_list(
@@ -577,7 +633,7 @@ def collection_notice(
     notice: dict, monitor: dict, preferences: Preferences, public_url: str | None = None
 ) -> TelegramMessage:
     """An opt-in diagnostic notice. Sent only to accounts that asked for them."""
-    trip = _trip_values(monitor["target"]["segments"], preferences, None)
+    trip = trip_values(monitor["target"]["segments"], preferences, None)
     route = f"{trip.get('route', 'Your flight')} · {trip.get('dates', '')}".rstrip(" ·")
     code = single_line(str(notice.get("code") or "unknown"), 40)
     if notice["kind"] == "collection_recovered":
@@ -599,114 +655,167 @@ def collection_notice(
             f"Diagnostic code: {code}",
         ]
     footer = "You receive this because diagnostic notices are on in Account settings."
-    lines = [title, route, "", *body, "", footer]
-    html = "\n".join(
-        [
-            f"<b>{escape(title)}</b>",
-            escape(route),
-            "",
-            *map(escape, body),
-            "",
-            f"<i>{escape(footer)}</i>",
-        ]
+    lines: Lines = (
+        (Run(title, bold=True),),
+        (Run(route),),
+        (),
+        *((Run(text),) for text in body),
+        (),
+        (Run(footer, italic=True),),
     )
     button = safe_dashboard_url(public_url)
     markup = {"inline_keyboard": [[{"text": "Open Fareflare", "url": button}]]} if button else None
-    return TelegramMessage("\n".join(lines), html, markup)
+    return TelegramMessage(plain_text(lines), telegram_html(lines), markup)
 
 
+@dataclass(frozen=True)
+class _Scenario:
+    """A situation for the sample data, so an editor sees how its wording copes."""
+
+    label: str
+    round_trip: bool = False
+    adults: int = 1
+    timed: bool = True
+    # Seconds between the price check and the alert about it.
+    delay: int = 0
+
+
+_SCENARIOS: dict[PreviewSample, _Scenario] = {
+    "one_way": _Scenario("One-way trip"),
+    "round_trip": _Scenario("Round trip for two", round_trip=True, adults=2),
+    "untimed": _Scenario("Times not known yet", timed=False),
+    "late": _Scenario("Alert that arrives late", delay=25 * 60),
+}
+# The sample trip leaves this long after the preview is made and returns a week later,
+# so its dates are always ahead and never need their year.
+_SAMPLE_AHEAD = timedelta(weeks=16)
 _SAMPLE_TIMES = {
     "414": {"departs": "15:50", "arrives": "18:54", "duration_minutes": 124},
     "1565": {"departs": "07:05", "arrives": "10:02", "duration_minutes": 117},
     "1832": {"departs": "19:40", "arrives": "22:41", "duration_minutes": 121},
 }
+_SAMPLE_RETURN = ("2231", {"departs": "17:09", "arrives": "18:14", "duration_minutes": 125})
+# Per traveller, by alert: the price, then the price and the low recorded before it.
+_SAMPLE_ALERTS: dict[str, tuple[int, int | None, int | None]] = {
+    "tracking_started": (19100, None, None),
+    "new_low": (19100, 20400, 19900),
+    "below_price": (19100, 20400, 19900),
+    "rebound": (21100, 19100, 19100),
+}
+# Flights of the sample list: number, price and low per traveller, status.
+_SAMPLE_LIST = (
+    ("1565", 21400, 19900, "active"),
+    ("414", 19100, 19100, "active"),
+    ("1832", 26900, 21900, "paused"),
+)
 
 
-def _sample_delivery(reason: str, now: int) -> dict:
-    amount, previous = {
-        "tracking_started": (19100, {"price_minor": None, "low_minor": None}),
-        "new_low": (19100, {"price_minor": 20400, "low_minor": 19900}),
-        "below_price": (19100, {"price_minor": 20400, "low_minor": 19900}),
-        "rebound": (21100, {"price_minor": 19100, "low_minor": 19100}),
-    }[reason]
+def _sample_trip(number: str, scenario: _Scenario, now: int) -> tuple[list[dict], list[dict]]:
+    """The sample flight's directions and the clock times recorded for them, if any."""
+    departure = datetime.fromtimestamp(now, UTC).date() + _SAMPLE_AHEAD
+    flights = [(departure, "DEN", "DFW", number, _SAMPLE_TIMES[number])]
+    if scenario.round_trip:
+        flights.append((departure + timedelta(weeks=1), "DFW", "DEN", *_SAMPLE_RETURN))
+    segments = [
+        {
+            "date": day.isoformat(),
+            "legs": [
+                {"origin": origin, "destination": destination, "airline": "UA", "number": flight}
+            ],
+        }
+        for day, origin, destination, flight, _ in flights
+    ]
+    return segments, [times for *_, times in flights] if scenario.timed else []
+
+
+def _sample_delivery(reason: str, scenario: _Scenario, now: int) -> dict:
+    amount, price, low = (value and value * scenario.adults for value in _SAMPLE_ALERTS[reason])
+    segments, schedule = _sample_trip("414", scenario, now)
     return {
         "id": "example-alert",
         "reason": reason,
-        "previous": previous,
+        "previous": {"price_minor": price, "low_minor": low},
         "observation": {
             "amount_minor": amount,
             "currency": "USD",
             "price_basis": "total",
             "fare_name": "Economy",
-            "observed_at": now,
-            "schedule": [_SAMPLE_TIMES["414"]],
+            "observed_at": now - scenario.delay,
+            "schedule": schedule,
         },
         "itinerary": {
-            "adults": 1,
-            "url": _SAMPLE_URL,
-            "segments": [
-                {
-                    "date": "2027-03-14",
-                    "legs": [
-                        {"origin": "DEN", "destination": "DFW", "airline": "UA", "number": "414"}
-                    ],
-                }
-            ],
+            "adults": scenario.adults,
+            "cabin": 1,
+            "url": itinerary_link(segments, adults=scenario.adults),
+            "segments": segments,
         },
     }
 
 
-def _sample_monitor(number: str, amount: int, low: int, status: str, now: int) -> dict:
+def _sample_monitor(
+    number: str, amount: int, low: int, status: str, scenario: _Scenario, now: int
+) -> dict:
+    segments, schedule = _sample_trip(number, scenario, now)
     return {
+        "id": number,
         "status": status,
         "stale": False,
         "collection_status": "ready",
-        "rule_state": {"low_minor": low},
+        "rule_state": {"low_minor": low * scenario.adults},
         "latest": {
-            "amount_minor": amount,
+            "amount_minor": amount * scenario.adults,
             "currency": "USD",
             "observed_at": now,
-            "schedule": [_SAMPLE_TIMES[number]],
+            "schedule": schedule,
         },
         "target": {
-            "adults": 1,
+            "adults": scenario.adults,
+            "cabin": 1,
             "currency": "USD",
-            "segments": [
-                {
-                    "date": "2027-03-14",
-                    "legs": [
-                        {"origin": "DEN", "destination": "DFW", "airline": "UA", "number": number}
-                    ],
-                }
-            ],
+            "segments": segments,
         },
     }
 
 
 @dataclass(frozen=True)
 class Preview:
-    """Sample data rendered for an editor: the styled lines and the message they make."""
+    """Sample data rendered for an editor: the styled lines, the message they make,
+    and remarks on wording that leaves out something a reader needs."""
 
     lines: Lines
     message: TelegramMessage
+    hints: tuple[str, ...] = ()
+
+
+def preview_choices() -> dict:
+    """What an editor can ask to see: the messages, and the sample situations."""
+    return {
+        "previews": [{"value": value, "label": label} for value, label in PREVIEWS.items()],
+        "samples": [
+            {"value": value, "label": scenario.label} for value, scenario in _SCENARIOS.items()
+        ],
+    }
 
 
 def preview_message(
-    kind: str, preferences: Preferences, public_url: str | None, now: int
+    kind: PreviewKind,
+    preferences: Preferences,
+    public_url: str | None,
+    now: int,
+    sample: PreviewSample = "one_way",
 ) -> Preview:
     """Sample data rendered with the given preferences; nothing is sent or saved."""
-    if kind not in PREVIEW_KINDS:
-        raise ValueError("Choose a message to preview")
-    if kind != "flight_list":
-        return Preview(*_alert(_sample_delivery(kind, now), preferences, public_url, now))
-    # In departure order, the way the bot lists a day of flights.
-    samples = sorted(
-        (
-            _sample_monitor("1565", 21400, 21400, "active", now),
-            _sample_monitor("414", 26900, 21900, "active", now),
-            _sample_monitor("1832", 26900, 19900, "paused", now),
-        ),
-        key=flight_order,
+    scenario = _SCENARIOS[sample]
+    hints = tuple(
+        template_hints(
+            kind, templates_for(preferences.telegram_style, preferences.telegram_templates)
+        )
     )
-    lines, _ = flight_list(samples, preferences, local_date(now, preferences))
-    return Preview(lines, TelegramMessage(plain_text(lines), telegram_html(lines)))
+    if kind != "flight_list":
+        delivery = _sample_delivery(kind, scenario, now)
+        return Preview(*_alert(delivery, preferences, public_url, now), hints)
+    flights = ordered_flights(
+        (_sample_monitor(*flight, scenario, now) for flight in _SAMPLE_LIST), preferences
+    )
+    lines, _ = flight_list(flights, preferences, local_date(now, preferences))
+    return Preview(lines, TelegramMessage(plain_text(lines), telegram_html(lines)), hints)

@@ -135,6 +135,8 @@ export type Preferences = {
   telegram_show_observed_time: boolean;
   telegram_show_fare: boolean;
   telegram_show_buttons: boolean;
+  /** What comes first among flights that share a route and a day in the Telegram list. */
+  telegram_list_order: ListOrder;
   telegram_silent: boolean;
   /** A daily window such as 22:00-07:00, in the account time zone; null when off. */
   quiet_hours: string | null;
@@ -142,6 +144,7 @@ export type Preferences = {
 };
 export type TelegramStyle = 'compact' | 'detailed' | 'custom';
 export type TelegramPreset = Exclude<TelegramStyle, 'custom'>;
+export type ListOrder = 'departure' | 'price';
 /** The "include in alerts" choices; each built-in style acts on some of them. */
 export type TelegramSwitch =
   | 'telegram_show_flight_numbers'
@@ -151,6 +154,8 @@ export type TelegramSwitch =
 export type TemplateKey =
   'tracking_started' | 'new_low' | 'below_price' | 'rebound' | 'flight_group' | 'flight_row';
 export type PreviewKind = Exclude<TemplateKey, 'flight_group' | 'flight_row'> | 'flight_list';
+/** A situation the sample data can be in, so wording is seen where details come and go. */
+export type PreviewSample = 'one_way' | 'round_trip' | 'untimed' | 'late';
 export type TemplatePlaceholder = {
   name: string;
   description: string;
@@ -165,10 +170,15 @@ export type TemplateCatalog = {
     switches: TelegramSwitch[];
   }[];
   default_style: TelegramPreset;
+  /** Every detail a built-in style can leave out, with the name to show for it. */
+  switches: { name: TelegramSwitch; label: string }[];
   templates: { key: TemplateKey; label: string; optional: boolean }[];
   placeholders: Record<TemplateKey, TemplatePlaceholder[]>;
   presets: Record<TelegramPreset, Record<TemplateKey, string>>;
   limits: { characters: number; lines: number; placeholders: number };
+  /** What the preview can show: the messages, and the sample situations. */
+  previews: { value: PreviewKind; label: string }[];
+  samples: { value: PreviewSample; label: string }[];
 };
 /** Text of one style inside a message line. A link is marked, never addressed. */
 export type MessageRun = {
@@ -180,9 +190,12 @@ export type MessageRun = {
 };
 export type MessagePreview = {
   message: PreviewKind;
+  sample: PreviewSample;
   text: string;
   lines: MessageRun[][];
   buttons: { text: string; url: string }[];
+  /** Remarks on wording that leaves out something a reader needs. Never errors. */
+  hints: string[];
   silent: boolean;
   time_zone: string;
 };

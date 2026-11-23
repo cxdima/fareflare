@@ -91,9 +91,11 @@ def test_preview_renders_each_message_with_unsaved_templates(service, store):
         assert compact["message"] == "new_low"
         assert compact["text"].split("\n") == [
             "🔥 New low · $191 (was $199)",
-            "DEN → DFW · Mar 14 · UA 414",
+            # The sample trip leaves sixteen weeks after the preview is made.
+            "DEN → DFW · Feb 22 · UA 414",
             "3:50 PM → 6:54 PM",
         ]
+        assert compact["sample"] == "one_way" and compact["hints"] == []
         # The same message as styled lines, so a page can draw it without parsing markup.
         assert compact["lines"][0] == [
             {"text": "🔥 ", "bold": False, "italic": False, "code": False, "link": False},
@@ -117,8 +119,27 @@ def test_preview_renders_each_message_with_unsaved_templates(service, store):
         assert rebound["text"].startswith("📈 Price rose · $211 (low $191)\n")
 
         listing = client.post(url + "?message=flight_list", json={}, headers=AUTH).json()
-        assert listing["text"].startswith("🛫 DEN → DFW · Mar 14\n• UA 1565 7:05→10:02 AM · $214")
+        assert listing["text"].startswith("🛫 DEN → DFW · Feb 22\n• UA 1565 7:05→10:02 AM · $214")
         assert "🔥 at the low" in listing["text"] and listing["buttons"] == []
+        by_price = client.post(
+            url + "?message=flight_list", json={"telegram_list_order": "price"}, headers=AUTH
+        ).json()
+        assert by_price["text"].split("\n")[1] == "• UA 414 3:50→6:54 PM · $191 🔥 at the low"
+
+        # Other situations show what wording does with details that come and go.
+        both_ways = client.post(url + "?sample=round_trip", json={}, headers=AUTH).json()
+        assert both_ways["sample"] == "round_trip"
+        assert both_ways["text"].split("\n") == [
+            "🔥 New low · $382 for 2 adults (was $398)",
+            "DEN ⇄ DFW · Feb 22 – Mar 1 · UA 414, UA 2231",
+            "3:50 PM → 6:54 PM",
+            "↩ 5:09 PM → 6:14 PM",
+        ]
+        untimed = client.post(url + "?sample=untimed", json={}, headers=AUTH).json()
+        assert len(untimed["lines"]) == 2
+        late = client.post(url + "?sample=late", json={}, headers=AUTH).json()
+        assert late["text"].split("\n")[-1].startswith("Checked 11/02/2026")
+        assert client.post(url + "?sample=unknown", json={}, headers=AUTH).status_code == 422
         assert listing["lines"][1][1] == {
             "text": "UA 1565",
             "bold": False,
@@ -137,6 +158,15 @@ def test_preview_renders_each_message_with_unsaved_templates(service, store):
         ).json()
         assert custom["text"] == "Watching DEN → DFW from USD 191.00 Open in Google Flights"
         assert custom["lines"][0][-1]["link"] is True and custom["buttons"] == []
+        assert custom["hints"] == []
+        # Wording that leaves out the price is allowed, and remarked on.
+        bare = client.post(
+            url,
+            json={"telegram_style": "custom", "telegram_templates": {"new_low": "{route}"}},
+            headers=AUTH,
+        ).json()
+        assert bare["text"] == "DEN → DFW"
+        assert bare["hints"] == ["This alert does not show the price."]
         # No address ever reaches the page as a link target; it only learns that text is linked.
         assert "google.com" not in str(custom["lines"])
 

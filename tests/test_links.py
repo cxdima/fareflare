@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
-from fareflare.links import InvalidLink, ItineraryMessage, import_link
+from fareflare.links import InvalidLink, ItineraryMessage, import_link, itinerary_link
 
 
 def change_token(url, change):
@@ -34,6 +34,34 @@ def test_real_user_link_decodes_without_explicit_trip_type(flight_url):
     ]
     assert (target["adults"], target["cabin"], target["currency"]) == (1, 1, "USD")
     assert import_link(target["url"])["id"] == target["id"]
+
+
+def test_a_link_built_from_an_itinerary_selects_exactly_those_flights(flight_url):
+    target = import_link(flight_url)
+    rebuilt = import_link(
+        itinerary_link(target["segments"], adults=2, cabin=3, currency="EUR"),
+    )
+    assert rebuilt["segments"] == target["segments"]
+    assert (rebuilt["adults"], rebuilt["cabin"], rebuilt["currency"]) == (2, 3, "EUR")
+    # Out and back, with a connection: a leg without a date flies on its segment's day.
+    out = {
+        "date": "2027-03-14",
+        "legs": [
+            {"origin": "DEN", "destination": "ORD", "airline": "UA", "number": "1"},
+            {"origin": "ORD", "destination": "DFW", "airline": "UA", "number": "2"},
+        ],
+    }
+    back = {
+        "date": "2027-03-21",
+        "legs": [{"origin": "DFW", "destination": "DEN", "airline": "UA", "number": "3"}],
+    }
+    both = import_link(itinerary_link([out, back]))
+    assert [segment["date"] for segment in both["segments"]] == ["2027-03-14", "2027-03-21"]
+    assert [
+        [leg["airline"] + leg["number"] for leg in segment["legs"]] for segment in both["segments"]
+    ] == [["UA1", "UA2"], ["UA3"]]
+    assert all(leg["date"] == "2027-03-14" for leg in both["segments"][0]["legs"])
+    assert (both["adults"], both["cabin"], both["currency"]) == (1, 1, "USD")
 
 
 def test_query_order_path_and_account_selection_do_not_change_target(flight_url):

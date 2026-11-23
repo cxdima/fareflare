@@ -84,6 +84,23 @@ Notable changes to Fareflare. The format follows
   explains a template mistake as it is typed, and details to insert are grouped
   (Price, Alert, Trip, Flight, Times, More) with an example of each. Each style
   offers only the switches it uses. The Telegram bot has a **Message style** menu.
+- **Flight list order** (`telegram_list_order`): flights on the same route and day
+  start with the earliest departure (the default) or with the lowest price. Choose it
+  in **Account settings → Notifications**, or with **Sort by price** / **Sort by
+  departure** under the bot's `/flights` list.
+- **Sample situations in the preview.** Besides the message, choose what the sample
+  is: a one-way trip, a round trip for two, a flight whose times are not known yet, or
+  an alert that arrives late. The sample trip always leaves sixteen weeks ahead and its
+  button opens the flights it names. `POST /v1/preferences/telegram-preview` takes
+  `?sample=` and returns `hints`.
+- **Remarks on your own wording.** The preview notes when a message does not show the
+  price or which flight it is about. A remark is a note: the wording can still be saved.
+- In the message editor, **Reset this message to** Compact or Detailed replaces only
+  the message being edited; the others keep their wording.
+- The bot's **Message style** menu also switches the details the style includes and
+  the buttons under alerts, and its example follows each change.
+- New template details: `{weekday}`, `{return_weekday}`, `{days_until}` (`in 12
+  days`, `tomorrow`, `today`), `{stops}`, `{return_stops}` and `{cabin}`.
 - In a template, a separator such as `·` left beside a detail with no value is
   dropped. New details: `{dates_short}`, `{times_short}`, `{return_times_short}`,
   `{party_note}` and `{late_note}`.

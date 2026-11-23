@@ -85,6 +85,36 @@ def _text_is_valid(message: Any) -> bool:
     return True
 
 
+def itinerary_link(
+    segments: list[dict], *, adults: int = 1, cabin: int = 1, currency: str = "USD"
+) -> str:
+    """A Google Flights link that selects exactly these flights.
+
+    The inverse of ``import_link`` for the itineraries it supports: one direction,
+    or out and back. A leg without a date of its own flies on its segment's date.
+    """
+    message = ItineraryMessage(
+        passengers=[1] * adults, cabin=cabin, trip=1 if len(segments) == 2 else 2
+    )
+    for segment in segments:
+        legs = segment["legs"]
+        entry = message.segments.add(date=segment["date"])
+        for leg in legs:
+            entry.legs.add(
+                origin=leg["origin"],
+                date=leg.get("date", segment["date"]),
+                destination=leg["destination"],
+                airline=leg["airline"],
+                number=leg["number"],
+            )
+        entry.origins.add(kind=1, code=legs[0]["origin"])
+        entry.destinations.add(kind=1, code=legs[-1]["destination"])
+    token = base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode()
+    return "https://www.google.com/travel/flights?" + urlencode(
+        {"tfs": token.rstrip("="), "curr": currency}
+    )
+
+
 _AIRPORT = re.compile(r"[A-Z]{3}\Z")
 _AIRLINE = re.compile(r"[A-Z0-9]{2,3}\Z")
 _NUMBER = re.compile(r"[0-9]{1,5}[A-Z]?\Z")

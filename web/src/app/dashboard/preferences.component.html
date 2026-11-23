@@ -132,10 +132,10 @@
     @if (catalog(); as available) {
       <form class="form-stack" (submit)="saveTelegram($event)">
         <div class="telegram-layout">
-          <div class="style-field">
+          <div class="style-field segment-field">
             <span id="telegram-style-label" class="form-label">Message style</span>
             <div
-              class="style-control"
+              class="segment-control"
               role="group"
               aria-labelledby="telegram-style-label"
               aria-describedby="telegram-style-help"
@@ -143,7 +143,7 @@
               @for (style of available.styles; track style.value) {
                 <button
                   type="button"
-                  class="btn style-button"
+                  class="btn segment-button"
                   [attr.aria-pressed]="telegramModel().telegram_style === style.value"
                   [disabled]="store.saving()"
                   (click)="chooseStyle(style.value)"
@@ -159,8 +159,8 @@
               <h3 id="telegram-preview-title">Preview</h3>
               <span>Sample data · nothing is sent</span>
             </div>
-            <div class="preview-choice">
-              <label for="preview-kind" class="form-label">Show an example of</label
+            <div class="preview-choices">
+              <label for="preview-kind" class="form-label">Message</label
               ><select
                 id="preview-kind"
                 class="form-select"
@@ -168,9 +168,23 @@
                 [disabled]="store.saving()"
                 (change)="choosePreview($any($event.target).value)"
               >
-                @for (kind of previewKinds; track kind.value) {
+                @for (kind of available.previews; track kind.value) {
                   <option [value]="kind.value" [selected]="kind.value === previewKind()">
                     {{ kind.label }}
+                  </option>
+                }
+              </select>
+              <label for="preview-sample" class="form-label">Sample</label
+              ><select
+                id="preview-sample"
+                class="form-select"
+                [value]="previewSample()"
+                [disabled]="store.saving()"
+                (change)="chooseSample($any($event.target).value)"
+              >
+                @for (item of available.samples; track item.value) {
+                  <option [value]="item.value" [selected]="item.value === previewSample()">
+                    {{ item.label }}
                   </option>
                 }
               </select>
@@ -223,6 +237,13 @@
                 }
               </div>
             </div>
+            <div class="preview-hints" role="status">
+              @for (hint of preview()?.hints ?? []; track hint) {
+                <p class="preview-hint">
+                  <i class="bi bi-info-circle" aria-hidden="true"></i>{{ hint }}
+                </p>
+              }
+            </div>
             @if (previewError()) {
               <p class="field-error" role="alert">{{ previewError() }}</p>
             }
@@ -253,26 +274,24 @@
                     </select>
                   </div>
                   <div>
-                    <label for="template-preset" class="form-label">Start from a style</label>
-                    <div class="template-preset">
-                      <select
-                        #preset
-                        id="template-preset"
-                        class="form-select"
-                        [disabled]="store.saving()"
-                      >
-                        @for (item of presets(); track item.value) {
-                          <option [value]="item.value">{{ item.label }}</option>
-                        }
-                      </select>
-                      <button
-                        type="button"
-                        class="btn btn-outline-primary"
-                        [disabled]="store.saving()"
-                        (click)="startFrom(preset.value)"
-                      >
-                        Copy wording
-                      </button>
+                    <span id="template-wording-label" class="form-label"
+                      >Reset this message to</span
+                    >
+                    <div
+                      class="template-wording"
+                      role="group"
+                      aria-labelledby="template-wording-label"
+                    >
+                      @for (item of presets(); track item.value) {
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary"
+                          [disabled]="store.saving()"
+                          (click)="useWording(item.value)"
+                        >
+                          {{ item.label }}
+                        </button>
+                      }
                     </div>
                   </div>
                 </div>
@@ -355,23 +374,45 @@
             @if (shownSwitches().length) {
               <fieldset class="toggle-group">
                 <legend>Include in alerts</legend>
-                @for (item of shownSwitches(); track item.key) {
+                @for (item of shownSwitches(); track item.name) {
                   <div class="toggle-row">
                     <div class="toggle-copy">
-                      <label [for]="item.id" class="toggle-label">{{ item.label }}</label>
+                      <label [for]="item.name" class="toggle-label">{{ item.label }}</label>
                     </div>
                     <input
-                      [id]="item.id"
+                      [id]="item.name"
                       class="form-check-input switch"
                       type="checkbox"
                       role="switch"
-                      [formField]="telegram[item.key]"
+                      [formField]="telegram[item.name]"
                       (change)="telegramChanged()"
                     />
                   </div>
                 }
               </fieldset>
             }
+            <div class="segment-field">
+              <span id="list-order-label" class="form-label">Flight list order</span>
+              <div
+                class="segment-control"
+                role="group"
+                aria-labelledby="list-order-label"
+                aria-describedby="list-order-help"
+              >
+                @for (order of listOrders; track order.value) {
+                  <button
+                    type="button"
+                    class="btn segment-button"
+                    [attr.aria-pressed]="telegramModel().telegram_list_order === order.value"
+                    [disabled]="store.saving()"
+                    (click)="chooseOrder(order.value)"
+                  >
+                    {{ order.label }}
+                  </button>
+                }
+              </div>
+              <p id="list-order-help" class="form-text">{{ listOrderHelp() }}</p>
+            </div>
             <fieldset class="toggle-group">
               <legend>How alerts arrive</legend>
               <div class="toggle-row">

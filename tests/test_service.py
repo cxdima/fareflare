@@ -25,14 +25,14 @@ def test_customers_share_collection_but_not_monitor_ownership(service, flight_ur
     assert first["target_id"] == second["target_id"]
     assert first["id"] != second["id"]
     assert len(service.store.query("targets")) == 1
-    assert [m["id"] for m in service.list_monitors("alice")] == [first["id"]]
+    assert [m["id"] for m in service.monitors_page("alice")["items"]] == [first["id"]]
     with pytest.raises(NotFound):
         service.get_monitor("bob", first["id"])
     with pytest.raises(NotFound):
         service.history("bob", first["id"])
 
 
-def test_listing_reads_every_page_and_current_flights_leave_out_the_archive(
+def test_current_flights_are_read_from_every_page_and_leave_out_the_archive(
     service, store, flight_url, monkeypatch
 ):
     created = [service.create_monitor("alice", flight_url, f"listing-{i}")["id"] for i in range(5)]
@@ -46,7 +46,6 @@ def test_listing_reads_every_page_and_current_flights_leave_out_the_archive(
 
     # A listing must not stop at the first page the store returns.
     monkeypatch.setattr(store, "page", two_at_a_time)
-    assert {m["id"] for m in service.list_monitors("alice")} == set(created)
     current = service.current_monitors("alice")
     assert {m["id"] for m in current} == set(created[1:])
     assert {m["status"] for m in current} == {"paused", "pending"}
@@ -236,7 +235,7 @@ def test_concurrent_local_idempotent_creates_have_one_effect(tmp_path, flight_ur
             )
         )
     assert len({m["id"] for m in results}) == 1
-    assert len(service.list_monitors("alice")) == 1
+    assert len(service.monitors_page("alice")["items"]) == 1
 
 
 def test_out_of_order_event_discovery_waits_for_missing_sequence(
@@ -314,7 +313,7 @@ def test_expiry_preserves_customer_record_and_allows_local_date_grace(service, f
     clock[0] = int(datetime(2027, 3, 16, tzinfo=UTC).timestamp())
     service.collect_due(provider)
     assert service.get_monitor("alice", monitor["id"])["status"] == "expired"
-    assert len(service.list_monitors("alice")) == 1
+    assert len(service.monitors_page("alice")["items"]) == 1
     assert service.store.query("targets") == []
 
 

@@ -14,6 +14,7 @@ from fareflare.telegram_templates import DEFAULT_STYLE, TelegramStyle, validate_
 
 Locale = Literal["en-US", "en-GB", "de-DE", "fr-FR", "es-ES", "uk-UA"]
 HourCycle = Literal["auto", "h12", "h23"]
+ListOrder = Literal["departure", "price"]
 _DATE_FORMATS: dict[Locale, str] = {
     "en-US": "%m/%d/%Y",
     "en-GB": "%d/%m/%Y",
@@ -33,6 +34,7 @@ _NUMBER_SEPARATORS: dict[Locale, tuple[str, str]] = {
 # How far ahead a month and day still name one obvious date; fares go on sale later than this.
 _NEAR_DAYS = 300
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 # These regions conventionally write the amount first: 246,50 $.
 _SYMBOL_AFTER: frozenset[str] = frozenset({"de-DE", "fr-FR", "es-ES", "uk-UA"})
 _QUIET_HOURS = re.compile(r"((?:[01]\d|2[0-3]):[0-5]\d)-((?:[01]\d|2[0-3]):[0-5]\d)")
@@ -67,6 +69,10 @@ class Preferences(BaseModel):
     )
     telegram_show_buttons: bool = Field(
         default=True, description="Show link buttons beneath Telegram price alerts."
+    )
+    telegram_list_order: ListOrder = Field(
+        default="departure",
+        description="Order of flights on the same route and day in the flight list.",
     )
     telegram_silent: bool = False
     quiet_hours: str | None = Field(
@@ -172,6 +178,19 @@ def short_dates(first: date, last: date | None = None, today: date | None = None
     if first.year == last.year:
         return f"{short_date(first)} – {short_date(last)}, {last.year}"
     return f"{short_date(first)}, {first.year} – {short_date(last)}, {last.year}"
+
+
+def weekday(value: date) -> str:
+    """Sun. English, like the rest of a message's wording."""
+    return _WEEKDAYS[value.weekday()]
+
+
+def days_until(value: date, today: date | None) -> str:
+    """How soon a day comes: today, tomorrow, in 12 days. Nothing once it has passed."""
+    if today is None or value < today:
+        return ""
+    days = (value - today).days
+    return ("today", "tomorrow")[days] if days < 2 else f"in {days} days"
 
 
 def _twelve_hour(preferences: Preferences) -> bool:

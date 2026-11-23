@@ -70,7 +70,7 @@ def test_account_deletion_racing_creation_rolls_back(store, clock, flight_url, m
     monkeypatch.setattr(store, "commit", commit)
     with pytest.raises(ValueError, match="not active"):
         service.create_monitor(tenant, flight_url, "monitor-racing")
-    assert service.list_monitors(tenant) == []
+    assert service.monitors_page(tenant)["items"] == []
 
 
 def test_departure_releases_quota_and_capacity_without_reactivation(store, clock, flight_url):

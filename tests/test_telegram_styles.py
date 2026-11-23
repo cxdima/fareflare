@@ -2,6 +2,7 @@
 
 from datetime import date
 from html.parser import HTMLParser
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
@@ -19,11 +20,13 @@ from fareflare.preferences import (
 )
 from fareflare.telegram_messages import (
     LATE_SECONDS,
-    PREVIEW_KINDS,
+    PREVIEWS,
+    PreviewSample,
     alert_message,
     collection_notice,
     flight_list,
-    flight_order,
+    ordered_flights,
+    preview_choices,
     preview_message,
 )
 from fareflare.telegram_templates import (
@@ -31,10 +34,12 @@ from fareflare.telegram_templates import (
     DEFAULT_STYLE,
     PRESETS,
     STYLES,
+    SWITCHES,
     TEMPLATE_KEYS,
     VOCABULARY,
     style_switches,
     template_catalog,
+    template_hints,
     templates_for,
     validate_templates,
 )
@@ -492,14 +497,37 @@ def test_lists_are_ordered_by_day_route_and_departure():
     other = monitor("1", 100, 100, origin="DEN", destination="DAL")
     sooner = monitor("9", 100, 100)
     sooner["target"]["segments"][0]["date"] = "2027-01-02"
-    ordered = sorted([late, untimed, other, early, sooner], key=flight_order)
+    flights = [late, untimed, other, early, sooner]
+
+    def numbers(preferences):
+        return [
+            flight["target"]["segments"][0]["legs"][0]["number"]
+            for flight in ordered_flights(flights, preferences)
+        ]
+
+    assert numbers(Preferences()) == ["9", "1", "2", "3", "4"]
+
+
+def test_a_list_ordered_by_price_keeps_its_headings_and_puts_the_cheapest_first():
+    dear = monitor("1", 30000, 100, latest_schedule=("06:00", "08:00"))
+    cheap = monitor("2", 10000, 100, latest_schedule=("19:00", "21:00"))
+    same = monitor("3", 10000, 100, latest_schedule=("12:00", "14:00"))
+    unpriced = monitor("4", 100, 100, latest_schedule=("05:00", "07:00"))
+    unpriced["latest"] = None
+    # A flight on another day keeps its place however cheap it is: headings come first.
+    later = monitor("5", 100, 100, latest_schedule=("05:00", "07:00"))
+    later["target"]["segments"][0]["date"] = "2027-02-01"
+    by_price = Preferences(telegram_list_order="price")
+    ordered = ordered_flights([dear, cheap, same, unpriced, later], by_price)
     assert [flight["target"]["segments"][0]["legs"][0]["number"] for flight in ordered] == [
-        "9",
-        "1",
+        "3",  # the same price as the next one, and it leaves earlier
         "2",
-        "3",
-        "4",
+        "1",
+        "4",  # nothing recorded yet
+        "5",
     ]
+    with pytest.raises(ValidationError):
+        Preferences(telegram_list_order="alphabetical")
 
 
 def test_templates_are_validated_when_preferences_are_saved():
@@ -603,26 +631,137 @@ def test_a_time_range_names_am_or_pm_once_when_both_ends_share_it(
     assert clock_range(departs, arrives, Preferences(hour_cycle=hour_cycle)) == expected
 
 
-def test_every_preview_renders_for_every_style_without_sending_anything():
-    assert (*ALERT_KEYS, "flight_list") == PREVIEW_KINDS
+def test_every_preview_renders_for_every_style_and_sample_without_sending_anything():
+    assert tuple(PREVIEWS) == (*ALERT_KEYS, "flight_list")
+    choices = preview_choices()
+    assert [item["value"] for item in choices["previews"]] == list(PREVIEWS)
+    assert [item["value"] for item in choices["samples"]] == list(get_args(PreviewSample))
+    assert all(item["label"] for item in choices["previews"] + choices["samples"])
     for style in STYLES:
         prefs = Preferences(telegram_style=style)
-        for kind in PREVIEW_KINDS:
-            preview = preview_message(kind, prefs, "https://fareflare.example", NOW)
-            preview.message.payload()
-            Markup(preview.message.html)
-            # The styled lines an editor draws are the message that would be sent.
-            assert plain_text(preview.lines) == preview.message.text
-            assert telegram_html(preview.lines) == preview.message.html
-            assert "USD" not in preview.message.text
-    listed = preview_message("flight_list", Preferences(), None, NOW).message.text.split("\n")
-    assert listed[0] == "🛫 DEN → DFW · Mar 14"
-    assert listed[1] == "• UA 1565 7:05→10:02 AM · $214 🔥 at the low"
-    assert listed[-1].endswith("· Paused")
-    # A sample alert is on time, so it shows no note about a late check.
-    assert "Checked" not in preview_message("new_low", Preferences(), None, NOW).message.text
-    with pytest.raises(ValueError):
-        preview_message("anything", Preferences(), None, NOW)
+        for kind in PREVIEWS:
+            for sample in get_args(PreviewSample):
+                preview = preview_message(kind, prefs, "https://fareflare.example", NOW, sample)
+                preview.message.payload()
+                Markup(preview.message.html)
+                # The styled lines an editor draws are the message that would be sent.
+                assert plain_text(preview.lines) == preview.message.text
+                assert telegram_html(preview.lines) == preview.message.html
+                assert "USD" not in preview.message.text
+                assert preview.hints == ()
+
+
+def sample(kind, name="one_way", prefs=COMPACT):
+    return preview_message(kind, prefs, "https://fareflare.example", NOW, name).message
+
+
+def test_the_sample_trip_is_always_ahead_and_carries_its_own_link():
+    # Sixteen weeks after the preview is made: never in the past, never in need of a year.
+    assert sample("new_low").text.split("\n") == [
+        "🔥 New low · $191 (was $199)",
+        "DEN → DFW · Feb 26 · UA 414",
+        "3:50 PM → 6:54 PM",
+    ]
+    much_later = preview_message("new_low", COMPACT, None, NOW + 400 * 86400).message
+    assert "DEN → DFW · Apr 1 · UA 414" in much_later.text
+    # The button opens the flights the message names, on the day it names.
+    for name, days in (("one_way", ["2027-02-26"]), ("round_trip", ["2027-02-26", "2027-03-05"])):
+        url = sample("new_low", name).reply_markup["inline_keyboard"][0][0]["url"]
+        target = import_link(url)
+        assert [segment["date"] for segment in target["segments"]] == days
+        assert target["segments"][0]["legs"][0]["number"] == "414"
+    assert import_link(url)["adults"] == 2
+
+
+def test_samples_show_wording_where_details_are_added_or_missing():
+    assert sample("new_low", "round_trip").text.split("\n") == [
+        "🔥 New low · $382 for 2 adults (was $398)",
+        "DEN ⇄ DFW · Feb 26 – Mar 5 · UA 414, UA 2231",
+        "3:50 PM → 6:54 PM",
+        "↩ 5:09 PM → 6:14 PM",
+    ]
+    assert sample("new_low", "untimed").text.split("\n") == [
+        "🔥 New low · $191 (was $199)",
+        "DEN → DFW · Feb 26 · UA 414",
+    ]
+    # Only an alert that arrives late says when its price was checked.
+    assert "Checked" not in sample("new_low").text
+    assert sample("new_low", "late").text.split("\n")[-1] == "Checked 11/06/2026 7:35 AM UTC"
+    assert sample("flight_list", "late").text == sample("flight_list").text
+    assert sample("flight_list").text.split("\n") == [
+        "🛫 DEN → DFW · Feb 26",
+        "• UA 1565 7:05→10:02 AM · $214 (low $199)",
+        "• UA 414 3:50→6:54 PM · $191 🔥 at the low",
+        "• UA 1832 7:40→10:41 PM · $269 (low $219) · Paused",
+    ]
+    by_price = Preferences(telegram_list_order="price")
+    assert [
+        line.split(" ")[2] for line in sample("flight_list", prefs=by_price).text.split("\n")[1:]
+    ] == ["414", "1565", "1832"]
+    assert sample("flight_list", "round_trip").text.split("\n")[:3] == [
+        "🛫 DEN ⇄ DFW · Feb 26 – Mar 5",
+        "• UA 1565, UA 2231 7:05→10:02 AM · $428 (low $398)",
+        "   ↩ 5:09→6:14 PM",
+    ]
+    assert sample("flight_list", "untimed").text.split("\n")[1] == "• UA 1565 · $214 (low $199)"
+
+
+def test_trip_and_flight_details_for_custom_wording(flight_url):
+    wording = "{weekday} {days_until} · {stops} · {cabin}[ / {return_weekday} {return_stops}]"
+    custom = Preferences(telegram_style="custom", telegram_templates={"new_low": wording})
+    assert sample("new_low", prefs=custom).text == "Fri in 112 days · Nonstop · Economy"
+    assert (
+        sample("new_low", "round_trip", custom).text
+        == "Fri in 112 days · Nonstop · Economy / Fri Nonstop"
+    )
+    # How soon a trip starts is counted from the reader's day.
+    connecting = alert(flight_url)
+    connecting["itinerary"]["segments"][0]["legs"] = [
+        {"origin": "DEN", "destination": "ORD", "airline": "UA", "number": "1"},
+        {"origin": "ORD", "destination": "DFW", "airline": "UA", "number": "2"},
+    ]
+    connecting["itinerary"]["segments"][0]["date"] = "2026-11-07"
+    connecting["itinerary"]["cabin"] = 3
+    text = alert_message(connecting, custom, now=NOW).text
+    assert text.startswith("Sat tomorrow · 1 stop · Business")
+    connecting["itinerary"]["segments"][0]["date"] = "2026-11-06"
+    assert "Fri today" in alert_message(connecting, custom, now=NOW).text
+    # A day that has passed is not counted, and a flight that is not known has no stops.
+    connecting["itinerary"]["segments"][0]["date"] = "2026-11-01"
+    del connecting["itinerary"]["segments"][0]["legs"][1]["number"]
+    del connecting["itinerary"]["cabin"]
+    assert alert_message(connecting, custom, now=NOW).text.split(" / ")[0] == "Sun"
+
+
+def test_hints_name_what_a_reader_would_miss_and_never_block_saving():
+    for style in PRESETS:
+        for kind in PREVIEWS:
+            assert template_hints(kind, PRESETS[style]) == []
+    bare = validate_templates({"new_low": "{headline}", "flight_row": "{times}"})
+    wording = templates_for("custom", {**bare, "flight_group": ""})
+    assert template_hints("new_low", wording) == [
+        "This alert does not show the price.",
+        "This alert does not show which flight it is about.",
+    ]
+    assert template_hints("flight_list", wording) == [
+        "A flight in the list does not show the price.",
+        "A flight in the list does not show which flight it is about.",
+    ]
+    # Another alert of the same account keeps the default wording, which has both.
+    assert template_hints("rebound", wording) == []
+    # A heading that names the route speaks for the rows under it.
+    headed = templates_for("custom", {"flight_group": "{route}", "flight_row": "{price}"})
+    assert template_hints("flight_list", headed) == []
+    preview = preview_message(
+        "new_low",
+        Preferences(telegram_style="custom", telegram_templates=bare),
+        None,
+        NOW,
+    )
+    assert preview.hints == (
+        "This alert does not show the price.",
+        "This alert does not show which flight it is about.",
+    )
 
 
 def test_catalog_describes_every_template_for_an_editor():
@@ -648,6 +787,10 @@ def test_catalog_describes_every_template_for_an_editor():
         style_switches("detailed"),
         [],
     ]
+    # Every switch is a preference with a name an editor can show.
+    assert [item["name"] for item in catalog["switches"]] == list(SWITCHES)
+    assert all(item["label"] for item in catalog["switches"])
+    assert set(SWITCHES) < set(Preferences.model_fields)
     assert catalog["limits"] == {"characters": 800, "lines": 20, "placeholders": 40}
 
 

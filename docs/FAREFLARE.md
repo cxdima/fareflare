@@ -88,9 +88,10 @@ UTC. Save a named zone to keep both consistent. Flight departure dates stay in
 the airport's calendar; fare amounts retain their original currency.
 
 Under **Notifications**, choose a Telegram message style (compact, detailed, or your
-own wording), the details that style includes, silent delivery and quiet hours. The
-preview beside the settings follows every change and displays sample content without
-saving changes or sending a notification. Global and route muting stop outgoing
+own wording), the details that style includes, the order of the flight list, silent
+delivery and quiet hours. The preview beside the settings follows every change and
+displays sample content (a one-way or return trip, a flight without times, a late
+alert) without saving changes or sending a notification. Global and route muting stop outgoing
 alerts while collection continues. See [account preferences](ACCOUNT_PREFERENCES.md)
 for defaults, partial API/MCP updates and formatting limits.
 

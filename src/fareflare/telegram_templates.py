@@ -22,13 +22,12 @@ from fareflare.message_templates import (
 
 TelegramStyle = Literal["compact", "detailed", "custom"]
 BuiltInStyle = Literal["compact", "detailed"]
-TemplateKey = Literal[
-    "tracking_started", "new_low", "below_price", "rebound", "flight_group", "flight_row"
-]
+AlertKey = Literal["tracking_started", "new_low", "below_price", "rebound"]
+TemplateKey = Literal[AlertKey, "flight_group", "flight_row"]
 
 # The style of a new account, and the wording used wherever an account's own is missing.
 DEFAULT_STYLE: BuiltInStyle = "compact"
-ALERT_KEYS: tuple[TemplateKey, ...] = ("tracking_started", "new_low", "below_price", "rebound")
+ALERT_KEYS: tuple[AlertKey, ...] = ("tracking_started", "new_low", "below_price", "rebound")
 TEMPLATE_KEYS: tuple[TemplateKey, ...] = (*ALERT_KEYS, "flight_group", "flight_row")
 # A list needs no heading; every other message must say something.
 OPTIONAL_KEYS: frozenset[str] = frozenset({"flight_group"})
@@ -67,6 +66,9 @@ _TRIP = _family(
     Placeholder("dates_short", "Travel days as a short month and day", "Mar 10 – Mar 14"),
     Placeholder("date_short", "Departure date as a short month and day", "Mar 10"),
     Placeholder("return_date_short", "Short return date; empty for a one-way trip", "Mar 14"),
+    Placeholder("weekday", "Day of the week of the departure", "Wed"),
+    Placeholder("return_weekday", "Day of the week of the return", "Sun"),
+    Placeholder("days_until", "How soon the trip starts", "in 12 days"),
     Placeholder("date", "Departure date in your regional format", "03/10/2027"),
     Placeholder("return_date", "Return date; empty for a one-way trip", "03/14/2027"),
     Placeholder("dates", "Every travel date in your regional format", "03/10/2027"),
@@ -77,6 +79,9 @@ _FLIGHT = _family(
     "Flight",
     Placeholder("flights", "Flight numbers", "UA 1753"),
     Placeholder("airline", "Airline name, or its code when unlisted", "United"),
+    Placeholder("stops", "Nonstop, or the number of stops", "Nonstop"),
+    Placeholder("return_stops", "The same for the return flight", "1 stop"),
+    Placeholder("cabin", "Cabin class", "Economy"),
     Placeholder("passengers", "Travelling party", "1 adult"),
 )
 _TIMES = _family(
@@ -224,23 +229,57 @@ PRESETS: dict[str, dict[str, str]] = {
         ),
     },
 }
-# Which "include in alerts" choices a built-in style can act on: the details they govern.
-SWITCHES: dict[str, frozenset[str]] = {
-    "telegram_show_flight_numbers": frozenset({"flights", "itinerary"}),
-    "telegram_show_times": frozenset(
-        {"itinerary", *(item.name for item in _TIMES if "duration" not in item.name)}
+
+
+@dataclass(frozen=True)
+class Switch:
+    """An "include in alerts" choice: what it is called and the details it governs."""
+
+    label: str
+    governs: frozenset[str]
+
+
+SWITCHES: dict[str, Switch] = {
+    "telegram_show_flight_numbers": Switch("Flight numbers", frozenset({"flights", "itinerary"})),
+    "telegram_show_times": Switch(
+        "Departure and arrival times",
+        frozenset({"itinerary", *(item.name for item in _TIMES if "duration" not in item.name)}),
     ),
-    "telegram_show_observed_time": frozenset({"observed", "observed_short"}),
-    "telegram_show_fare": frozenset({"fare", "details"}),
+    "telegram_show_observed_time": Switch(
+        "Time the price was checked", frozenset({"observed", "observed_short"})
+    ),
+    "telegram_show_fare": Switch("Fare name", frozenset({"fare", "details"})),
 }
+# What a message has to say to be worth sending, as the details that say it.
+_ESSENTIALS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("the price", frozenset({"price_short", "price"})),
+    (
+        "which flight it is about",
+        frozenset({"route", "origin", "destination", "flights", "itinerary"}),
+    ),
+)
 
 
 def style_switches(style: str) -> list[str]:
-    """The detail choices that change this built-in style's alerts."""
+    """The detail choices that change this style's alerts. Custom wording has none."""
+    if style not in PRESETS:
+        return []
     shown = frozenset().union(
         *(template_fields(PRESETS[style][key], VOCABULARY[key]) for key in ALERT_KEYS)
     )
-    return [name for name, governed in SWITCHES.items() if shown & governed]
+    return [name for name, switch in SWITCHES.items() if shown & switch.governs]
+
+
+def template_hints(preview: str, templates: Mapping[str, str]) -> list[str]:
+    """Remarks on wording that leaves out something a reader needs.
+
+    ``preview`` is an alert, or ``flight_list`` for the list's heading and row
+    together. A hint never stops a template from being saved.
+    """
+    keys = ("flight_group", "flight_row") if preview == "flight_list" else (preview,)
+    used = frozenset().union(*(template_fields(templates[key], VOCABULARY[key]) for key in keys))
+    subject = "A flight in the list" if preview == "flight_list" else "This alert"
+    return [f"{subject} does not show {what}." for what, names in _ESSENTIALS if not used & names]
 
 
 def validate_templates(templates: Mapping[str, str]) -> dict[str, str]:
@@ -273,18 +312,19 @@ def templates_for(style: str, custom: Mapping[str, str] | None = None) -> dict[s
 
 
 def template_catalog() -> dict:
-    """Everything an editor needs: styles, names, placeholders, presets and limits."""
+    """What an editor needs to write messages: styles, switches, placeholders, presets, limits."""
     return {
         "styles": [
             {
                 "value": style,
                 "label": label,
                 "description": description,
-                "switches": style_switches(style) if style in PRESETS else [],
+                "switches": style_switches(style),
             }
             for style, (label, description) in STYLES.items()
         ],
         "default_style": DEFAULT_STYLE,
+        "switches": [{"name": name, "label": switch.label} for name, switch in SWITCHES.items()],
         "templates": [
             {"key": key, "label": LABELS[key], "optional": key in OPTIONAL_KEYS}
             for key in TEMPLATE_KEYS

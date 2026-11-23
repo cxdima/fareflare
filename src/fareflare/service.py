@@ -111,7 +111,7 @@ class MonitoringService:
     def _now(self) -> int:
         return int(self.clock())
 
-    def _departure_day_elapsed(self, target: dict) -> bool:
+    def departure_day_elapsed(self, target: dict) -> bool:
         # The imported link has airport-local dates but no departure timezone.
         # Leave a whole UTC day of grace rather than expire a US evening flight
         # as soon as UTC crosses midnight. A validated collector can refine this.
@@ -144,7 +144,7 @@ class MonitoringService:
         target = self.link_importer(url)
         if self.capability_check:
             self.capability_check(target)
-        if self._departure_day_elapsed(target):
+        if self.departure_day_elapsed(target):
             raise ValueError("The selected itinerary has already departed")
         policy = policy or AlertPolicy()
         # Preserve the v1 request fingerprint layout for retries across releases.
@@ -283,10 +283,6 @@ class MonitoringService:
             cursor = page.cursor
             if cursor is None:
                 return documents
-
-    def list_monitors(self, tenant: str) -> list[dict]:
-        """Every monitor of a tenant, stopped and departed ones included."""
-        return [self.get_monitor(tenant, d.data["id"]) for d in self._monitor_documents(tenant)]
 
     def current_monitors(self, tenant: str) -> list[dict]:
         """Flights still watched or paused, without the stopped and departed ones.
@@ -668,7 +664,7 @@ class MonitoringService:
                 )
                 counts["skipped"] += 1
                 continue
-            if self._departure_day_elapsed(target.data["spec"]):
+            if self.departure_day_elapsed(target.data["spec"]):
                 # Release account/global reservations, including paused subscribers.
                 # Each transition is atomic and idempotent across worker retries.
                 for identifier in target.data.get("subscribers", []):

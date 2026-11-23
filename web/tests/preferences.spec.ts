@@ -18,10 +18,13 @@ const defaults: Preferences = {
   telegram_show_observed_time: true,
   telegram_show_fare: true,
   telegram_show_buttons: true,
+  telegram_list_order: 'departure',
   telegram_silent: false,
   quiet_hours: null,
   diagnostics: false,
 };
+/** The sample trip leaves sixteen weeks after the preview is made, so its day is not fixed. */
+const day = '[A-Z][a-z]{2} \\d{1,2}';
 
 async function preferencesMock(page: Page, initial: Partial<Preferences> = {}) {
   await mock(page);
@@ -64,6 +67,13 @@ function previewText(page: Page) {
   return page.locator('.telegram-preview .bubble-text');
 }
 
+/** One option of the flight list order switch. */
+function orderButton(page: Page, name: 'By departure' | 'By price') {
+  return page
+    .getByRole('group', { name: 'Flight list order' })
+    .getByRole('button', { name, exact: true });
+}
+
 test('actual account preferences persist and preview does not save or send', async ({
   page,
 }, info) => {
@@ -98,7 +108,7 @@ test('actual account preferences persist and preview does not save or send', asy
   const preview = previewText(page);
   await expect(preview.locator('.bubble-line')).toHaveText([
     '🔥 New low · 191 $ (was 199 $)',
-    'DEN → DFW · Mar 14 · UA 414',
+    new RegExp(`^DEN → DFW · ${day} · UA 414$`),
     '15:50 → 18:54',
   ]);
   await expect(preview.locator('.run-bold')).toHaveText(['New low', '191 $']);
@@ -123,13 +133,38 @@ test('actual account preferences persist and preview does not save or send', asy
   expect(saved.telegram_style).toBe('compact');
   expect(saved.telegram_silent).toBe(false);
   expect(saved.telegram_show_flight_numbers).toBe(true);
-  // The flight list is rendered by the real service too, and has no buttons.
+  // Other situations show what the wording does when details are added or missing.
   await styleButton(page, 'Compact').click();
-  await page.getByLabel('Show an example of').selectOption('flight_list');
-  await expect(preview.locator('.bubble-line').first()).toHaveText('🛫 DEN → DFW · Mar 14');
+  const sample = page.getByLabel('Sample', { exact: true });
+  await sample.selectOption('round_trip');
+  await expect(preview.locator('.bubble-line')).toHaveText([
+    '🔥 New low · 382 $ for 2 adults (was 398 $)',
+    new RegExp(`^DEN ⇄ DFW · ${day} – ${day}$`),
+    '15:50 → 18:54',
+    '↩ 17:09 → 18:14',
+  ]);
+  await sample.selectOption('untimed');
+  await expect(preview.locator('.bubble-line')).toHaveCount(2);
+  await sample.selectOption('late');
+  await expect(preview.locator('.bubble-line').last()).toContainText('Checked');
+  await sample.selectOption('one_way');
+  // The flight list is rendered by the real service too, and has no buttons.
+  await page.getByLabel('Message', { exact: true }).selectOption('flight_list');
+  await expect(preview.locator('.bubble-line').first()).toHaveText(
+    new RegExp(`^🛫 DEN → DFW · ${day}$`),
+  );
   await expect(preview).toContainText('🔥 at the low');
+  await expect(preview.locator('.bubble-line').nth(1)).toContainText('214 $');
   await expect(preview.locator('.run-code').first()).toHaveText('UA 1565');
   await expect(exampleButtons).toHaveCount(0);
+  // Ordering by price moves the cheapest flight to the top of its day.
+  await page.getByLabel('Message', { exact: true }).selectOption('new_low');
+  await orderButton(page, 'By price').click();
+  await expect(page.getByLabel('Message', { exact: true })).toHaveValue('flight_list');
+  await expect(preview.locator('.bubble-line').nth(1)).toContainText('191 $ 🔥 at the low');
+  await expect(page.locator('#list-order-help')).toContainText('lowest price');
+  saved = await (await page.request.get('/v1/preferences')).json();
+  expect(saved.telegram_list_order).toBe('departure');
   await page.getByRole('button', { name: 'Save Telegram settings' }).click();
   await expect(page.getByText('Telegram message settings saved.')).toBeVisible();
   await page.getByLabel('Mute all notifications').check();
@@ -142,6 +177,7 @@ test('actual account preferences persist and preview does not save or send', asy
     telegram_silent: true,
     telegram_show_flight_numbers: false,
     telegram_show_fare: false,
+    telegram_list_order: 'price',
     muted: true,
   });
   await showSection(page, 'Security');
@@ -547,14 +583,20 @@ test('custom wording starts from a style, inserts details and previews before sa
   page,
 }) => {
   const state = await preferencesMock(page);
-  const previews: { message: string | null; body: Partial<Preferences> }[] = [];
+  const previews: {
+    message: string | null;
+    sample: string | null;
+    body: Partial<Preferences>;
+  }[] = [];
+  // The service remarks on wording that leaves out what a reader needs; it never refuses it.
+  const hints = ['A flight in the list does not show which flight it is about.'];
   await page.route('**/v1/preferences/telegram-preview*', (route) => {
     const request = route.request();
-    previews.push({
-      message: new URL(request.url()).searchParams.get('message'),
-      body: request.postDataJSON(),
-    });
-    return route.fulfill({ json: messagePreview });
+    const asked = new URL(request.url()).searchParams;
+    const body: Partial<Preferences> = request.postDataJSON();
+    previews.push({ message: asked.get('message'), sample: asked.get('sample'), body });
+    const bare = body.telegram_templates?.flight_row === 'Now {price_short}';
+    return route.fulfill({ json: { ...messagePreview, hints: bare ? hints : [] } });
   });
   await page.goto('/app#settings');
   await showSection(page, 'Notifications');
@@ -570,8 +612,9 @@ test('custom wording starts from a style, inserts details and previews before sa
   await expect(page.getByLabel('Flight numbers', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Buttons under alerts', { exact: true })).toBeEnabled();
 
-  await page.getByLabel('Start from a style').selectOption('compact');
-  await page.getByRole('button', { name: 'Copy wording' }).click();
+  // A message returns to a built-in wording by itself; the others keep theirs.
+  const reset = page.getByRole('group', { name: 'Reset this message to' });
+  await reset.getByRole('button', { name: 'Compact', exact: true }).click();
   await expect(newLow).toHaveValue('compact low {route}');
 
   await page.getByLabel('Message to edit').selectOption('flight_row');
@@ -591,20 +634,26 @@ test('custom wording starts from a style, inserts details and previews before sa
   await expect(row).toBeFocused();
   await expect(page.locator('#template-help-flight_row')).toContainText('17 of 800 characters.');
   // Editing a list template previews the list it belongs to, with the draft as it stands.
-  await expect(page.getByLabel('Show an example of')).toHaveValue('flight_list');
+  await expect(page.getByLabel('Message', { exact: true })).toHaveValue('flight_list');
   await expect
     .poll(() => previews.at(-1))
     .toMatchObject({
       message: 'flight_list',
+      sample: 'one_way',
       body: {
         telegram_style: 'custom',
         telegram_templates: {
           new_low: 'compact low {route}',
+          rebound: 'detailed rebound {route}',
           flight_row: 'Now {price_short}',
-          flight_group: '🛫 {route}',
+          flight_group: '',
         },
       },
     });
+  // The remark sits under the preview as a note; saving stays possible.
+  const remarks = page.locator('.telegram-preview').getByRole('status');
+  await expect(remarks).toHaveText(hints[0]);
+  await expect(page.locator('.telegram-preview').getByRole('alert')).toHaveCount(0);
   expect(state.writes).toEqual([]);
 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -616,7 +665,7 @@ test('custom wording starts from a style, inserts details and previews before sa
   expect(state.writes).toHaveLength(1);
   expect(state.writes[0]).toMatchObject({
     telegram_style: 'custom',
-    telegram_templates: { flight_row: 'Now {price_short}', rebound: 'compact rebound {route}' },
+    telegram_templates: { flight_row: 'Now {price_short}', rebound: 'detailed rebound {route}' },
   });
   // Returning later shows the saved wording, not a fresh preset.
   await page.reload();

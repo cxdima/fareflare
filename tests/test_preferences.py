@@ -186,7 +186,7 @@ def test_preview_is_authenticated_uses_unsaved_values_and_has_no_side_effect(ser
         # The saved region, with the unsaved clock style and without flight numbers.
         assert data["text"].split("\n") == [
             "🔥 New low · 191\xa0$ (was 199\xa0$)",
-            "DEN → DFW · Mar 14",
+            "DEN → DFW · Feb 22",
             "15:50 → 18:54",
         ]
         assert data["silent"] is True and data["time_zone"] == "America/Chicago"

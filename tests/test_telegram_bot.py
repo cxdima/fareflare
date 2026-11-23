@@ -235,7 +235,8 @@ def test_the_list_shows_current_flights_only_and_one_flight_opens_directly(
     assert flights.text.startswith("Your flights (2)")
     assert "UA 100" in flights.text and "UA 300 · Paused" in flights.text
     assert "UA 200" not in flights.text
-    assert service.current_monitors(tenant) != [] and len(service.list_monitors(tenant)) == 3
+    assert service.current_monitors(tenant) != []
+    assert len(service.monitors_page(tenant)["items"]) == 3
     picker = _press(native_bot, flights, "Manage a flight")
     assert _labels(picker) == [
         "DEN → DFW · Mar 14 · UA 100",
@@ -366,11 +367,27 @@ def test_settings_keep_localization_and_explicit_actions_are_single_use(native_b
     assert "Compact: an example with sample data." in styles.text
     assert "🔥 New low · 191" in styles.text and "🔥 <b>New low</b>" in styles.html
     # Only styles that have wording are offered; custom wording is written on the website.
-    assert _labels(styles)[:3] == ["✓ Compact", "Detailed", "Write your own messages"]
+    # Under them: what this style's alerts can leave out, then the buttons beneath alerts.
+    assert _labels(styles) == [
+        "✓ Compact",
+        "Detailed",
+        "✓ Flight numbers",
+        "✓ Departure and arrival times",
+        "✓ Buttons under alerts",
+        "Write your own messages",
+        "Back to alert settings",
+    ]
     chosen = _press(native_bot, styles, "Detailed")
-    assert "Message style saved." in chosen.text
+    assert "Message settings saved." in chosen.text
     assert "Detailed: an example with sample data." in chosen.text
-    assert _labels(chosen)[:2] == ["Compact", "✓ Detailed"]
+    assert _labels(chosen)[:6] == [
+        "Compact",
+        "✓ Detailed",
+        "✓ Flight numbers",
+        "✓ Departure and arrival times",
+        "✓ Time the price was checked",
+        "✓ Fare name",
+    ]
     prefs = service.preferences(tenant)
     assert (
         prefs["muted"] is False
@@ -378,6 +395,65 @@ def test_settings_keep_localization_and_explicit_actions_are_single_use(native_b
         and prefs["telegram_style"] == "detailed"
     )
     assert prefs["locale"] == "de-DE" and prefs["muted_routes"] == ["SFO-NRT"]
+
+
+def test_message_options_are_switched_where_the_example_shows_their_effect(native_bot, service):
+    tenant = native_bot[1]
+    styles = _press(native_bot, _call(native_bot, "/settings"), "Message style")
+    assert "UA 414" in styles.text
+    hidden = _press(native_bot, styles, "✓ Flight numbers")
+    # The example is drawn again without what was switched off, and the mark is gone.
+    assert "Message settings saved." in hidden.text and "UA 414" not in hidden.text
+    assert "Flight numbers" in _labels(hidden) and "✓ Flight numbers" not in _labels(hidden)
+    assert service.preferences(tenant)["telegram_show_flight_numbers"] is False
+    shown = _press(native_bot, hidden, "Flight numbers")
+    assert "UA 414" in shown.text and "✓ Flight numbers" in _labels(shown)
+    plain = _press(native_bot, shown, "✓ Buttons under alerts")
+    assert "Buttons under alerts" in _labels(plain)
+    assert service.preferences(tenant)["telegram_show_buttons"] is False
+    # Own wording decides for itself what it shows, so it has no switches.
+    service.set_preferences(
+        tenant, telegram_style="custom", telegram_templates={"new_low": "{price_short} {route}"}
+    )
+    custom = _call(native_bot, "/settings")
+    custom = _press(native_bot, custom, "Message style")
+    assert _labels(custom) == [
+        "Compact",
+        "Detailed",
+        "✓ Custom",
+        "Buttons under alerts",
+        "Write your own messages",
+        "Back to alert settings",
+    ]
+    assert custom.text.split("\n")[-1] == "$191 DEN → DFW"
+
+
+def test_the_flight_list_is_sorted_by_departure_or_by_price(native_bot, service, flight_url, clock):
+    tenant = native_bot[1]
+    first = service.create_monitor(tenant, _other_flight(flight_url, "100"), "sort-first")
+    alone = _call(native_bot, "/flights")
+    # One flight has no order to choose.
+    assert not any(label.startswith("Sort by") for label in _labels(alone))
+    second = service.create_monitor(tenant, _other_flight(flight_url, "200"), "sort-second")
+    for monitor, amount in ((first, 30000), (second, 20000)):
+        reading = Reading(monitor["target_id"], amount, "USD", clock[0], "test")
+        service.record(reading, f"sort-{amount}")
+    service.process_events()
+    flights = _call(native_bot, "/flights")
+    assert flights.text.index("UA 100") < flights.text.index("UA 200")
+    assert "Sort by price" in _labels(flights) and "Sort by departure" not in _labels(flights)
+    by_price = _press(native_bot, flights, "Sort by price")
+    assert "Flight list order saved." in by_price.text
+    assert by_price.text.index("UA 200") < by_price.text.index("UA 100")
+    assert service.preferences(tenant)["telegram_list_order"] == "price"
+    # The order is the account's: every later list and the picker use it.
+    again = _call(native_bot, "/flights")
+    assert again.text.index("UA 200") < again.text.index("UA 100")
+    picker = _press(native_bot, again, "Manage a flight")
+    assert _labels(picker)[:2] == ["DEN → DFW · Mar 14 · UA 200", "DEN → DFW · Mar 14 · UA 100"]
+    back = _press(native_bot, again, "Sort by departure")
+    assert back.text.index("UA 100") < back.text.index("UA 200")
+    assert service.preferences(tenant)["telegram_list_order"] == "departure"
 
 
 def test_forged_foreign_and_expired_callbacks_never_mutate(

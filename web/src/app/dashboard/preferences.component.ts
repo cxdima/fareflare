@@ -24,12 +24,13 @@ import { message } from '../core/format';
 import { PreferencesFacade } from '../core/preferences.facade';
 import { observationFormatter, validTimeZone } from '../core/regional-formatting';
 import type {
+  ListOrder,
   MessagePreview,
   Preferences,
   PreviewKind,
+  PreviewSample,
   TelegramPreset,
   TelegramStyle,
-  TelegramSwitch,
   TemplateCatalog,
   TemplateKey,
   TemplatePlaceholder,
@@ -49,6 +50,7 @@ type TelegramModel = Pick<
   | 'telegram_show_observed_time'
   | 'telegram_show_fare'
   | 'telegram_show_buttons'
+  | 'telegram_list_order'
   | 'telegram_silent'
 > & {
   // The saved quiet_hours value, split into the controls that edit it.
@@ -73,6 +75,19 @@ const templateKeys: TemplateKey[] = [
 const templateLimit = 800;
 /** Long enough that typing sends one preview request, short enough to feel immediate. */
 const previewDelay = 250;
+/** The orders of the Telegram flight list, and what each puts first under a heading. */
+const listOrders: Record<ListOrder, { label: string; description: string }> = {
+  departure: {
+    label: 'By departure',
+    description:
+      'In the Telegram flight list, flights on the same route and day start with the earliest departure.',
+  },
+  price: {
+    label: 'By price',
+    description:
+      'In the Telegram flight list, flights on the same route and day start with the lowest price.',
+  },
+};
 const emptyTemplates = (): TemplateModel => ({
   tracking_started: '',
   new_low: '',
@@ -115,24 +130,10 @@ export class PreferencesComponent implements OnInit {
     { value: 'es-ES', label: 'Español (España)' },
     { value: 'uk-UA', label: 'Українська (Україна)' },
   ];
-  readonly previewKinds: { value: PreviewKind; label: string }[] = [
-    { value: 'new_low', label: 'New low' },
-    { value: 'tracking_started', label: 'Tracking started' },
-    { value: 'below_price', label: 'Target reached' },
-    { value: 'rebound', label: 'Price rebound' },
-    { value: 'flight_list', label: 'Flight list' },
-  ];
-  /** Every detail a built-in style can leave out. Each style offers the ones it shows. */
-  readonly switches: { key: TelegramSwitch; id: string; label: string }[] = [
-    { key: 'telegram_show_flight_numbers', id: 'show-flight-numbers', label: 'Flight numbers' },
-    { key: 'telegram_show_times', id: 'show-times', label: 'Departure and arrival times' },
-    {
-      key: 'telegram_show_observed_time',
-      id: 'show-observed-time',
-      label: 'Time the price was checked',
-    },
-    { key: 'telegram_show_fare', id: 'show-fare', label: 'Fare name' },
-  ];
+  readonly listOrders = (Object.keys(listOrders) as ListOrder[]).map((value) => ({
+    value,
+    label: listOrders[value].label,
+  }));
   readonly displayModel = signal<DisplayModel>({
     time_zone: this.deviceZone,
     locale: 'en-US',
@@ -154,6 +155,7 @@ export class PreferencesComponent implements OnInit {
     telegram_show_observed_time: true,
     telegram_show_fare: true,
     telegram_show_buttons: true,
+    telegram_list_order: 'departure',
     telegram_silent: false,
     quiet_enabled: false,
     quiet_start: defaultQuietHours[0],
@@ -179,17 +181,23 @@ export class PreferencesComponent implements OnInit {
   readonly activeStyle = computed(() =>
     this.catalog()?.styles.find((style) => style.value === this.telegramModel().telegram_style),
   );
-  /** Built-in styles: the ones with wording of their own to copy. */
-  readonly presets = computed(
-    () => this.catalog()?.styles.filter((style) => style.value !== 'custom') ?? [],
+  /** Built-in styles: the ones with wording of their own that a message can return to. */
+  readonly presets = computed(() =>
+    (this.catalog()?.styles ?? []).flatMap((style) =>
+      style.value === 'custom' ? [] : [{ value: style.value, label: style.label }],
+    ),
   );
-  /** A custom message states its own content, so it offers none of these. */
+  /** The details the chosen style can leave out. Own wording states its content itself. */
   readonly shownSwitches = computed(() => {
     const used = new Set(this.activeStyle()?.switches ?? []);
-    return this.switches.filter((item) => used.has(item.key));
+    return this.catalog()?.switches.filter((item) => used.has(item.name)) ?? [];
   });
+  readonly listOrderHelp = computed(
+    () => listOrders[this.telegramModel().telegram_list_order].description,
+  );
   readonly activeTemplate = signal<TemplateKey>('new_low');
   readonly previewKind = signal<PreviewKind>('new_low');
+  readonly previewSample = signal<PreviewSample>('one_way');
   /** The built-in style a first custom draft starts from. */
   private lastPreset: TelegramPreset = 'compact';
   readonly activeLength = computed(() => this.templateModel()[this.activeTemplate()].length);
@@ -266,6 +274,7 @@ export class PreferencesComponent implements OnInit {
     return JSON.stringify([
       this.previewRequestBody(),
       this.previewKind(),
+      this.previewSample(),
       saved.time_zone,
       saved.locale,
       saved.hour_cycle,
@@ -345,10 +354,20 @@ export class PreferencesComponent implements OnInit {
       this.templateModel.set({ ...catalog.presets[this.lastPreset] });
   }
 
-  startFrom(preset: string): void {
-    const templates = this.catalog()?.presets[preset as TelegramPreset];
-    if (!templates) return;
-    this.templateModel.set({ ...templates });
+  /** Give the message being edited a built-in style's wording; the others keep theirs. */
+  useWording(preset: TelegramPreset): void {
+    const wording = this.catalog()?.presets[preset];
+    if (!wording) return;
+    const key = this.activeTemplate();
+    this.templateModel.update((value) => ({ ...value, [key]: wording[key] }));
+    this.telegramChanged();
+  }
+
+  /** The order shows in the flight list, so choosing one brings that list into the preview. */
+  chooseOrder(order: ListOrder): void {
+    if (order === this.telegramModel().telegram_list_order) return;
+    this.telegramModel.update((value) => ({ ...value, telegram_list_order: order }));
+    this.previewKind.set('flight_list');
     this.telegramChanged();
   }
 
@@ -360,6 +379,10 @@ export class PreferencesComponent implements OnInit {
 
   choosePreview(kind: string): void {
     this.previewKind.set(kind as PreviewKind);
+  }
+
+  chooseSample(sample: string): void {
+    this.previewSample.set(sample as PreviewSample);
   }
 
   /** Insert a placeholder where the cursor is, then return focus to the text. */
@@ -388,9 +411,13 @@ export class PreferencesComponent implements OnInit {
     this.previewRequest?.abort();
     const request = (this.previewRequest = new AbortController());
     this.previewBusy.set(true);
+    const shown = new URLSearchParams({
+      message: untracked(this.previewKind),
+      sample: untracked(this.previewSample),
+    });
     try {
       const value = await this.api.request<MessagePreview>(
-        `/v1/preferences/telegram-preview?message=${untracked(this.previewKind)}`,
+        `/v1/preferences/telegram-preview?${shown}`,
         { method: 'POST', body: untracked(this.previewRequestBody), signal: request.signal },
       );
       if (version !== untracked(this.previewVersion)) return;
@@ -452,6 +479,7 @@ export class PreferencesComponent implements OnInit {
       telegram_show_observed_time: value.telegram_show_observed_time,
       telegram_show_fare: value.telegram_show_fare,
       telegram_show_buttons: value.telegram_show_buttons,
+      telegram_list_order: value.telegram_list_order,
       telegram_silent: value.telegram_silent,
       quiet_enabled: value.quiet_hours !== null,
       // Keep the last window in the controls so switching it back on restores it.

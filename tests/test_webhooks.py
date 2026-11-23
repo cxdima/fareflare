@@ -250,7 +250,7 @@ def test_endpoint_disable_racing_monitor_creation_is_fenced(
     monkeypatch.setattr(service.store, "commit", competing_commit)
     with pytest.raises(ValueError, match="Verify"):
         service.create_monitor("alice", flight_url, "racing-monitor", webhook_id=endpoint["id"])
-    assert service.list_monitors("alice") == []
+    assert service.monitors_page("alice")["items"] == []
 
 
 def test_webhook_failure_never_falls_back_to_other_destination(webhook_service, flight_url, clock):

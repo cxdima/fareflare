@@ -19,7 +19,12 @@ from fareflare.preferences import Preferences as PreferencesInput
 from fareflare.preferences import merge_preferences, sends_silently
 from fareflare.service import MonitoringService, NotFound
 from fareflare.store import Conflict
-from fareflare.telegram_messages import preview_message
+from fareflare.telegram_messages import (
+    PreviewKind,
+    PreviewSample,
+    preview_choices,
+    preview_message,
+)
 from fareflare.telegram_templates import template_catalog
 
 
@@ -187,9 +192,6 @@ class AlertView(BaseModel):
     status: Literal["pending", "sent", "dead_letter", "suppressed"]
     attempts: int
     webhook_id: str | None = None
-
-
-PreviewKind = Literal["tracking_started", "new_low", "below_price", "rebound", "flight_list"]
 
 
 class AlertList(BaseModel):
@@ -407,26 +409,28 @@ def create_app(
 
     @app.get("/v1/preferences/telegram-templates")
     def telegram_templates(tenant: Annotated[str, Depends(authenticate)]):
-        """Template names, placeholders, built-in presets and limits for message editors."""
-        return template_catalog()
+        """Styles, templates, placeholders, presets and previews for message editors."""
+        return {**template_catalog(), **preview_choices()}
 
     @app.post("/v1/preferences/telegram-preview")
     def telegram_preview(
         body: PreferencesInput,
         tenant: Annotated[str, Depends(authenticate)],
         message: Annotated[PreviewKind, Query()] = "new_low",
+        sample: Annotated[PreviewSample, Query()] = "one_way",
     ):
         """Render sample data with the supplied settings. Nothing is saved or sent."""
         preferences = merge_preferences(
             service.preferences(tenant), body.model_dump(exclude_unset=True)
         )
-        preview = preview_message(message, preferences, public_url, int(service.clock()))
-        sample = preview.message
+        preview = preview_message(message, preferences, public_url, int(service.clock()), sample)
+        rendered = preview.message
         return {
             "message": message,
+            "sample": sample,
             # The message as Telegram shows it: plain text, and the same lines with their
             # emphasis so an editor can draw it without parsing markup.
-            "text": sample.text,
+            "text": rendered.text,
             "lines": [
                 [
                     {
@@ -442,10 +446,12 @@ def create_app(
             ],
             "buttons": [
                 {"text": button["text"], "url": button["url"]}
-                for row in (sample.reply_markup or {}).get("inline_keyboard", [])
+                for row in (rendered.reply_markup or {}).get("inline_keyboard", [])
                 for button in row
                 if "url" in button
             ],
+            # Remarks on wording that leaves out something a reader needs.
+            "hints": list(preview.hints),
             "silent": sends_silently(preferences, service.clock()),
             "time_zone": preferences.time_zone or "UTC",
         }
