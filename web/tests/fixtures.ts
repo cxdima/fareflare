@@ -223,7 +223,7 @@ export async function mock(page: BrowserPage, signedIn = true) {
         billing_enabled: false,
         registration_mode: 'open',
         email_enabled: true,
-        limits: { monitors: 3, min_interval_seconds: 900 },
+        limits: { monitors: 3, min_interval_seconds: 600 },
       });
     const account = () => ({
       id: 'user',
@@ -621,7 +621,7 @@ export async function mockAdmin(
           breach_check: true,
           monitor_limit: 20,
           global_target_limit: 20,
-          min_interval_seconds: 900,
+          min_interval_seconds: 600,
         },
       });
     if (path === '/v1/admin/users' && method === 'GET') {

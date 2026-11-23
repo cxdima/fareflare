@@ -78,11 +78,11 @@ test('one failed check is retried quietly; a run of them, or a stop, is explaine
     watched(id, {
       last_error: 'provider_error',
       collection_failures: failures,
-      collection_status: 'backoff',
+      collection_status: 'retrying',
       ...extra,
     });
   await flights(page, () => [
-    // Retried within a couple of minutes: an old price still says it is waiting.
+    // Retried a quarter of an hour later: an old price still says it is waiting.
     failed('a', 1, { stale: true }),
     failed('b', 2),
     // Checks that have stopped are shown at once, however few failed.

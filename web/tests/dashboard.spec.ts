@@ -25,7 +25,8 @@ test('sign in, create a monitor with CSRF and idempotency, and keep credentials 
   const create = calls.find((item) => item.path === '/v1/monitors' && item.method === 'POST')!;
   expect(create.csrf).toBe('csrf-test');
   expect(create.key).toBeTruthy();
-  expect(create.body.interval_seconds).toBe(900);
+  // A flight added without choosing an interval asks for the shortest one offered.
+  expect(create.body.interval_seconds).toBe(600);
   expect(
     await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
   ).toEqual({ local: 0, session: 0 });
@@ -394,7 +395,7 @@ test('route-search capability displays the actual matching flight and offer link
         billing_enabled: false,
         registration_mode: 'open',
         capabilities: { route_searches: true },
-        limits: { monitors: 3, min_interval_seconds: 900 },
+        limits: { monitors: 3, min_interval_seconds: 600 },
       },
     }),
   );

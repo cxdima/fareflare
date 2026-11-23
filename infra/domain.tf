@@ -17,7 +17,7 @@ variable "monitor_limit" {
   }
 }
 variable "global_target_limit" {
-  description = "Distinct itineraries the whole deployment checks. The worker manages about four checks a minute, so past about 60 itineraries on 15-minute intervals each is checked less often than asked."
+  description = "Distinct itineraries the whole deployment checks. The worker manages about four checks a minute, so past about 40 itineraries on 10-minute intervals each is checked less often than asked."
   type        = number
   default     = 100
   validation {
