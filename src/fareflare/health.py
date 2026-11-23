@@ -19,8 +19,8 @@ REPORT_HOURS = 24
 STALLED_AFTER = 20 * 60
 # With fewer checks than this, the share that failed says little.
 MIN_CHECKS = 4
-# A failed check is retried within minutes, and about one in ten fails on an
-# ordinary day; these shares mark an hour that is clearly worse than that.
+# A failed check is retried a quarter of an hour later, and about one in ten fails
+# on an ordinary day; these shares mark an hour that is clearly worse than that.
 DEGRADED_SHARE = 0.4
 MAJOR_SHARE = 0.9
 _COUNTERS = ("collected", "failed", "alerts_sent")

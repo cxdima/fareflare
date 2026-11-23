@@ -814,7 +814,7 @@ class TelegramBot:
                 ],
             )
         prefs = self._preferences(ctx.tenant)
-        interval = max(900, self.service.min_interval_seconds)
+        interval = self.service.default_interval_seconds
         return self._message(
             ctx,
             "Watch " + trip_route(target["segments"]) + "?",

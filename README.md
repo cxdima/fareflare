@@ -83,7 +83,7 @@ and MCP, so an AI assistant can work with them too.
 ```mermaid
 flowchart LR
     L(["Google Flights link"]) --> M["<b>Flight monitor</b><br/>route, date, rule"]
-    M --> W["<b>Worker</b><br/>opens the link in Chromium<br/>every 15 minutes or more"]
+    M --> W["<b>Worker</b><br/>opens the link in Chromium<br/>every 10 minutes or more"]
     W --> O["<b>Recorded price</b><br/>amount, currency, time,<br/>fare, flight times"]
     O --> R{"<b>Your rule</b><br/>new low? below target?"}
     R -->|yes| A["<b>Alert</b><br/>dashboard · Telegram<br/>webhook · MCP"]
@@ -282,7 +282,7 @@ Run `make help` for every command.
 | `FAREFLARE_EMAIL` · `FAREFLARE_EMAIL_FROM` | `off` | `ses` sends account email through Amazon SES; `file` writes it to a folder |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Admit the constrained route searches |
 | `FAREFLARE_MONITOR_LIMIT` | `100` | Flights per account |
-| `FAREFLARE_MIN_INTERVAL` | `900` | Minimum requested check interval, in seconds |
+| `FAREFLARE_MIN_INTERVAL` | `600` | Minimum requested check interval, in seconds |
 | `FAREFLARE_GLOBAL_TARGET_LIMIT` | `100` | Distinct targets the deployment will collect |
 | `FAREFLARE_BILLING_ENABLED` | `false` | Must stay `false`: billing refuses to start until a payment integration exists |
 

@@ -96,11 +96,13 @@ def test_add_requires_confirmation_and_replay_never_duplicates(
     _, tenant, _ = native_bot
     preview = _call(native_bot, flight_url)
     assert "UA 414" in preview.text and "Economy" in preview.text and "1 adult" in preview.text
+    assert "Checks requested every 10 min." in preview.text
     assert service.monitors_page(tenant)["active_count"] == 0
     token = _token(preview, "Start watching")
     added = _call(native_bot, callback=token)
     assert "Flight added" in added.text and "Waiting for the first price check" in added.text
     assert service.monitors_page(tenant)["active_count"] == 1
+    assert service.monitors_page(tenant)["items"][0]["interval_seconds"] == 600
     assert "already applied" in _call(native_bot, callback=token).text
     assert service.monitors_page(tenant)["active_count"] == 1
     action = store.get("telegram-action:" + hashlib.sha256(token[3:].encode()).hexdigest())

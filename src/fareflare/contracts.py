@@ -5,6 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+# The schedule of price checks. A flight is checked every CHECK_INTERVAL_SECONDS when
+# its request names no interval; that is also the shortest interval an installation
+# offers unless it is configured otherwise. A check that fails runs again
+# RETRY_SECONDS later, and so does one whose worker stopped before it finished. The
+# wait is the same after every failure in a row: it never grows.
+CHECK_INTERVAL_SECONDS = 10 * 60
+RETRY_SECONDS = 15 * 60
+
 
 @dataclass(frozen=True)
 class FlightLeg:

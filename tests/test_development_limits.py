@@ -11,6 +11,9 @@ def test_free_limits_share_targets_and_release_capacity(store, clock, flight_url
     first = service.create_monitor("alice", flight_url, "monitor-first")
     second = service.create_monitor("bob", flight_url, "monitor-second")
     assert first["target_id"] == second["target_id"]
+    # A request that names no interval gets the shortest one this installation offers,
+    # because that is longer than the ten minutes it would get elsewhere.
+    assert first["interval_seconds"] == service.default_interval_seconds == 900
     assert len(store.get("capacity:collection").data["targets"]) == 1
     with pytest.raises(ValueError, match="interval"):
         service.create_monitor("alice", flight_url, "too-frequent", interval_seconds=300)

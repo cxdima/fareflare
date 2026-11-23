@@ -168,12 +168,25 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
+- **Checks every 10 minutes.** A flight added without an interval is checked every
+  10 minutes (was 15), and 10 minutes is the shortest interval offered unless
+  `FAREFLARE_MIN_INTERVAL` says otherwise (its default is now 600; the Terraform no
+  longer sets it). `interval_seconds` is optional in `POST /v1/monitors` and the MCP
+  `create_monitor` tool: left out, the flight gets ten minutes, or the installation's
+  shortest interval when that is longer. The fixed default of 900 used to be refused
+  by an installation whose minimum was higher.
+- **One fixed wait after a failed check.** Every failed check is tried again 15
+  minutes later, however many have failed in a row. The wait no longer doubles and
+  has no random part: before, a refusal by Google waited from 15 minutes up to two
+  hours and any other failure from 30 seconds up to an hour. A check whose worker
+  stopped before it finished is also run again after 15 minutes (was two).
+- A flight waiting for its retry reports `collection_status: "retrying"` (was
+  `"backoff"`).
 - **Google's robot check no longer stops a flight.** A `challenge`, and Google's
   consent and sign-in pages (`consent_required`, `login_required`), used to stop a
   flight after one occurrence until someone chose **Retry collection**, though
   nobody could clear them and they pass within minutes. They are now retried like
-  any failed check, only later: 15 to 30 minutes after the first, twice as long
-  after each further failure in a row, and at most one to two hours apart. The run
+  any failed check, 15 minutes later. The run
   that meets one checks nothing else. Diagnostic notices come after five failed
   checks in a row, as for other failures. Only `unsupported_itinerary` still stops
   a flight. Each refusal is logged with fixed labels for what Google showed, the
@@ -184,10 +197,8 @@ Notable changes to Fareflare. The format follows
   booking options comes back with an internal error instead of fares, while a normal
   browser gets the fares at the same moment. It shows on about 38% of page loads,
   most in the evening. A check that still meets it after two reloads
-  (`provider_error`) now waits 15 to 30 minutes, doubling, like a robot check, instead
-  of trying again within seconds, and the run that met it checks nothing else. The
-  worker asks Google less often while it is refusing, and "Price checks are failing"
-  comes only after hours of refusals instead of about half an hour.
+  (`provider_error`) now waits 15 minutes, like a robot check, instead
+  of trying again within seconds, and the run that met it checks nothing else.
 - **Faster first visits.**
   - **Website files come from S3 through CloudFront**, not the application. A cache
     miss (common on a quiet site: every edge location misses once per file) used to
@@ -449,6 +460,12 @@ From a full review of how someone could hurt an account holder or the operator:
   delivered without the "was" figures and its webhook body is unchanged.
 - A flight stopped by `challenge`, `consent_required` or `login_required` before
   this release stays stopped until **Retry collection** is chosen for it once.
+- Flights added before this release keep the interval they were created with (15
+  minutes unless another was chosen). To check one every 10 minutes, set
+  `interval_seconds` to 600 on its `monitor:` record; the itinerary follows at its
+  next check.
+- Clients that compared `collection_status` with `"backoff"` must compare it with
+  `"retrying"`.
 
 ## 2.0.0
 

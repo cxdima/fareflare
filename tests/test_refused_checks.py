@@ -1,4 +1,4 @@
-"""Google turning the browser away delays a flight's next check; it never stops it."""
+"""A failed check is run again after one fixed wait; a refusal by Google never stops a flight."""
 
 import json
 import logging
@@ -7,16 +7,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from fareflare import service as service_module
-from fareflare.contracts import CollectionFailure, Reading
+from fareflare.contracts import RETRY_SECONDS, CollectionFailure, Reading
 from fareflare.public_browser import PublicGoogleFlightsProvider
 from fareflare.public_quotes import QuoteUnavailable
-from fareflare.service import (
-    FAILURE_NOTICE_THRESHOLD,
-    REFUSAL_RETRY_LIMIT_SECONDS,
-    REFUSAL_RETRY_SECONDS,
-    retry_delay,
-)
+from fareflare.service import FAILURE_NOTICE_THRESHOLD, LEASE_SECONDS
 from tests.test_public_browser import browser  # noqa: F401
 
 SECOND_FLIGHT = json.loads(
@@ -39,23 +33,27 @@ def target_of(service, monitor):
 
 
 @pytest.mark.parametrize("code", sorted(CollectionFailure.REFUSED))
-def test_a_refusal_waits_longer_but_never_stops_the_flight(service, flight_url, clock, code):
+def test_a_refusal_is_retried_after_the_wait_and_never_stops_the_flight(
+    service, flight_url, clock, code
+):
     assert CollectionFailure(code).retryable
     service.set_preferences("alice", diagnostics=True)
     monitor = service.create_monitor("alice", flight_url, "refused-" + code)
     assert service.collect_due(refusing(code))["failed"] == 1
     target = target_of(service, monitor)
     assert target.partition == "targets"
-    assert clock[0] + REFUSAL_RETRY_SECONDS <= target.due <= clock[0] + 2 * REFUSAL_RETRY_SECONDS
+    assert target.due == clock[0] + RETRY_SECONDS == clock[0] + 15 * 60
     view = service.get_monitor("alice", monitor["id"])
-    assert view["collection_status"] == "backoff" and view["last_error"] == code
+    assert view["collection_status"] == "retrying" and view["last_error"] == code
     assert view["next_check_at"] == target.due
     assert pending(service) == []  # One refusal is not worth a notice.
     with pytest.raises(ValueError, match="Only blocked"):
         service.retry_collection("alice", monitor["id"])  # Nothing to retry: it is queued.
 
 
-def test_a_run_of_refusals_backs_off_reports_once_and_recovers(service, flight_url, clock):
+def test_a_run_of_refusals_keeps_the_same_wait_reports_once_and_recovers(
+    service, flight_url, clock
+):
     service.set_preferences("alice", diagnostics=True)
     monitor = service.create_monitor("alice", flight_url, "refused-run")
     waits = []
@@ -65,11 +63,8 @@ def test_a_run_of_refusals_backs_off_reports_once_and_recovers(service, flight_u
         assert target.partition == "targets"
         waits.append(target.due - clock[0])
         clock[0] = target.due
-    shortest = [
-        min(REFUSAL_RETRY_SECONDS * 2**step, REFUSAL_RETRY_LIMIT_SECONDS)
-        for step in range(len(waits))
-    ]
-    assert all(low <= wait <= 2 * low for low, wait in zip(shortest, waits, strict=True))
+    # The wait does not grow, however many checks fail in a row.
+    assert waits == [RETRY_SECONDS] * (FAILURE_NOTICE_THRESHOLD + 1)
     assert [(n["kind"], n["code"], n["failures"]) for n in pending(service)] == [
         ("collection_failing", "challenge", FAILURE_NOTICE_THRESHOLD)
     ]
@@ -102,23 +97,45 @@ def test_a_refusal_ends_the_run_but_other_failures_do_not(service, flight_url, c
     assert service.collect_due(refused) == {"collected": 0, "failed": 0, "skipped": 0}
 
 
-@pytest.mark.parametrize("end", [0, 1])
-def test_refusals_wait_longer_than_other_failures_and_the_wait_is_capped(monkeypatch, end):
-    monkeypatch.setattr(service_module.random, "randint", lambda low, high: (low, high)[end])
-    scale = 1 + end  # The longest wait is twice the shortest.
-    for code in ("challenge", "provider_error"):
-        assert [retry_delay(code, failures) for failures in (1, 2, 3, 4, 50)] == [
-            900 * scale,
-            1800 * scale,
-            3600 * scale,
-            3600 * scale,
-            3600 * scale,
-        ]
-    assert [retry_delay("timeout", failures) for failures in (1, 3, 50)] == [
-        (30, 120)[end],
-        (30, 480)[end],
-        (30, 3600)[end],
-    ]
+@pytest.mark.parametrize("code", sorted(CollectionFailure.CODES - CollectionFailure.BLOCKING))
+def test_every_failure_that_can_pass_waits_the_same_time(service, flight_url, clock, code):
+    monitor = service.create_monitor("alice", flight_url, "same-wait-" + code)
+    for _ in range(8):
+        assert service.collect_due(refusing(code))["failed"] == 1
+        target = target_of(service, monitor)
+        assert target.partition == "targets" and target.due == clock[0] + RETRY_SECONDS
+        # Not a second earlier: the flight is left alone until its retry is due.
+        clock[0] = target.due - 1
+        assert service.collect_due(refusing(code)) == {"collected": 0, "failed": 0, "skipped": 0}
+        clock[0] = target.due
+
+
+def test_a_check_whose_worker_stopped_is_run_again_after_the_same_wait(service, flight_url, clock):
+    monitor = service.create_monitor("alice", flight_url, "worker-stopped")
+    started = clock[0]
+    dying = Mock()
+    # Not an error a check can report: the process running it is gone.
+    dying.collect.side_effect = SystemExit
+    with pytest.raises(SystemExit):
+        service.collect_due(dying)
+    target = target_of(service, monitor)
+    assert target.partition == "targets" and target.due == started + RETRY_SECONDS
+    # Nothing was settled, so the flight shows no failure of its own.
+    assert target.data["lease_token"] and target.data.get("failures", 0) == 0
+
+    provider = Mock()
+    provider.collect.side_effect = lambda target: Reading(
+        monitor["target_id"], 30000, "USD", clock[0], "test-fixture"
+    )
+    # Once the lease has run out the flight is still not asked for before its retry.
+    clock[0] = started + LEASE_SECONDS + 1
+    assert service.collect_due(provider) == {"collected": 0, "failed": 0, "skipped": 0}
+    clock[0] = started + RETRY_SECONDS
+    assert service.collect_due(provider)["collected"] == 1
+    view = service.get_monitor("alice", monitor["id"])
+    assert view["collection_status"] == "ready" and view["latest"]["amount_minor"] == 30000
+    # From here the flight is back on its own interval.
+    assert target_of(service, monitor).due == clock[0] + view["interval_seconds"]
 
 
 @pytest.mark.parametrize(

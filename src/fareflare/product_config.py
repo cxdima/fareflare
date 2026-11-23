@@ -8,6 +8,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from fareflare.contracts import CHECK_INTERVAL_SECONDS
+
 
 @dataclass(frozen=True)
 class ProductConfig:
@@ -16,7 +18,7 @@ class ProductConfig:
     registration_mode: str = "open"
     billing_enabled: bool = False
     monitor_limit: int = 100
-    min_interval_seconds: int = 900
+    min_interval_seconds: int = CHECK_INTERVAL_SECONDS
     global_target_limit: int = 100
     search_enabled: bool = False
     additional_hosts: tuple[str, ...] = ()
@@ -79,7 +81,9 @@ class ProductConfig:
                 registration_mode=values.get("FAREFLARE_REGISTRATION_MODE", "open"),
                 billing_enabled=billing == "true",
                 monitor_limit=int(values.get("FAREFLARE_MONITOR_LIMIT", "100")),
-                min_interval_seconds=int(values.get("FAREFLARE_MIN_INTERVAL", "900")),
+                min_interval_seconds=int(
+                    values.get("FAREFLARE_MIN_INTERVAL", str(CHECK_INTERVAL_SECONDS))
+                ),
                 global_target_limit=int(values.get("FAREFLARE_GLOBAL_TARGET_LIMIT", "100")),
                 search_enabled=search == "true",
                 additional_hosts=tuple(

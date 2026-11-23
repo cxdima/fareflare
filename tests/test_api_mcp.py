@@ -70,7 +70,9 @@ def test_api_monitor_ownership_and_policy_validation(client, flight_url):
 
 def test_api_rejects_unsupported_input_and_conflicting_idempotency(client, flight_url):
     assert create(client, "https://localhost/admin").status_code == 422
-    assert create(client, flight_url).status_code == 202
+    created = create(client, flight_url)
+    # A request without an interval is checked every ten minutes.
+    assert created.status_code == 202 and created.json()["interval_seconds"] == 600
     response = client.post(
         "/v1/monitors",
         headers={**auth(), "Idempotency-Key": "create-request"},

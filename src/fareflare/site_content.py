@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from html import escape
 
+from fareflare.contracts import RETRY_SECONDS
 from fareflare.product_config import ProductConfig
 
 GITHUB_URL = "https://github.com/cxdima/fareflare"
@@ -63,6 +64,7 @@ class Page:
 def public_pages(config: ProductConfig) -> tuple[Page, ...]:
     """Keep factual capability and capacity copy tied to runtime configuration."""
     minutes = config.min_interval_seconds // 60
+    retry = RETRY_SECONDS // 60
     access = "open" if config.registration_mode == "open" else "closed"
     route_status = (
         "Route searches are enabled on this installation."
@@ -124,7 +126,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "Access and capacity",
                     (
-                        f"Hosted access is currently free and {access}. Each account can keep {config.monitor_limit} monitors, with a minimum requested interval of {minutes} minutes. Failed checks and backoff can make the gap longer.",
+                        f"Hosted access is currently free and {access}. Each account can keep {config.monitor_limit} monitors, with a minimum requested interval of {minutes} minutes. A failed check is tried again {retry} minutes later, which makes that gap longer.",
                         "An observed low is the lowest eligible price recorded since monitoring began. Fareflare cannot guarantee the market’s lowest price or catch changes that happen entirely between checks.",
                     ),
                 ),
@@ -167,7 +169,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "Start with the observation time",
                     (
                         "Fareflare records a price only after checking the flight identity, passenger context, and eligible fare. The observation timestamp tells you when that comparison happened. It is not a live reservation or a promise that the same fare remains available.",
-                        f"The current minimum requested interval is {minutes} minutes. Browser failures, provider changes, and retry backoff can make observations further apart. If a fare falls and rebounds entirely between successful checks, Fareflare cannot report the unseen price.",
+                        f"The current minimum requested interval is {minutes} minutes. Browser failures and provider changes can make observations further apart: a check that fails is tried again {retry} minutes later. If a fare falls and rebounds entirely between successful checks, Fareflare cannot report the unseen price.",
                     ),
                 ),
                 Section(
@@ -254,7 +256,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "If the first check fails",
                     (
-                        "Read the collection status. An unsupported itinerary needs a different supported selection. A temporary browser or page failure may be retried after backoff. Neither result should be replaced with a guessed price.",
+                        f"Read the collection status. An unsupported itinerary needs a different supported selection. A temporary browser or page failure is tried again {retry} minutes later. Neither result should be replaced with a guessed price.",
                         "You can pause or cancel a monitor from the dashboard. A cancelled monitor releases your account’s monitor capacity; shared collection can continue if another subscriber still watches the same target.",
                     ),
                     links=(
@@ -372,7 +374,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "What this page reports",
                     (
                         "Fareflare records each scheduled price-check run. This page shows when checks last ran, how many of the last 24 hours' checks recorded a price, and how many alerts were sent.",
-                        "A check that cannot finish is retried within a couple of minutes, so a few failed checks an hour are normal. The page reports trouble when checks stop running or most of them fail.",
+                        f"A check that cannot finish is tried again {retry} minutes later, so a few failed checks an hour are normal. The page reports trouble when checks stop running or most of them fail.",
                     ),
                 ),
             ),

@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import random
 import re
 import time
 import uuid
@@ -15,6 +14,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from fareflare.contracts import (
+    CHECK_INTERVAL_SECONDS,
+    RETRY_SECONDS,
     CollectionFailure,
     DeliverySink,
     ObservedOffer,
@@ -37,11 +38,8 @@ _NOTICE_LIFETIME = 2 * 86400
 _NOTICE_ATTEMPTS = 3
 _MAX_NOTICES = 50
 _CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
-# After Google turns the browser away (CollectionFailure.REFUSED) a flight waits 15 to
-# 30 minutes, twice as long after each further failure in a row, and at most one to
-# two hours. Any other failure is tried again within seconds to an hour.
-REFUSAL_RETRY_SECONDS = 15 * 60
-REFUSAL_RETRY_LIMIT_SECONDS = 3600
+# How long one check may hold a flight before its result is no longer accepted.
+LEASE_SECONDS = 120
 
 
 class NotFound(LookupError):
@@ -58,14 +56,6 @@ class CapacityReached(ValueError):
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
-
-
-def retry_delay(code: str, failures: int) -> int:
-    """Seconds before a failed check runs again; ``failures`` includes this one."""
-    if code in CollectionFailure.REFUSED:
-        wait = min(REFUSAL_RETRY_SECONDS * 2 ** min(failures - 1, 6), REFUSAL_RETRY_LIMIT_SECONDS)
-        return random.randint(wait, 2 * wait)
-    return random.randint(30, min(60 * 2 ** min(failures, 6), 3600))
 
 
 @dataclass(frozen=True)
@@ -111,6 +101,11 @@ class MonitoringService:
     def _now(self) -> int:
         return int(self.clock())
 
+    @property
+    def default_interval_seconds(self) -> int:
+        """The interval of a flight whose request names none."""
+        return max(CHECK_INTERVAL_SECONDS, self.min_interval_seconds)
+
     def departure_day_elapsed(self, target: dict) -> bool:
         # The imported link has airport-local dates but no departure timezone.
         # Leave a whole UTC day of grace rather than expire a US evening flight
@@ -129,13 +124,15 @@ class MonitoringService:
         url: str,
         request_key: str,
         policy: AlertPolicy | None = None,
-        interval_seconds: int = 900,
+        interval_seconds: int | None = None,
         *,
         webhook_id: str | None = None,
     ) -> dict:
         self._tenant(tenant)
         if not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}", request_key):
             raise ValueError("Provide an 8–128 character idempotency key")
+        if interval_seconds is None:
+            interval_seconds = self.default_interval_seconds
         if (
             type(interval_seconds) is not int
             or not self.min_interval_seconds <= interval_seconds <= 86400
@@ -267,7 +264,7 @@ class MonitoringService:
             else target.due,
             "collection_status": "blocked"
             if target.partition == "targets_blocked"
-            else "backoff"
+            else "retrying"
             if target.data.get("last_error")
             else "ready",
             "stale": not target.data.get("latest")
@@ -689,11 +686,13 @@ class MonitoringService:
             leased = {
                 **target.data,
                 "lease_token": token,
-                "lease_until": self._now() + 120,
+                "lease_until": self._now() + LEASE_SECONDS,
                 "interval_seconds": min(d.data["interval_seconds"] for d in subscribers),
             }
             try:
-                self.store.commit([target.update(leased, due=self._now() + 120)])
+                # Until this check is settled the flight is due at its retry time, so a
+                # worker that stops before it finishes leaves the check to be run again.
+                self.store.commit([target.update(leased, due=self._now() + RETRY_SECONDS)])
             except Conflict:
                 counts["skipped"] += 1
                 continue
@@ -740,7 +739,7 @@ class MonitoringService:
                                 current.update(
                                     data,
                                     partition="targets" if failure.retryable else "targets_blocked",
-                                    due=self._now() + retry_delay(failure.code, failures),
+                                    due=self._now() + RETRY_SECONDS,
                                 ),
                                 *notices,
                             ]

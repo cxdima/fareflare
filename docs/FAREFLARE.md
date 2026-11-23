@@ -188,7 +188,7 @@ works, and then sets up a second factor.
 | `FAREFLARE_BILLING_ENABLED` | `false` | No charges, checkout, or payment-provider calls |
 | `FAREFLARE_SEARCH_ENABLED` | `false` | Opt in to the constrained route-search capability |
 | `FAREFLARE_MONITOR_LIMIT` | `100` | Monitors per account |
-| `FAREFLARE_MIN_INTERVAL` | `900` | Minimum requested interval in seconds |
+| `FAREFLARE_MIN_INTERVAL` | `600` | Minimum requested interval in seconds; also the interval of a flight added without one |
 | `FAREFLARE_GLOBAL_TARGET_LIMIT` | `100` | Shared collection capacity |
 
 Billing deliberately refuses startup when enabled until a payment integration is

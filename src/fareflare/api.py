@@ -39,7 +39,15 @@ class PolicyInput(BaseModel):
 class MonitorInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     url: str = Field(min_length=1, max_length=8192)
-    interval_seconds: int = Field(default=900, ge=300, le=86400)
+    interval_seconds: int | None = Field(
+        default=None,
+        ge=300,
+        le=86400,
+        description=(
+            "Seconds between price checks. Leave it out for the default: ten minutes, "
+            "or the shortest interval this installation offers when that is longer."
+        ),
+    )
     policy: PolicyInput = Field(default_factory=PolicyInput)
     webhook_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 

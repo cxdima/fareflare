@@ -213,15 +213,15 @@ The hosted release uses `registration_mode="open"` and `billing_enabled=false`.
 `closed` stops new sign-ups while existing accounts keep working.
 Enabling billing fails startup until a payment integration exists. Free access
 does not eliminate AWS charges. Default limits are 100 monitors per account,
-a 900-second minimum requested interval, and 100 distinct shared targets
+a 600-second minimum requested interval, and 100 distinct shared targets
 (`monitor_limit` and `global_target_limit` in the Terraform variables).
 Equivalent targets share collection; account preferences remain private.
 
 The shared limit is what keeps checks on time, not what bounds cost: the worker
 runs once a minute with one copy at most and gets through about four checks a run
 (about 9 seconds each), so the browser work and the request rate to Google are
-capped by the schedule whatever the limits say. At four checks a minute, about 60
-itineraries on 15-minute intervals stay on time; past that every itinerary is
+capped by the schedule whatever the limits say. At four checks a minute, about 40
+itineraries on 10-minute intervals stay on time; past that every itinerary is
 checked less often than asked. Admin → Overview shows how much of the shared limit
 is used.
 
@@ -433,8 +433,9 @@ traffic" on a flights page), `provider_error` (the error page above),
 browser, and they pass by themselves: on 2026-11-16 two flights met a challenge,
 and the same worker environments checked other flights normally a few minutes
 before and after. So a refusal never stops a flight. It is retried like any
-failed check, only later: 15 to 30 minutes after the first refusal, twice as long
-after each further failure in a row, and at most one to two hours apart. The run
+failed check: 15 minutes later, and 15 minutes after each further failure in a
+row. The wait is fixed (`RETRY_SECONDS`) and does not grow. A check whose worker
+stopped before it finished is run again after the same wait. The run
 that met the refusal checks nothing else, and the flights still due wait for the
 next run. Accounts with diagnostic notices hear about it after five failed checks
 in a row, as with any failure, and again when a price is recorded. Only

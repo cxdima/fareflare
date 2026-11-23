@@ -38,7 +38,8 @@ export class MonitorEditorComponent implements OnInit {
   readonly model = signal({
     url: '',
     webhook: '',
-    interval: '900',
+    // Set when the editor opens: the flight's own interval, or the shortest one offered.
+    interval: '',
     kind: 'new_low',
     threshold: 0,
     minimum: 0,

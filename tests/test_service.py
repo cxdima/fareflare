@@ -19,6 +19,29 @@ def observe(service, monitor, clock, amount=50000, run="first"):
     )
 
 
+def test_a_flight_is_checked_every_ten_minutes_unless_its_request_says_otherwise(
+    service, flight_url, clock
+):
+    monitor = service.create_monitor("alice", flight_url, "default-interval")
+    assert monitor["interval_seconds"] == service.default_interval_seconds == 600
+    provider = Mock()
+    provider.collect.side_effect = lambda target: Reading(
+        monitor["target_id"], 30000, "USD", clock[0], "test-fixture"
+    )
+    assert service.collect_due(provider)["collected"] == 1
+    target = service.store.get("target:" + monitor["target_id"])
+    assert target.due == clock[0] + 600
+    # Not checked again a second early, and checked when the ten minutes are up.
+    clock[0] += 599
+    assert service.collect_due(provider) == {"collected": 0, "failed": 0, "skipped": 0}
+    clock[0] += 1
+    assert service.collect_due(provider)["collected"] == 1
+    slower = service.create_monitor(
+        "bob", flight_url.replace("hl=en-US", "hl=en"), "slower-interval", interval_seconds=1800
+    )
+    assert slower["interval_seconds"] == 1800
+
+
 def test_customers_share_collection_but_not_monitor_ownership(service, flight_url):
     first = service.create_monitor("alice", flight_url, "request-one")
     second = service.create_monitor("bob", flight_url, "request-two")

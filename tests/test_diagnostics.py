@@ -269,7 +269,7 @@ def test_the_bot_explains_failures_plainly_and_shows_codes_only_on_request(
     off = _press(native_bot, settings, "Turn off diagnostic notices")
     assert "Diagnostic notices" not in off.text
     assert service.preferences(tenant)["diagnostics"] is False
-    assert service.get_monitor(tenant, monitor["id"])["collection_status"] == "backoff"
+    assert service.get_monitor(tenant, monitor["id"])["collection_status"] == "retrying"
 
 
 def test_a_blocked_flight_tells_the_reader_what_to_do(native_bot, service, flight_url, clock):  # noqa: F811

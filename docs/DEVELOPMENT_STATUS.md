@@ -89,7 +89,7 @@ within that budget; identity, currency, and fare checks still apply. This improv
 handling of page updates without expanding supported flight coverage or raising
 the configured polling frequency.
 
-The hosted configuration allows 100 monitors per account, a 900-second minimum
+The hosted configuration allows 100 monitors per account, a 600-second minimum
 requested interval, and 100 shared collection targets. These limits constrain work;
 they do not guarantee a polling deadline or zero infrastructure cost. See
 [setup](FAREFLARE.md) for exact flight coverage.

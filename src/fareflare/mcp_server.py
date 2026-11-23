@@ -67,14 +67,14 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
     async def create_monitor(
         url: str,
         idempotency_key: str,
-        interval_seconds: int = 900,
+        interval_seconds: int | None = None,
         policy_kind: str = "new_low",
         min_drop_minor: int = 0,
         threshold_minor: int | None = None,
         notify_rebounds: bool = False,
         webhook_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a selected-flight monitor, optionally bound to a verified webhook. Reuse the request key on retries."""
+        """Create a selected-flight monitor, optionally bound to a verified webhook. Reuse the request key on retries. Leave interval_seconds out to check every ten minutes."""
         return await call(
             "POST",
             "v1/monitors",
