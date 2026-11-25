@@ -43,7 +43,8 @@ npm --prefix web test
 
 `make check` runs Ruff (lint and formatting), compiles Python, runs Pyright, and
 executes pytest with an 80% minimum coverage threshold for `fareflare`. `make format`
-applies Ruff's fixes and formatting. Add behavioral tests for changed
+applies Ruff's fixes and formatting; Claude Code sessions started at the repository root
+apply them to each Python file they edit (`.claude/settings.json`). Add behavioral tests for changed
 rules, tenant isolation, retries, money handling, and failure paths. Backend tests
 must not read real credentials or contact AWS or Google.
 
@@ -63,7 +64,8 @@ PLAYWRIGHT_CHROME_CHANNEL=chromium npm test
 UI changes should include desktop and narrow-screen checks, keyboard navigation,
 loading/error/empty states, and screenshots using synthetic data. A new collector
 capability requires a redacted fixture and validation of the actual itinerary,
-passenger context, currency, and eligible fare.
+passenger context, currency, and eligible fare. `scripts/decode_link.py` shows every
+field of a Google Flights link and what Fareflare makes of it, offline.
 
 ## Pull requests
 

@@ -62,7 +62,9 @@ Set `FAREFLARE_API_REPOSITORY`, `FAREFLARE_WORKER_REPOSITORY`, and
 `FAREFLARE_RELEASE` to your ECR repository URLs and a new release tag. Authenticate
 Docker to that registry, push both images, and retrieve their ECR image digests.
 Set `api_image_uri` and `image_uri` to `REPOSITORY@sha256:DIGEST`. Record the source
-revision, browser base, new digests, and previous digests privately.
+revision, browser base, new digests, and previous digests privately. The hosted service
+runs these steps with the scripts in `scripts/release/` (each says at its top what it
+does), in the order of `.claude/skills/release/SKILL.md`.
 
 Each repository keeps its newest 10 images (`images_kept`) and deletes older ones
 within a day, so a rollback can return to any of the last ten releases. Images

@@ -6,6 +6,17 @@ Notable changes to Fareflare. The format follows
 
 ## Unreleased
 
+### Added
+
+- **Release and link tooling for maintainers.** The production release runs from
+  versioned scripts in `scripts/release/`: build, image check, push (skipping images
+  production already runs, writing the deployment's image values only after every push
+  is verified), smoke test, a watch for fresh prices, a record of each release, and a
+  check that every stored flight still imports to the same target.
+  `scripts/decode_link.py` shows every field of a Google Flights link and what Fareflare
+  makes of it. Claude Code gets `release` and `link-report` skills, two reviewer agents
+  and a hook that formats each Python file it edits.
+
 ### Fixed
 
 - **Flights found by searching a city can be watched.** A selected flight whose

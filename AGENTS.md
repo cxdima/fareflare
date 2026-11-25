@@ -61,6 +61,17 @@ Use `feat:`, `fix:`, `docs:`, `refactor:` or `chore:` subjects. A pull request
 explains the problem, the resulting behavior and how it was validated, and notes
 any configuration or data-format change. Add an entry to [CHANGELOG.md](CHANGELOG.md).
 
+## Claude Code
+
+`.claude/` loads when Claude Code starts at the repository root:
+
+- Skills: `release` (the hosted production release, scripts in `scripts/release/`) and
+  `link-report` (triage a refused Google Flights link with `scripts/decode_link.py`).
+- Agents: `fareflare-reviewer` (this file's standards applied to a diff) and
+  `link-intake-reviewer` (link import: hostile input, identity, refusals).
+- A hook fixes and formats each Python file Claude edits under `src/`, `tests/` and
+  `scripts/` with the project's Ruff; it does nothing where `.venv` is missing.
+
 ## Security and privacy
 
 - Never commit credentials, reset links, backup codes, cookies, Terraform state or variable

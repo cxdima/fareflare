@@ -59,6 +59,8 @@ ignore = [
 "src/fareflare/publish_web.py" = ["T201"]
 "src/fareflare/runtime.py" = ["T201"]  # One structured metrics line per invocation.
 "scripts/*" = ["T201"]
+# Release tools run git, terraform and docker and fetch the site they release.
+"scripts/release/*" = ["T201", "S310", "S603", "S607"]
 "examples/*" = ["T201"]
 "web/tests/serve_portal.py" = ["T201"]
 # Synthetic credentials, local subprocesses and parsing of our own output.
