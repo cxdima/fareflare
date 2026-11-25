@@ -107,8 +107,8 @@ def itinerary_link(
                 airline=leg["airline"],
                 number=leg["number"],
             )
-        entry.origins.add(kind=1, code=legs[0]["origin"])
-        entry.destinations.add(kind=1, code=legs[-1]["destination"])
+        entry.origins.add(kind=AIRPORT_KIND, code=legs[0]["origin"])
+        entry.destinations.add(kind=AIRPORT_KIND, code=legs[-1]["destination"])
     token = base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode()
     return "https://www.google.com/travel/flights?" + urlencode(
         {"tfs": token.rstrip("="), "curr": currency}
@@ -120,6 +120,24 @@ _AIRLINE = re.compile(r"[A-Z0-9]{2,3}\Z")
 _NUMBER = re.compile(r"[0-9]{1,5}[A-Z]?\Z")
 _HOSTS = {"google.com", "www.google.com"}
 _PATHS = {"/travel/flights", "/travel/flights/search", "/travel/flights/booking"}
+# A search endpoint is an airport (by its code) or a city (by its Knowledge Graph id).
+AIRPORT_KIND, CITY_KIND = 1, 2
+_LOCATION_CODES = {AIRPORT_KIND: _AIRPORT, CITY_KIND: re.compile(r"/[mg]/[0-9a-z_]{1,32}\Z")}
+
+
+def _search_admits(locations: Any, airport: str) -> bool:
+    """Whether a search endpoint can hold the selected flight's airport.
+
+    The endpoint is what the person searched for: one airport, several, or a city.
+    The selected flights decide the trip. A city's airports are not known offline,
+    so the airport is checked only against an endpoint made of airports alone.
+    """
+    if not locations or not all(
+        location.kind in _LOCATION_CODES and _LOCATION_CODES[location.kind].fullmatch(location.code)
+        for location in locations
+    ):
+        return False
+    return any(location.kind == CITY_KIND or location.code == airport for location in locations)
 
 
 def import_link(url: str, *, allow_search: bool = False) -> dict:
@@ -183,6 +201,15 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
         )
     if message.cabin not in (1, 2, 3, 4):
         raise InvalidLink("The cabin class is missing or unsupported.")
+    # Google writes the country in either case (links from Safari carry gl=us);
+    # the currency is always upper case. Both are stored in their canonical form.
+    currency, market = params.get("curr", message.currency or "USD"), params.get("gl", "US")
+    if message.currency and message.currency != currency:
+        raise InvalidLink("The URL currency and encoded itinerary currency disagree.")
+    if not re.fullmatch(r"[A-Z]{3}", currency) or not re.fullmatch(r"[A-Za-z]{2}", market):
+        raise InvalidLink("Use an explicit three-letter currency and two-letter market.")
+    market = market.upper()
+    params.update(curr=currency, gl=market)
     if allow_search and len(message.segments) == 1 and not message.segments[0].legs:
         from fareflare.search_links import import_search_target
 
@@ -228,12 +255,10 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
                     or previous["date"] > following["date"]
                 ):
                     raise InvalidLink("Selected connections are inconsistent.")
-            for locations, airport in (
-                (segment.origins, legs[0]["origin"]),
-                (segment.destinations, legs[-1]["destination"]),
+            if not _search_admits(segment.origins, legs[0]["origin"]) or not _search_admits(
+                segment.destinations, legs[-1]["destination"]
             ):
-                if len(locations) != 1 or locations[0].kind != 1 or locations[0].code != airport:
-                    raise InvalidLink("Airport selection does not match the selected itinerary.")
+                raise InvalidLink("The searched places do not match the selected flights.")
             segments.append({"date": segment.date, "legs": legs})
     except ValueError as exc:
         if isinstance(exc, InvalidLink):
@@ -247,14 +272,8 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
             or outbound["legs"][-1]["destination"] != inbound["legs"][0]["origin"]
         ):
             raise InvalidLink("Open-jaw or inconsistent round trips are not supported yet.")
-    currency, market = params.get("curr", message.currency or "USD"), params.get("gl", "US")
-    if message.currency and message.currency != currency:
-        raise InvalidLink("The URL currency and encoded itinerary currency disagree.")
-    if not re.fullmatch(r"[A-Z]{3}", currency) or not re.fullmatch(r"[A-Z]{2}", market):
-        raise InvalidLink("Use an explicit three-letter currency and two-letter market.")
     # authuser is a browser account selector, never a part of a customer target.
     params.pop("authuser", None)
-    params.update(curr=currency, gl=market)
     params["tfs"] = (
         base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode().rstrip("=")
     )

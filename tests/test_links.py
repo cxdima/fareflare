@@ -1,9 +1,14 @@
 import base64
+import json
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
 from fareflare.links import InvalidLink, ItineraryMessage, import_link, itinerary_link
+from fareflare.public_quotes import supported_target
+
+SAFARI_CITY = Path(__file__).parent / "fixtures/selected_city_safari.json"
 
 
 def change_token(url, change):
@@ -34,6 +39,81 @@ def test_real_user_link_decodes_without_explicit_trip_type(flight_url):
     ]
     assert (target["adults"], target["cabin"], target["currency"]) == (1, 1, "USD")
     assert import_link(target["url"])["id"] == target["id"]
+
+
+def test_a_flight_found_by_searching_a_city_in_safari_is_watchable():
+    target = import_link(json.loads(SAFARI_CITY.read_text())["url"])
+    assert target["segments"] == [
+        {
+            "date": "2027-01-10",
+            "legs": [
+                {
+                    "origin": "DEN",
+                    "destination": "DFW",
+                    "date": "2027-01-10",
+                    "airline": "UA",
+                    "number": "414",
+                }
+            ],
+        }
+    ]
+    assert (target["currency"], target["market"]) == ("USD", "US")
+    assert target["provider_query"]["gl"] == "US" and "authuser" not in target["provider_query"]
+    supported_target(target)
+    assert import_link(target["url"]) == target
+
+
+def test_the_country_is_read_in_either_case(flight_url):
+    assert import_link(flight_url.replace("gl=US", "gl=us")) == import_link(flight_url)
+    for country in ("u5", "usa", ""):
+        with pytest.raises(InvalidLink, match="two-letter market"):
+            import_link(flight_url.replace("gl=US", "gl=" + country))
+
+
+def _searched(origins, destinations):
+    def change(message):
+        segment = message.segments[0]
+        for field, places in (("origins", origins), ("destinations", destinations)):
+            segment.ClearField(field)
+            for kind, code in places:
+                getattr(segment, field).add(kind=kind, code=code)
+
+    return change
+
+
+@pytest.mark.parametrize(
+    ("origins", "destinations"),
+    [
+        ([(1, "DEN")], [(2, "/m/0f2rq")]),  # Dallas, the city
+        ([(2, "/m/02cl1")], [(1, "DFW")]),  # Denver, the city
+        ([(1, "BOS"), (1, "DEN")], [(1, "DAL"), (1, "DFW")]),  # several airports
+        ([(1, "BOS"), (2, "/g/11b6gq9ggb")], [(1, "DFW")]),  # airports and a city
+    ],
+)
+def test_the_search_may_name_cities_or_several_airports(flight_url, origins, destinations):
+    target = import_link(change_token(flight_url, _searched(origins, destinations)))
+    airports = import_link(flight_url)
+    assert target["segments"] == airports["segments"]
+    # What was searched stays part of the target, as every other opaque constraint does.
+    assert target["id"] != airports["id"]
+
+
+@pytest.mark.parametrize(
+    ("origins", "destinations"),
+    [
+        ([(1, "BOS")], [(1, "DFW")]),  # airports only, none of them the flight's
+        ([(1, "DEN")], [(1, "DAL"), (1, "IAH")]),
+        ([], [(1, "DFW")]),
+        ([(2, "DEN")], [(1, "DFW")]),  # a city needs its Knowledge Graph id
+        ([(1, "/m/02cl1")], [(1, "DFW")]),
+        ([(2, "/m/02CL1")], [(1, "DFW")]),
+        ([(3, "DEN")], [(1, "DFW")]),  # an unknown kind of place
+        ([(0, "DEN")], [(1, "DFW")]),
+    ],
+)
+def test_a_search_that_cannot_hold_the_flight_is_refused(flight_url, origins, destinations):
+    with pytest.raises(InvalidLink, match="searched places"):
+        import_link(change_token(flight_url, _searched(origins, destinations)))
 
 
 def test_a_link_built_from_an_itinerary_selects_exactly_those_flights(flight_url):

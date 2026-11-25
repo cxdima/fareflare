@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 
-from fareflare.links import InvalidLink, ItineraryMessage
+from fareflare.links import AIRPORT_KIND, InvalidLink, ItineraryMessage
 
 
 @dataclass(frozen=True)
@@ -53,11 +53,12 @@ def _without_selection(token: str) -> str:
 
 
 def import_search_target(message, params: dict[str, str]) -> dict:
-    """Called only after the common importer validates the URL and protobuf."""
+    """Called only after the common importer validates the URL and protobuf
+    and sets the canonical currency and market in ``params``."""
     decoded = SearchMessage()
     decoded.ParseFromString(message.SerializeToString())
     segment = decoded.segments[0]
-    currency, market = params.get("curr", message.currency or "USD"), params.get("gl", "US")
+    currency, market = params["curr"], params["gl"]
     if (
         len(message.passengers) != 1
         or message.cabin != 1
@@ -65,13 +66,12 @@ def import_search_target(message, params: dict[str, str]) -> dict:
         or market != "US"
         or params.get("hl", "en-US") not in ("en", "en-US")
         or params.get("gsas") != "1"
-        or (message.currency and message.currency != currency)
         or not segment.HasField("max_stops")
         or segment.max_stops != 0
         or len(segment.origins) != 1
         or len(segment.destinations) != 1
-        or segment.origins[0].kind != 1
-        or segment.destinations[0].kind != 1
+        or segment.origins[0].kind != AIRPORT_KIND
+        or segment.destinations[0].kind != AIRPORT_KIND
         or not re.fullmatch(r"[A-Z]{3}", segment.origins[0].code)
         or not re.fullmatch(r"[A-Z]{3}", segment.destinations[0].code)
         or segment.origins[0].code == segment.destinations[0].code
@@ -89,7 +89,7 @@ def import_search_target(message, params: dict[str, str]) -> dict:
     if params.get("tfu", "") not in ("", "EgYIABAAGAA", "EgYIAhAAGAA"):
         raise InvalidLink("Copy a direct search-results link without a selected flight.")
     query = {key: value for key, value in params.items() if key not in ("authuser", "tfu")}
-    query.update(curr=currency, gl=market, hl="en-US")
+    query["hl"] = "en-US"
     query["tfs"] = (
         base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode().rstrip("=")
     )

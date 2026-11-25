@@ -4,6 +4,18 @@ Notable changes to Fareflare. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- **Flights found by searching a city can be watched.** A selected flight whose
+  Google Flights search named a city ("Denver to Dallas") or several airports was
+  refused as an unsupported link, because only a search for the flight's exact
+  airports was accepted. The selected flights decide the trip; a search made of
+  airports alone must still include the flight's airport.
+- **Links shared from Safari are accepted.** Safari writes the country in lower case
+  (`gl=us`), which was refused. Route searches read it the same way.
+
 ## 2.1.0 — 2026-11-23
 
 ### Added

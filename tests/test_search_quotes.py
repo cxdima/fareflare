@@ -52,6 +52,12 @@ def test_search_requires_opt_in_and_preserves_a_distinct_identity(evidence):
     assert import_link(changed, allow_search=True)["id"] == target["id"]
 
 
+def test_a_search_reads_the_country_in_either_case(evidence):
+    target, search, _, _ = evidence
+    lower = altered_url(search.url, lambda m, p: p.update(gl="us"))
+    assert import_link(lower, allow_search=True) == target
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
