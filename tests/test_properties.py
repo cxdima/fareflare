@@ -342,13 +342,53 @@ def test_a_flight_has_one_identity_and_address_however_its_link_was_found(
     assert found["url"] == plain["url"]
 
 
+# Extras one link may carry: unknown parameters (a name may even be one the importer
+# uses inside its hash), fields that never decide a price, and bags, which do.
+_EXTRAS = st.fixed_dictionaries(
+    {
+        "params": st.dictionaries(
+            st.sampled_from(["opaque_token", "params", "tfs_extra", "futureFare", "x"]),
+            st.text("abcXYZ019", min_size=1, max_size=6),
+            max_size=2,
+        ),
+        "selection": st.binary(max_size=6),
+        "pin": st.binary(max_size=4),
+        "hint": st.binary(max_size=4),
+        "bags": st.sampled_from([b"", b"\x10\x01", b"\x18\x01"]),
+    }
+)
+
+
+def _with_extras(url, extras):
+    params = dict(parse_qsl(urlsplit(url).query))
+    message = ItineraryMessage()
+    message.ParseFromString(
+        base64.urlsafe_b64decode(params["tfs"] + "=" * (-len(params["tfs"]) % 4))
+    )
+    for name in ("selection", "pin", "hint", "bags"):
+        if extras[name]:
+            setattr(message, name, extras[name])
+    params["tfs"] = base64.urlsafe_b64encode(message.SerializeToString()).decode().rstrip("=")
+    return "https://www.google.com/travel/flights?" + urlencode({**params, **extras["params"]})
+
+
+@given(itineraries(), _EXTRAS, _EXTRAS)
+def test_two_links_share_an_identity_exactly_when_they_share_an_address(itinerary, one, two):
+    first = import_link(_with_extras(_link(itinerary), one))
+    second = import_link(_with_extras(_link(itinerary), two))
+    # No parameter, whatever its name, can make two addresses share an identity.
+    assert (first["id"] == second["id"]) == (first["url"] == second["url"])
+
+
 @given(itineraries(), st.data())
 def test_every_price_defining_change_is_a_different_target(itinerary, data):
     plain = import_link(_link(itinerary))
     segments = json.loads(json.dumps(itinerary["segments"]))
     leg = segments[0]["legs"][0]
     change = data.draw(
-        st.sampled_from(["number", "day", "adults", "cabin", "currency", "country", "unknown"])
+        st.sampled_from(
+            ["number", "day", "adults", "cabin", "currency", "country", "unknown", "separate"]
+        )
     )
     changed = {**itinerary, "segments": segments}
     params = {}
@@ -364,8 +404,22 @@ def test_every_price_defining_change_is_a_different_target(itinerary, data):
         changed["currency"] = "GBP"
     elif change == "country":
         params["gl"] = "CA"
-    else:
+    elif change == "unknown":
         params["futureFareOption"] = data.draw(st.text("abc123", min_size=1, max_size=8))
+    if change == "separate":
+        # Hiding separate tickets can change which fare matches: a price fact.
+        url = _with_extras(
+            _link(changed), {"params": {}, "selection": b"", "pin": b"", "hint": b"", "bags": b""}
+        )
+        tfs = dict(parse_qsl(urlsplit(url).query))["tfs"]
+        message = ItineraryMessage()
+        message.ParseFromString(base64.urlsafe_b64decode(tfs + "=" * (-len(tfs) % 4)))
+        message.hide_separate_tickets = 1
+        url = url.replace(
+            tfs, base64.urlsafe_b64encode(message.SerializeToString()).decode().rstrip("=")
+        )
+        assert import_link(url)["id"] != plain["id"]
+        return
     assert import_link(_link(changed, **params))["id"] != plain["id"]
 
 

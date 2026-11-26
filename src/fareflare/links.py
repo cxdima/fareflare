@@ -131,8 +131,10 @@ LANGUAGE = "en-US"
 # as curr. The page and the trip type are written from the facts instead.
 _NEVER_PRICE = ("made_by", "constant", "selection", "pin", "hint", "currency")
 # What was searched for. Chosen flights meet every criterion already, so for them
-# these are dropped; for a route search they are what it asks.
-_ITINERARY_CRITERIA = ("max_price", "hide_separate_tickets")
+# these are dropped; for a route search they are what it asks. Hiding separate
+# tickets is not among them: Google can price a round trip as two tickets, so it can
+# change which fare matches, and it stays a price fact.
+_ITINERARY_CRITERIA = ("max_price",)
 _SEGMENT_CRITERIA = (
     "max_stops",
     "airlines",
@@ -263,9 +265,10 @@ def price_facts(message: Any) -> str:
 
 def constraint_hash(message: Any, query: dict[str, str]) -> str:
     """Everything beyond the named facts that may decide a price, as one hash: the
-    parameters of unknown meaning, the page language and the canonical message."""
-    constraints = {name: value for name, value in query.items() if parameter_kind(name) != "fact"}
-    constraints["opaque_token"] = _token(message)
+    parameters of unknown meaning and the page language, and the canonical message,
+    each in its own slot so that no parameter's name can stand in for the message."""
+    params = {name: value for name, value in query.items() if parameter_kind(name) != "fact"}
+    constraints = {"params": params, "tfs": _token(message)}
     return hashlib.sha256(json.dumps(constraints, sort_keys=True).encode()).hexdigest()
 
 
