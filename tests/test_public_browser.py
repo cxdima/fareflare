@@ -684,7 +684,8 @@ def test_a_stored_address_the_rules_refuse_stops_its_checks(flight_url, kind, ca
         pytest.raises(QuoteUnavailable, match="unsupported_itinerary") as caught,
     ):
         provider.collect(target)
-    # Retrying cannot change the answer, so the flight stops until someone retries it.
-    assert not caught.value.retryable
+    # Retrying cannot change the answer, so the flight stops, recording that its link
+    # was why: a release whose rules read the link again checks it again.
+    assert not caught.value.retryable and caught.value.link_refusal == "not_google"
     # The refusal's check is logged; the address never is.
     assert "check=not_google" in caplog.text and "private" not in caplog.text

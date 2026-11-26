@@ -19,7 +19,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
-from fareflare.contracts import CollectionFailure
 from fareflare.links import LANGUAGE, import_link
 from fareflare.public_quotes import (
     PageEvidence,
@@ -297,22 +296,26 @@ def _opened[Shown](
     return result
 
 
-def _reimport(
-    url: str,
-    *,
-    page: str,
-    failure: str = CollectionFailure.UNREADABLE,
-    allow_search: bool = False,
-) -> dict:
-    """What an address imports to now, or ``failure`` if it is refused. A stored
-    address the current rules refuse cannot be checked, and retrying cannot change
-    that, so it stops its checks; a page Google opened that does not import is an
-    unexpected page. Which page and the refusal's check are logged, never the address."""
+def _stored(target: dict, *, allow_search: bool = False) -> dict:
+    """What the flight's stored address imports to now. One the current rules refuse
+    cannot be checked, and retrying cannot change that: its checks stop, recording the
+    refusal's check, so a release whose rules read the address again lifts the stop.
+    The check is logged, never the address."""
     try:
-        return import_link(url, allow_search=allow_search)
+        return import_link(target["url"], allow_search=allow_search)
     except LinkRefused as refusal:
-        log.warning("Public browser address refused page=%s check=%s", page, refusal.check)
-        raise QuoteUnavailable(failure) from None
+        log.warning("Stored address refused check=%s", refusal.check)
+        raise QuoteUnavailable.refused_link(refusal.check) from None
+
+
+def _landed(url: str) -> dict:
+    """What the page Google took the browser to imports to; one that does not import is
+    an unexpected page. The refusal's check is logged, never the address."""
+    try:
+        return import_link(url)
+    except LinkRefused as refusal:
+        log.warning("Landed address refused check=%s", refusal.check)
+        raise QuoteUnavailable("unexpected_page") from None
 
 
 # These can occur while an otherwise correct booking page is being updated.
@@ -352,7 +355,7 @@ class PublicGoogleFlightsProvider:
         supported_target(target)  # Unsupported targets never launch Chrome.
         # Revalidate the navigation URL before a browser sees it, even if callers
         # constructed a target themselves instead of using the importer.
-        checked = _reimport(target["url"], page="stored")
+        checked = _stored(target)
         if checked != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
@@ -448,7 +451,7 @@ class PublicGoogleFlightsProvider:
             verified_search_reading,
         )
 
-        if _reimport(target["url"], page="stored", allow_search=True) != target:
+        if _stored(target, allow_search=True) != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
 
@@ -565,9 +568,7 @@ class PublicGoogleFlightsProvider:
                 )
 
             wait_for(booking_ready)
-            selected = _reimport(
-                driver.current_url, page="booking_from_results", failure="unexpected_page"
-            )
+            selected = _landed(driver.current_url)
             details = [
                 button
                 for button in driver.find_elements(

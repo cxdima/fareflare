@@ -107,8 +107,9 @@ def test_query_change_and_duplicate_eligible_fares_fail_closed(evidence):
 def test_unvalidated_itineraries_are_explicitly_unsupported(evidence, field, value, check):
     target = {**import_link(evidence.url), field: value}
     assert collection_refusal(target) == check
-    with pytest.raises(QuoteUnavailable, match="unsupported_itinerary"):
+    with pytest.raises(QuoteUnavailable, match="unsupported_itinerary") as caught:
         supported_target(target)
+    assert caught.value.link_refusal == check  # Its link is why it stops.
 
 
 def test_the_page_language_never_decides_support(evidence):

@@ -192,27 +192,32 @@ def test_twins_become_one_target_and_the_plan_says_so_first(
     assert store.get("capacity:collection").data["targets"] == [new]
 
 
-def test_a_twin_blocked_as_unreadable_is_checked_again_once_its_link_reads(
-    before, store, clock, flight_url, tmp_path
+@pytest.mark.parametrize(
+    "failure,after",
+    [
+        # Its stored link was why: these rules read it, so Bob's flight is checked again.
+        (CollectionFailure.refused_link("not_google"), (COLLECTING, None, "ready")),
+        # Stopped for another reason (more results than the browser reads): Bob retries.
+        (CollectionFailure("unsupported_itinerary"), (BLOCKED, "unsupported_itinerary", "blocked")),
+    ],
+)
+def test_a_blocked_twin_is_checked_again_only_when_its_link_was_why(
+    before, store, clock, flight_url, tmp_path, failure, after
 ):
     idle = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
     before.set_status("alice", idle["id"], "paused")
     blocked = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request")
     provider = Mock()
-    provider.collect.side_effect = CollectionFailure("unsupported_itinerary")
+    provider.collect.side_effect = failure
     clock[0] += 3600
     before.collect_due(provider)
-    targets = {store.get("target:" + m["target_id"]).partition for m in (idle, blocked)}
-    assert BLOCKED in targets
+    assert store.get("target:" + blocked["target_id"]).partition == BLOCKED
     pause(store)
     changes = run(store, clock, tmp_path)
-    assert any(change.unblocked for change in changes)
+    assert any(change.unblocked for change in changes) == (after[0] == COLLECTING)
     merged = store.get("target:" + import_link(flight_url)["id"])
-    # These rules read its link, so it is checked again for Bob, who still watches it.
-    assert merged.partition == COLLECTING and merged.data["last_error"] is None
-    assert now_service(store, clock).get_monitor("bob", blocked["id"])["collection_status"] == (
-        "ready"
-    )
+    status = now_service(store, clock).get_monitor("bob", blocked["id"])["collection_status"]
+    assert (merged.partition, merged.data["last_error"], status) == after
 
 
 def test_a_run_is_undone_exactly_from_what_it_saved(before, store, clock, flight_url, tmp_path):
@@ -502,6 +507,7 @@ def test_a_stopped_flight_tells_the_watchers_who_asked_for_notices(
     store.commit([target.update({**target.data, "spec": spec})])
     pause(store)
     assert [c.outcome for c in run(store, clock, tmp_path)] == ["blocked"]
+    assert store.get(target.key).data["link_refusal"] == "not_google"
     notices = store.page("notices_pending", limit=10).items
     assert [(n.data["kind"], n.data["code"]) for n in notices] == [
         ("collection_blocked", "unsupported_itinerary")
@@ -512,23 +518,48 @@ def test_a_stopped_flight_tells_the_watchers_who_asked_for_notices(
     assert store.get(target.key).partition == COLLECTING
 
 
-def test_a_flight_blocked_as_unreadable_is_checked_again_when_the_rules_read_it(
-    store, clock, flight_url, tmp_path
+@pytest.mark.parametrize(
+    "failure,outcome,partition",
+    [
+        (CollectionFailure.refused_link("not_google"), "unblocked", COLLECTING),
+        # As the browser stops a search with more results than it reads.
+        (CollectionFailure("unsupported_itinerary"), "unchanged", BLOCKED),
+    ],
+)
+def test_a_stopped_flight_is_checked_again_only_when_its_link_was_why(
+    store, clock, flight_url, tmp_path, failure, outcome, partition
 ):
     service = now_service(store, clock)
     monitor = service.create_monitor("alice", flight_url, "alice-request")
+    provider = Mock()
+    provider.collect.side_effect = failure
+    clock[0] += 3600
+    service.collect_due(provider)
     target = store.get("target:" + monitor["target_id"])
-    blocked = {**target.data, "last_error": "unsupported_itinerary", "failures": 1}
-    store.commit([target.update(blocked, partition=BLOCKED)])
-    plans = plan_changes(store, clock[0])
-    assert [(p.change.outcome, p.change.unblocked) for p in plans] == [("unblocked", True)]
+    assert (target.partition, target.data["link_refusal"]) == (BLOCKED, failure.link_refusal)
+    assert [p.change.outcome for p in plan_changes(store, clock[0])] == [outcome]
     pause(store)
     run(store, clock, tmp_path)
-    again = store.get(target.key)
-    assert (again.partition, again.data["last_error"], again.data["failures"]) == (
+    after = store.get(target.key)
+    assert (after.partition, after.data["last_error"]) == (
+        partition,
+        None if partition == COLLECTING else "unsupported_itinerary",
+    )
+
+
+def test_retry_collection_clears_why_the_flight_stopped(store, clock, flight_url):
+    service = now_service(store, clock)
+    monitor = service.create_monitor("alice", flight_url, "alice-request")
+    provider = Mock()
+    provider.collect.side_effect = CollectionFailure.refused_link("not_google")
+    clock[0] += 3600
+    service.collect_due(provider)
+    service.retry_collection("alice", monitor["id"])
+    target = store.get("target:" + monitor["target_id"])
+    assert (target.partition, target.data["last_error"], target.data["link_refusal"]) == (
         COLLECTING,
         None,
-        0,
+        None,
     )
 
 

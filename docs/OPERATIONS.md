@@ -135,9 +135,11 @@ status otherwise:
 A stored link the new rules refuse cannot be checked, and retrying cannot change
 that. A collected one is stopped as `unsupported_itinerary`, exactly as the collector
 stops a flight it cannot read, and its watchers who asked for notices are told. An
-idle or departed one is left where it is and reported. A flight stopped that way
-whose link a later release reads again is checked again. All three are finished
-states.
+idle or departed one is left where it is and reported. All of these are finished
+states. A flight stopped because its stored link was refused, by this command or by
+the collector, is checked again once a later release reads that link; one stopped
+for another reason (more results than the browser reads, say) is left for Retry
+collection.
 
 #### The saved file
 

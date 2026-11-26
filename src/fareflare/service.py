@@ -540,6 +540,8 @@ class MonitoringService:
             **target.data,
             "failures": failures,
             "last_error": failure.code,
+            # Whether its own stored link is why: only that stop is lifted by a release.
+            "link_refusal": failure.link_refusal,
             "lease_token": None,
             "lease_until": 0,
         }
@@ -1008,7 +1010,7 @@ class MonitoringService:
         self.store.commit(
             [
                 target.update(
-                    {**target.data, "last_error": None, "failures": 0},
+                    {**target.data, "last_error": None, "link_refusal": None, "failures": 0},
                     partition=COLLECTING,
                     due=self._now(),
                 )

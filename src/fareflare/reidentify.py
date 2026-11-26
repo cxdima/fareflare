@@ -65,8 +65,6 @@ _MOVED_KEPT = 30 * 86400
 # One transaction holds at most 100 documents; one place is kept for capacity.
 _MOST_WRITES = 99
 CAPACITY = "capacity:collection"
-# The collector's own code for a flight it cannot read, which stops its checks.
-UNREADABLE = CollectionFailure.UNREADABLE
 # The only documents a run writes, and so the only ones a restore may write back.
 _WRITTEN = ("target:", "monitor:", "request:", "observation:", "notice:")
 PROBLEMS = frozenset({"busy", "too_large", "conflict", "missing_monitor", "failed"})
@@ -207,8 +205,9 @@ class _Planner:
         if check is not None:
             return self._unreadable(current, monitors, check)
         assert fresh is not None
-        # Blocked because it could not be read, but the rules now accept it: checked again.
-        unblock = current.partition == BLOCKED and current.data.get("last_error") == UNREADABLE
+        # Stopped because the rules refused its link, which they now read: checked again.
+        # A stop with another cause is left for Retry collection.
+        unblock = current.partition == BLOCKED and current.data.get("link_refusal") is not None
         if fresh == spec and not unblock:
             return _Plan(Change(old, "unchanged"))
         if missing:
@@ -226,7 +225,7 @@ class _Planner:
     def _unblocked(self, current: Document, monitors: list[Document]) -> Document:
         """The target checked again: collected if someone is sent its alerts, else idle."""
         watched = any(receives_alerts(self.store, monitor) for monitor in monitors)
-        data = {**current.data, "failures": 0, "last_error": None}
+        data = {**current.data, "failures": 0, "last_error": None, "link_refusal": None}
         return current.update(data, partition=COLLECTING if watched else IDLE, due=self.now)
 
     def _unreadable(self, current: Document, monitors: list[Document], check: str) -> _Plan:
@@ -235,14 +234,14 @@ class _Planner:
         watchers would get; an idle or departed one stays where it is."""
         old = current.data["spec"]["id"]
         if current.partition != COLLECTING:
-            done = current.partition == BLOCKED and current.data.get("last_error") == UNREADABLE
-            return _Plan(Change(old, "blocked" if done else "unreadable", check=check))
+            outcome = "blocked" if current.partition == BLOCKED else "unreadable"
+            return _Plan(Change(old, outcome, check=check))
         if current.data.get("lease_until", 0) > self.now:
             return _Plan(Change(old, "busy", check=check))
         writes = self.service.failed(
             current,
             [monitor for monitor in monitors if receives_alerts(self.store, monitor)],
-            CollectionFailure(UNREADABLE),
+            CollectionFailure.refused_link(check),
             f"reidentify:{self.now}",
             self.now,
         )
@@ -368,8 +367,8 @@ def _merged(
     if newest.data.get("latest"):
         data["latest"] = {**newest.data["latest"], "target_id": new}
     if blocked:
-        data["failures"] = blocked.data.get("failures", 0)
-        data["last_error"] = blocked.data.get("last_error")
+        for field in ("failures", "last_error", "link_refusal"):
+            data[field] = blocked.data.get(field)
     # Where the merged target lives follows from both: departed, unreadable, watched or not.
     if any(doc.partition == EXPIRED for doc in both):
         partition = EXPIRED

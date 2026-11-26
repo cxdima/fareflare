@@ -282,5 +282,5 @@ def test_a_booking_page_whose_address_does_not_import_is_an_unexpected_page(sear
         pytest.raises(QuoteUnavailable, match="unexpected_page"),
     ):
         PublicGoogleFlightsProvider(clock=lambda: 42).collect(target)
-    assert "page=booking_from_results check=token_undecodable" in caplog.text
+    assert "Landed address refused check=token_undecodable" in caplog.text
     assert "secret" not in caplog.text

@@ -177,9 +177,21 @@ class CollectionFailure(ValueError):
         )
     )
 
+    # The check the current rules refuse the flight's own stored link with, when that
+    # link is why it cannot be checked. Only such a stop is lifted by a release whose
+    # rules read the link again; any other is left for Retry collection.
+    link_refusal: str | None = None
+
     def __init__(self, code: str):
         self.code = code if code in self.CODES else "collection_failed"
         super().__init__(f"A verified quote is unavailable ({self.code})")
+
+    @classmethod
+    def refused_link(cls, check: str) -> CollectionFailure:
+        """The flight's own stored link, refused by the current rules for ``check``."""
+        failure = cls(cls.UNREADABLE)
+        failure.link_refusal = check
+        return failure
 
     @property
     def retryable(self) -> bool:

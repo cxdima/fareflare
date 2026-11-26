@@ -55,8 +55,8 @@ def collection_refusal(target: dict) -> str | None:
 
 def supported_target(target: dict) -> None:
     """Stop a collection the page reader cannot verify, before it opens a browser."""
-    if collection_refusal(target):
-        raise QuoteUnavailable("unsupported_itinerary")
+    if check := collection_refusal(target):
+        raise QuoteUnavailable.refused_link(check)
 
 
 def _normal(text: str) -> str:
