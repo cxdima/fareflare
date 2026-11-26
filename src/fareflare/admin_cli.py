@@ -16,9 +16,9 @@ in the same audit log with who changed it and why.
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
 import os
+import pwd
 import secrets
 import sys
 from datetime import UTC, datetime
@@ -117,7 +117,8 @@ def main(argv: list[str] | None = None) -> int:
                 accounts.admin_named(args.admin),
                 {"collection_paused": args.command == "pause-checks"},
                 reason=args.reason.strip(),
-                context={"via": "command line", "os_user": getpass.getuser()},
+                # The account the process runs as, not $USER, which anyone can set.
+                context={"via": "command line", "os_user": pwd.getpwuid(os.getuid()).pw_name},
             )
             print(
                 "Price checks are " + ("paused." if switches["collection_paused"] else "running.")

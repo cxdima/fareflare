@@ -1,7 +1,8 @@
 """The admin panel: who may open it, what it shows, what it may do, and its record."""
 
-import getpass
 import json
+import os
+import pwd
 from types import SimpleNamespace
 
 import pytest
@@ -473,7 +474,7 @@ def test_price_checks_are_paused_from_the_command_line_with_who_and_why(tmp_path
         "collection_paused": True,
         "reason": "Release: reidentify",
         "via": "command line",
-        "os_user": getpass.getuser(),
+        "os_user": pwd.getpwuid(os.getuid()).pw_name,
     }
     resume = [*run, "resume-checks", "--as", "root@example.com", "--reason", "Done"]
     assert admin_cli.main(resume) == 0
