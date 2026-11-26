@@ -69,6 +69,10 @@ def test_search_browser_selects_only_verified_result_then_booking(search_browser
         and reading.observed_offer.segments[0].legs[0].number == "2550"
     )
     driver.get.assert_called_once_with(target["url"])
+    # The results are read for prices labelled in the search's currency, named as in
+    # the one currency table.
+    snapshots = [call for call in driver.execute_script.call_args_list if len(call.args) == 2]
+    assert snapshots and {call.args[1] for call in snapshots} == {"US dollars"}
     detail.click.assert_called_once()
     select.click.assert_called_once()
     driver.quit.assert_called_once()
@@ -132,7 +136,7 @@ def test_search_starts_a_new_browser_when_the_first_dies_loading_the_link(search
 def test_search_cumulative_deadline_stops_before_selection(search_browser):
     data, target, driver, _, detail, select, clock, waits = search_browser
 
-    def capture(_):
+    def capture(*_):
         clock[0] = 101
         return data["search"]
 
@@ -149,7 +153,7 @@ def test_remaining_budget_bounds_each_wait_and_navigation(search_browser):
     data, target, driver, _, _, _, clock, waits = search_browser
     snapshots = iter([data["search"], data["search"], data["booking"]])
 
-    def capture(_):
+    def capture(*_):
         clock[0] += 40
         return next(snapshots)
 

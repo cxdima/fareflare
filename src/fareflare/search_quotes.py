@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import date
 
-from fareflare.contracts import FlightLeg, JourneySlice, ObservedOffer, Reading
+from fareflare.contracts import CURRENCIES, FlightLeg, JourneySlice, ObservedOffer, Reading
 from fareflare.links import import_link
 from fareflare.public_quotes import (
     PageEvidence,
@@ -37,6 +37,7 @@ def verified_search_minimum(target: dict, page: SearchPageEvidence) -> int:
         raise QuoteUnavailable("unexpected_page") from None
     if actual["id"] != target["id"] or actual.get("kind") != "search":
         raise QuoteUnavailable("itinerary_changed")
+    currency = target["currency"]
     body = _normal(page.body)
     count = re.findall(r"\b(\d+) results returned\.", body)
     if (
@@ -46,7 +47,7 @@ def verified_search_minimum(target: dict, page: SearchPageEvidence) -> int:
         or "One way" not in body
         or "Economy (exclude Basic)" not in body
         or "Prices include required taxes + fees for 1 adult." not in body
-        or "CurrencyUSD" not in body.replace(" ", "")
+        or f"Currency{currency}" not in body.replace(" ", "")
         or page.more_results
         or len(count) != 1
         or not 1 <= len(page.rows) <= 100
@@ -74,7 +75,9 @@ def verified_search_minimum(target: dict, page: SearchPageEvidence) -> int:
     prices = []
     for row in page.rows:
         label, text = _normal(row["label"]), _normal(row["text"])
-        match = re.match(r"From (.+? US dollars)\. Nonstop flight with ", label)
+        match = re.match(
+            rf"From (.+? {re.escape(CURRENCIES[currency].name)})\. Nonstop flight with ", label
+        )
         if (
             not match
             or route not in text
@@ -83,8 +86,8 @@ def verified_search_minimum(target: dict, page: SearchPageEvidence) -> int:
             or not re.search(re.escape(departure_label) + r"\b", label.split(" and arrives ")[0])
         ):
             raise QuoteUnavailable("flight_identity_mismatch")
-        amount = _money(_normal(row["prices"][0]), "USD")
-        if amount != _money(match[1], "USD"):
+        amount = _money(_normal(row["prices"][0]), currency)
+        if amount != _money(match[1], currency):
             raise QuoteUnavailable("price_disagreement")
         prices.append(amount)
     # Google's sort control changes before the result list is rerendered.

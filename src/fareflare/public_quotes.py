@@ -198,7 +198,8 @@ def verified_reading(target: dict, page: PageEvidence, observed_at: int) -> Read
             True,
             True,
             True,
-            (100 if "." not in page.summary_prices[0] else 1) if currency == "USD" else 1,
+            # A price shown without its decimals resolves to whole units.
+            10 ** CURRENCIES[currency].exponent if "." not in page.summary_prices[0] else 1,
         ),
         # All directions or none: a half-known round trip would read as one-way times.
         schedule=tuple(item for item in times if item) if all(times) else None,

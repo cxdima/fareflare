@@ -172,3 +172,11 @@ def test_changed_route_flight_date_currency_or_booking_price_is_not_a_quote(evid
     )
     with pytest.raises(QuoteUnavailable, match="price_disagreement"):
         verified_search_reading(target, search, selected, increased, 1)
+
+
+def test_a_search_is_read_in_its_own_currency(evidence):
+    target, search, _, _ = evidence
+    assert verified_search_minimum(target, search) == 19100
+    # The same results read for a search in another currency are not its results.
+    with pytest.raises(QuoteUnavailable, match="incomplete_trip_context"):
+        verified_search_minimum({**target, "currency": "JPY"}, search)

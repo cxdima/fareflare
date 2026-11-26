@@ -19,6 +19,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
+from fareflare.contracts import CURRENCIES
 from fareflare.links import LANGUAGE, import_link
 from fareflare.public_quotes import (
     PageEvidence,
@@ -139,7 +140,9 @@ return {
 };
 """
 
+# Called with the name Google's accessible labels give the search's currency.
 _SEARCH_SNAPSHOT = r"""
+const currency = ' ' + arguments[0];
 const visible = e => !!e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
 const buttons = [...document.querySelectorAll('button[aria-label]')].filter(visible);
 const details = buttons.filter(e => e.getAttribute('aria-label').startsWith('Flight details.'));
@@ -153,7 +156,8 @@ return {
         const row = e.closest('li');
         return {text: row?.innerText || '',
             label: row?.querySelector('[role="link"][aria-label^="From "]')?.getAttribute('aria-label') || '',
-            prices: [...(row?.querySelectorAll('[role="text"][aria-label$=" US dollars"]') || [])]
+            prices: [...(row?.querySelectorAll('[role="text"][aria-label]') || [])]
+                .filter(n => n.getAttribute('aria-label').endsWith(currency))
                 .filter(visible).map(n => n.getAttribute('aria-label'))};
     })
 };
@@ -453,6 +457,7 @@ class PublicGoogleFlightsProvider:
 
         if _stored(target, allow_search=True) != target:
             raise QuoteUnavailable("itinerary_changed")
+        currency = CURRENCIES[target["currency"]].name
         deadline = _CollectionDeadline()
 
         phase = "search_navigation"
@@ -495,7 +500,7 @@ class PublicGoogleFlightsProvider:
                 nonlocal expansions
                 page_ready(browser)
                 driver.set_script_timeout(deadline.remaining(10))
-                evidence = SearchPageEvidence(**browser.execute_script(_SEARCH_SNAPSHOT))
+                evidence = SearchPageEvidence(**browser.execute_script(_SEARCH_SNAPSHOT, currency))
                 if evidence.more_results:
                     if expansions >= 3:
                         raise QuoteUnavailable("unsupported_itinerary")
@@ -522,7 +527,7 @@ class PublicGoogleFlightsProvider:
             search = wait_for(complete_results)
             phase = "search_selection"
             driver.set_script_timeout(deadline.remaining(10))
-            fresh = SearchPageEvidence(**driver.execute_script(_SEARCH_SNAPSHOT))
+            fresh = SearchPageEvidence(**driver.execute_script(_SEARCH_SNAPSHOT, currency))
             if (
                 verified_search_minimum(target, fresh) != verified_search_minimum(target, search)
                 or fresh.rows[0]["label"] != search.rows[0]["label"]
