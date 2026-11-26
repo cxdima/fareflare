@@ -29,6 +29,7 @@ table, pause price checks, deploy, run this with ``--apply``, run it again witho
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import stat
@@ -43,6 +44,7 @@ from typing import Protocol
 from fareflare.contracts import CollectionFailure
 from fareflare.failures import describe_failure
 from fareflare.links import import_link
+from fareflare.public_quotes import collection_refusal
 from fareflare.refusals import LinkRefused
 from fareflare.service import (
     BLOCKED,
@@ -50,6 +52,7 @@ from fareflare.service import (
     EXPIRED,
     IDLE,
     TARGET_PARTITIONS,
+    MonitoringService,
     receives_alerts,
     request_hash,
 )
@@ -65,7 +68,7 @@ CAPACITY = "capacity:collection"
 # The collector's own code for a flight it cannot read, which stops its checks.
 UNREADABLE = CollectionFailure.UNREADABLE
 # The only documents a run writes, and so the only ones a restore may write back.
-_WRITTEN = ("target:", "monitor:", "request:", "observation:")
+_WRITTEN = ("target:", "monitor:", "request:", "observation:", "notice:")
 PROBLEMS = frozenset({"busy", "too_large", "conflict", "missing_monitor", "failed"})
 
 
@@ -76,16 +79,17 @@ class NotReady(Exception):
 @dataclass(frozen=True)
 class Change:
     target: str
-    # unchanged, rewritten, moved, merged, blocked, busy, too_large, conflict,
-    # missing_monitor or failed
+    # unchanged, rewritten, moved, merged, unblocked, blocked, unreadable (idle or
+    # departed, left where it is), busy, too_large, conflict, missing_monitor or failed
     outcome: str
     to: str | None = None
     monitors: int = 0  # Monitors re-pointed, in any state.
     history: int = 0  # Price observations moved to the new key.
     requests: int = 0  # Create-request records re-hashed for the new key.
     unmatched_requests: tuple[str, ...] = ()  # Records whose request cannot be rebuilt.
-    check: str | None = None  # Why the link no longer imports, for a blocked target.
+    check: str | None = None  # Why the link cannot be checked, for a blocked target.
     error: str | None = None  # What failed, without its text, for a failed target.
+    unblocked: bool = False  # Blocked as unreadable, but the rules now accept it.
 
 
 @dataclass
@@ -138,6 +142,7 @@ class _Planner:
 
     def __init__(self, store: Store, now: int):
         self.store, self.now = store, now
+        self.service = MonitoringService(store, lambda: now)
         self.projected: dict[str, Document | None] = {}
         self.monitors: dict[str, list[str]] = defaultdict(list)  # By target id.
         self.requests: dict[str, list[str]] = defaultdict(list)  # By monitor id.
@@ -195,39 +200,57 @@ class _Planner:
         old = spec["id"]
         try:
             fresh = import_link(spec["url"], allow_search=spec.get("kind") == "search")
+            check = collection_refusal(fresh)
         except LinkRefused as refusal:
-            return self._block(current, refusal.check)
-        if fresh == spec:
-            return _Plan(Change(old, "unchanged"))
+            fresh, check = None, refusal.check
         monitors, missing = self._monitors(current)
+        if check is not None:
+            return self._unreadable(current, monitors, check)
+        assert fresh is not None
+        # Blocked because it could not be read, but the rules now accept it: checked again.
+        unblock = current.partition == BLOCKED and current.data.get("last_error") == UNREADABLE
+        if fresh == spec and not unblock:
+            return _Plan(Change(old, "unchanged"))
         if missing:
             return _Plan(Change(old, "missing_monitor", fresh["id"], monitors=len(monitors)))
         if self._busy(current, monitors):
             return _Plan(Change(old, "busy", fresh["id"]))
+        if unblock:
+            current = self._unblocked(current, monitors)
         if fresh["id"] == old:
             writes = [current.update({**current.data, "spec": fresh})]
-            return self._planned(Change(old, "rewritten", old), old, old, writes)
-        return self._move(current, fresh, monitors)
+            outcome = "unblocked" if fresh == spec else "rewritten"
+            return self._planned(Change(old, outcome, old, unblocked=unblock), old, old, writes)
+        return self._move(current, fresh, monitors, unblock)
 
-    def _block(self, current: Document, check: str) -> _Plan:
-        """A stored link the rules now refuse stops its checks, as an unreadable flight
-        does, until someone chooses Retry collection."""
+    def _unblocked(self, current: Document, monitors: list[Document]) -> Document:
+        """The target checked again: collected if someone is sent its alerts, else idle."""
+        watched = any(receives_alerts(self.store, monitor) for monitor in monitors)
+        data = {**current.data, "failures": 0, "last_error": None}
+        return current.update(data, partition=COLLECTING if watched else IDLE, due=self.now)
+
+    def _unreadable(self, current: Document, monitors: list[Document], check: str) -> _Plan:
+        """A stored link the rules now refuse cannot be checked, and retrying cannot
+        change that: a collected one stops as the collector stops it, with the notice its
+        watchers would get; an idle or departed one stays where it is."""
         old = current.data["spec"]["id"]
-        if current.partition == BLOCKED and current.data.get("last_error") == UNREADABLE:
-            return _Plan(Change(old, "blocked", check=check))
+        if current.partition != COLLECTING:
+            done = current.partition == BLOCKED and current.data.get("last_error") == UNREADABLE
+            return _Plan(Change(old, "blocked" if done else "unreadable", check=check))
         if current.data.get("lease_until", 0) > self.now:
             return _Plan(Change(old, "busy", check=check))
-        data = {
-            **current.data,
-            "last_error": UNREADABLE,
-            "failures": current.data.get("failures", 0) + 1,
-            "lease_token": None,
-            "lease_until": 0,
-        }
-        writes = [current.update(data, partition=BLOCKED)]
+        writes = self.service.failed(
+            current,
+            [monitor for monitor in monitors if receives_alerts(self.store, monitor)],
+            CollectionFailure(UNREADABLE),
+            f"reidentify:{self.now}",
+            self.now,
+        )
         return self._planned(Change(old, "blocked", old, check=check), old, old, writes)
 
-    def _move(self, current: Document, spec: dict, monitors: list[Document]) -> _Plan:
+    def _move(
+        self, current: Document, spec: dict, monitors: list[Document], unblocked: bool
+    ) -> _Plan:
         old, new = current.data["spec"]["id"], spec["id"]
         existing = self.read("target:" + new)
         joined: list[Document] = []
@@ -267,6 +290,7 @@ class _Planner:
             history=len(history),
             requests=len(records),
             unmatched_requests=tuple(unmatched),
+            unblocked=unblocked,
         )
         capacity = self.store.get(CAPACITY)
         reserve = capacity is not None and old in capacity.data["targets"]
@@ -379,6 +403,13 @@ def _snapshot(document: Document | None) -> dict | None:
     return snapshot
 
 
+def _content(partition: str, data: dict) -> str:
+    """A document's content, as one hash: what it holds and where it lives."""
+    return hashlib.sha256(
+        json.dumps({"partition": partition, "data": data}, sort_keys=True).encode()
+    ).hexdigest()
+
+
 def _swap(store: Store, old: str, new: str) -> list[Document]:
     """The capacity record with ``old``'s reservation moved to ``new``, as it is now."""
     capacity = store.get(CAPACITY)
@@ -390,9 +421,16 @@ def _swap(store: Store, old: str, new: str) -> list[Document]:
     return [capacity.update({**capacity.data, "targets": reserved})]
 
 
+def saved_file(release: str, now: int) -> Path:
+    """Where a run saves what it replaces: the one place, beside the release's files."""
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(now))
+    return Path(".fareflare") / f"release-{release}" / "reidentify" / f"apply-{stamp}.jsonl"
+
+
 def _private_file(path: Path) -> int:
     """A new file only its owner can read, in a directory only its owner can open."""
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.parent.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(mode=0o700, exist_ok=True)
     if stat.S_IMODE(path.parent.stat().st_mode) != 0o700:
         raise NotReady(f"Keep the file in a directory only you can open (chmod 700 {path.parent})")
     try:
@@ -414,45 +452,34 @@ def apply(
 
         for plan in plans:
             for doc in plan.writes:
-                after = doc.revision + 1
                 note(
-                    {
-                        "target": plan.old,
-                        "key": doc.key,
-                        "before": _snapshot(plan.before[doc.key]),
-                        "after": after,
-                    }
+                    {"target": plan.old, "key": doc.key, "before": _snapshot(plan.before[doc.key])}
                 )
             for doc in plan.history:
-                note(
-                    {
-                        "target": plan.old,
-                        "key": doc.key,
-                        "before": _snapshot(doc),
-                        "after": doc.revision + 1,
-                    }
-                )
+                note({"target": plan.old, "key": doc.key, "before": _snapshot(doc)})
             if plan.reserve:
                 note({"target": plan.old, "capacity": {"from": plan.old, "to": plan.new}})
         changes = []
         for plan in plans:
             change = plan.change
             if plan.writes or plan.history:
-                note({"target": plan.old, "attempted": True})
+                moved = [
+                    doc.update({**doc.data, "target_id": plan.new}, partition="history:" + plan.new)
+                    for doc in plan.history
+                ]
+                # What each document will hold, recorded before it is written: a write
+                # can land and still fail to answer, so content, not a later marker,
+                # tells a restore what this run wrote.
+                after = {
+                    doc.key: _content(doc.partition, doc.data) for doc in (*plan.writes, *moved)
+                }
+                note({"target": plan.old, "after": after})
                 try:
                     if plan.writes:
                         reservation = _swap(store, plan.old, plan.new) if plan.reserve else []
                         store.commit([*plan.writes, *reservation])
-                    for start in range(0, len(plan.history), 100):
-                        store.commit(
-                            [
-                                doc.update(
-                                    {**doc.data, "target_id": plan.new},
-                                    partition="history:" + plan.new,
-                                )
-                                for doc in plan.history[start : start + 100]
-                            ]
-                        )
+                    for start in range(0, len(moved), 100):
+                        store.commit(moved[start : start + 100])
                 except Conflict:
                     change = Change(plan.old, "conflict", plan.new)
                 except Exception as error:  # noqa: BLE001 - one target's failure is reported, the run goes on
@@ -478,20 +505,29 @@ def _read_saved(path: Path) -> list[dict]:
     return lines
 
 
-def restore(store: _Removable, before: Path) -> tuple[int, list[str]]:
-    """Undo each attempted target whose documents are still as the run left them.
+@dataclass(frozen=True)
+class Skipped:
+    key: str
+    reason: str
 
-    Returns how many targets were undone and the ones left alone because something
-    changed them after the run.
+
+def restore(store: _Removable, before: Path) -> tuple[int, list[Skipped]]:
+    """Undo each target the run wrote, where its documents still hold what it wrote.
+
+    A document already back as it was counts as done, so a restore can run again after
+    a full or an interrupted one. A document someone changed since, even to the same
+    revision, is never reverted: its target is left alone and its keys are listed.
+    Returns how many targets were undone and what was left.
     """
     _require_paused(store)
     lines = _read_saved(before)
-    attempted = [line["target"] for line in lines if line.get("attempted")]
+    after: dict[str, dict[str, str]] = {}
+    for line in lines:
+        if "after" in line:
+            after.setdefault(line["target"], {}).update(line["after"])
     restored, skipped = 0, []
-    # A document this restore already put back (a merge undone before the move it
-    # joined) is as the earlier target left it, at the revision the put gave it.
-    settled: dict[str, int] = {}
-    for target in reversed(list(dict.fromkeys(attempted))):
+    for target in reversed(list(after)):
+        written = after[target]
         documents = [line for line in lines if line.get("target") == target and "key" in line]
         capacity = next(
             (
@@ -503,51 +539,58 @@ def restore(store: _Removable, before: Path) -> tuple[int, list[str]]:
         )
         puts, removals, changed = [], [], []
         for line in documents:
-            current, prior = store.get(line["key"]), line["before"]
-            left = {line["after"], settled.get(line["key"])}
-            if prior is None:
-                if current is None:
-                    continue  # Already removed.
-                if current.revision in left:
-                    removals.append(current)
-                else:
-                    changed.append(line["key"])
-            elif current is not None and current.revision in left:
+            key, prior = line["key"], line["before"]
+            current = store.get(key)
+            content = _content(current.partition, current.data) if current else None
+            if content == (_content(prior["partition"], prior["data"]) if prior else None):
+                continue  # Already as it was.
+            if current is None or content != written.get(key):
+                changed.append(Skipped(key, "changed since the run"))
+            elif prior is None:
+                removals.append(current)
+            else:
                 puts.append(
                     current.update(
                         prior["data"],
                         **{name: prior[name] for name in ("partition", "due", "expires_at")},
                     )
                 )
-            elif current is None or (current.partition, current.data) != (
-                prior["partition"],
-                prior["data"],
-            ):
-                changed.append(line["key"])
         if changed:
-            skipped.append(target)
+            skipped += changed
             continue
         for start in range(0, len(puts), 100):
             store.commit(puts[start : start + 100])
-        settled.update({doc.key: doc.revision + 1 for doc in puts})
         for start in range(0, len(removals), 100):
             store.remove(removals[start : start + 100])
-        if capacity:
-            # The reservation moves back on the record as it is now, keeping later ones.
-            created = any(line["before"] is None for line in documents)
-            reserved = store.get(CAPACITY)
-            if reserved is not None and capacity["to"] in reserved.data["targets"]:
-                targets = list(reserved.data["targets"])
-                if capacity["from"] not in targets:
-                    if created:  # A move: the old reservation takes the new one's place.
-                        targets[targets.index(capacity["to"])] = capacity["from"]
-                    else:  # A merge: the reservation it joined stays.
-                        targets.append(capacity["from"])
-                elif created:
-                    targets.remove(capacity["to"])
-                store.commit([reserved.update({**reserved.data, "targets": targets})])
-        restored += 1
+        created = any(line["before"] is None for line in documents)
+        unreserved = bool(capacity) and _unreserve(store, capacity, created=created)
+        if puts or removals or unreserved:
+            restored += 1
     return restored, skipped
+
+
+def _unreserve(store: Store, capacity: dict, *, created: bool) -> bool:
+    """Move a reservation back on the capacity record as it is now, keeping later ones,
+    and say whether anything moved. A restore run again finds it already back."""
+    reserved = store.get(CAPACITY)
+    if reserved is None or capacity["to"] not in reserved.data["targets"]:
+        return False
+    targets = list(reserved.data["targets"])
+    if capacity["from"] not in targets:
+        if created:  # A move: the old reservation takes the new one's place.
+            targets[targets.index(capacity["to"])] = capacity["from"]
+        else:  # A merge: the reservation it joined stays.
+            targets.append(capacity["from"])
+    elif created:
+        targets.remove(capacity["to"])
+    if targets == reserved.data["targets"]:
+        return False
+    store.commit([reserved.update({**reserved.data, "targets": targets})])
+    return True
+
+
+# How the command ends: done, a problem to look at, or writes still to make.
+DONE, PROBLEM, NOT_READY, PENDING = 0, 1, 2, 3
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -558,9 +601,8 @@ def main(argv: list[str] | None = None) -> int:
     action = parser.add_mutually_exclusive_group()
     action.add_argument(
         "--apply",
-        metavar="FILE",
-        type=Path,
-        help="Write the changes, saving what they replace to this new file",
+        metavar="SHA",
+        help="Write the changes for the release at this commit, saving what they replace",
     )
     action.add_argument(
         "--restore", metavar="FILE", type=Path, help="Undo the run that saved this file"
@@ -576,23 +618,32 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.restore:
             restored, skipped = restore(store, args.restore)
-            print(json.dumps({"restored": restored, "skipped": skipped}), flush=True)
-            return 1 if skipped else 0
-        plans = plan_changes(store)
+            print(
+                json.dumps({"restored": restored, "skipped": [asdict(item) for item in skipped]}),
+                flush=True,
+            )
+            return PROBLEM if skipped else DONE
+        now = int(time.time())
+        plans = plan_changes(store, now)
         if args.apply:
-            changes = apply(store, plans, args.apply, emit)
+            saved = saved_file(args.apply, now)
+            print(json.dumps({"saved": str(saved)}), file=sys.stderr, flush=True)
+            changes = apply(store, plans, saved, emit)
         else:
             changes = [plan.change for plan in plans]
             for change in changes:
                 emit(change)
     except NotReady as error:
         print(f"error: {error}", file=sys.stderr)
-        return 2
+        return NOT_READY
     counts: dict[str, int] = {}
     for change in changes:
         counts[change.outcome] = counts.get(change.outcome, 0) + 1
     print(json.dumps({"applied": bool(args.apply), "outcomes": counts}), file=sys.stderr)
-    return 1 if PROBLEMS & counts.keys() else 0
+    if PROBLEMS & counts.keys():
+        return PROBLEM
+    pending = not args.apply and any(plan.writes or plan.history for plan in plans)
+    return PENDING if pending else DONE
 
 
 if __name__ == "__main__":

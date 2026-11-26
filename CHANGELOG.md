@@ -65,13 +65,11 @@ Notable changes to Fareflare. The format follows
 
 ### Upgrade notes
 
-- **Stored flights move to their new identity once, during the release.** Take a
-  table backup, pause price checks, deploy, run
-  `python -m fareflare.reidentify --apply <file>` (it saves what it replaces to that
-  file first, and `--restore <file>` undoes it), repeat the plan until it exits 0
-  with nothing left to move, then resume price checks. Until the move, every check of
-  a moved flight fails as a changed itinerary. A stored link the new rules refuse is
-  blocked, as a flight that cannot be read is. Steps are in
+- **Stored flights move to their new identity once, during the release**, with
+  `python -m fareflare.reidentify` while price checks are paused: until then, every
+  check of a moved flight fails as a changed itinerary. A stored link the new rules
+  refuse is stopped as a flight that cannot be read. The steps, when the move is done
+  and how to undo it are in
   [operations](docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
 
 ## 2.1.0 — 2026-11-23

@@ -11,7 +11,15 @@ import pytest
 from fareflare.contracts import CollectionFailure, Reading
 from fareflare.domain import AlertPolicy
 from fareflare.links import import_link
-from fareflare.reidentify import MOVED, NotReady, apply, main, plan_changes, restore
+from fareflare.reidentify import (
+    MOVED,
+    NotReady,
+    Skipped,
+    apply,
+    main,
+    plan_changes,
+    restore,
+)
 from fareflare.service import BLOCKED, COLLECTING, EXPIRED, IDLE, MonitoringService
 from fareflare.store import Conflict, Document, SQLiteStore
 
@@ -166,7 +174,7 @@ def test_twins_become_one_target_and_the_plan_says_so_first(
     assert store.get("capacity:collection").data["targets"] == [new]
 
 
-def test_a_blocked_twin_keeps_its_watchers_able_to_retry(
+def test_a_twin_blocked_as_unreadable_is_checked_again_once_its_link_reads(
     before, store, clock, flight_url, tmp_path
 ):
     idle = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
@@ -179,12 +187,13 @@ def test_a_blocked_twin_keeps_its_watchers_able_to_retry(
     targets = {store.get("target:" + m["target_id"]).partition for m in (idle, blocked)}
     assert BLOCKED in targets
     pause(store)
-    run(store, clock, tmp_path)
+    changes = run(store, clock, tmp_path)
+    assert any(change.unblocked for change in changes)
     merged = store.get("target:" + import_link(flight_url)["id"])
-    # Bob still watches it and can choose Retry collection: it is not left idle.
-    assert merged.partition == BLOCKED and merged.data["last_error"] == "unsupported_itinerary"
+    # These rules read its link, so it is checked again for Bob, who still watches it.
+    assert merged.partition == COLLECTING and merged.data["last_error"] is None
     assert now_service(store, clock).get_monitor("bob", blocked["id"])["collection_status"] == (
-        "blocked"
+        "ready"
     )
 
 
@@ -232,38 +241,43 @@ def test_a_target_changed_underneath_the_run_is_a_conflict_and_the_rest_continue
     assert first["target_id"] in reserved and import_link(other)["id"] in reserved
 
 
-def test_the_command_plans_by_default_and_reports_problems_by_its_status(
-    tmp_path, clock, capsys, flight_url
+def test_the_command_says_by_its_status_whether_anything_is_left_to_write(
+    tmp_path, clock, capsys, flight_url, monkeypatch
 ):
     database = tmp_path / "local.sqlite3"
     store = SQLiteStore(database)
     service = MonitoringService(store, lambda: clock[0], link_importer=older_importer)
     monitor = service.create_monitor("alice", flight_url + "&ved=abc", "alice-request")
-    assert main(["--database", str(database)]) == 0
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("fareflare.reidentify.time.time", lambda: clock[0])
+    run = ["--database", str(database)]
+    assert main(run) == 3  # Changes are pending.
     printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [line["outcome"] for line in printed] == ["moved"]
-    assert list(tmp_path.iterdir()) == [database]  # A plan saves nothing either.
-    saved = tmp_path / "before.jsonl"
-    assert main(["--database", str(database), "--apply", str(saved)]) == 2  # Not paused.
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["local.sqlite3"]  # Saves nothing.
+    assert main([*run, "--apply", "abc1234"]) == 2  # Checks are not paused.
     pause(store)
-    assert main(["--database", str(database), "--apply", str(saved)]) == 0
+    assert main([*run, "--apply", "abc1234"]) == 0
+    saved = next((tmp_path / ".fareflare/release-abc1234/reidentify").iterdir())
+    assert stat.S_IMODE(saved.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(saved.stat().st_mode) == 0o600
     assert store.get("target:" + monitor["target_id"]).partition == MOVED
-    assert main(["--database", str(database), "--apply", str(saved)]) == 2  # Never overwrites.
-    # A stored link the rules now refuse is blocked like a flight that cannot be read:
-    # a finite state, so the run can finish.
+    assert main([*run, "--apply", "abc1234"]) == 2  # The same second's file is never overwritten.
+    assert main(run) == 0  # Done: nothing left to write.
+    # A collected flight whose link the rules now refuse is stopped as unreadable: a
+    # finished state, so the plan is done afterwards.
     target = store.get("target:" + import_link(flight_url)["id"])
     spec = {**target.data["spec"], "url": "https://example.com/"}
     store.commit([target.update({**target.data, "spec": spec})])
+    assert main(run) == 3
+    clock[0] += 1
     capsys.readouterr()
-    assert main(["--database", str(database), "--apply", str(tmp_path / "second.jsonl")]) == 0
+    assert main([*run, "--apply", "abc1234"]) == 0
     printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [(line["outcome"], line["check"]) for line in printed] == [("blocked", "not_google")]
     blocked = store.get(target.key)
-    assert (blocked.partition, blocked.data["last_error"]) == (
-        "targets_blocked",
-        "unsupported_itinerary",
-    )
-    assert main(["--database", str(database)]) == 0  # Nothing left to do.
+    assert (blocked.partition, blocked.data["last_error"]) == (BLOCKED, "unsupported_itinerary")
+    assert main(run) == 0
     with pytest.raises(SystemExit):
         main(["--database", str(tmp_path / "missing.sqlite3")])
 
@@ -320,7 +334,7 @@ def test_a_failed_target_is_reported_and_the_run_goes_on(
 def test_a_target_changed_after_the_run_is_listed_and_left_alone(
     before, store, clock, flight_url, tmp_path
 ):
-    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
     pause(store)
     run(store, clock, tmp_path)
     service = now_service(store, clock)
@@ -329,7 +343,9 @@ def test_a_target_changed_after_the_run_is_listed_and_left_alone(
     other = json.loads((FIXTURES / "selected_jpy.json").read_text())["page"]["url"]
     service.create_monitor("carol", other, "carol-request")
     restored, skipped = restore(store, tmp_path / "before.jsonl")
-    assert (restored, skipped) == (0, [monitor["target_id"]])
+    new = import_link(flight_url)["id"]
+    assert restored == 0
+    assert Skipped("target:" + new, "changed since the run") in skipped
     # Bob's monitor still has its flight, and every reservation is kept.
     assert service.get_monitor("bob", later["id"])["target_id"] == import_link(flight_url)["id"]
     assert len(store.get("capacity:collection").data["targets"]) == 2
@@ -446,3 +462,106 @@ def test_a_merge_into_a_departed_or_unwatched_twin_stays_there(
     service = now_service(store, clock)
     for tenant, monitor in (("alice", first), ("bob", second)):
         assert service.get_monitor(tenant, monitor["id"])["target_id"] == merged.data["spec"]["id"]
+
+
+@pytest.mark.parametrize("where", ["idle", "expired"])
+def test_an_unread_link_on_an_idle_or_departed_flight_is_left_where_it_is(
+    before, store, clock, flight_url, where
+):
+    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    if where == "idle":
+        before.set_status("alice", monitor["id"], "paused")
+        clock[0] += 3600
+    else:
+        clock[0] = int(datetime(2027, 3, 16, tzinfo=UTC).timestamp())
+    before.collect_due(Mock())
+    target = store.get("target:" + monitor["target_id"])
+    spec = {**target.data["spec"], "url": "https://example.com/"}
+    store.commit([target.update({**target.data, "spec": spec})])
+    plans = plan_changes(store, clock[0])
+    assert [(p.change.outcome, p.change.check, bool(p.writes)) for p in plans] == [
+        ("unreadable", "not_google", False)
+    ]
+
+
+def test_a_stopped_flight_tells_the_watchers_who_asked_for_notices(
+    before, store, clock, flight_url, tmp_path
+):
+    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    before.set_preferences("alice", diagnostics=True)
+    target = store.get("target:" + monitor["target_id"])
+    spec = {**target.data["spec"], "url": "https://example.com/"}
+    store.commit([target.update({**target.data, "spec": spec})])
+    pause(store)
+    assert [c.outcome for c in run(store, clock, tmp_path)] == ["blocked"]
+    notices = store.page("notices_pending", limit=10).items
+    assert [(n.data["kind"], n.data["code"]) for n in notices] == [
+        ("collection_blocked", "unsupported_itinerary")
+    ]
+    # The run can be undone, notice and all.
+    assert restore(store, tmp_path / "before.jsonl") == (1, [])
+    assert store.page("notices_pending", limit=10).items == []
+    assert store.get(target.key).partition == COLLECTING
+
+
+def test_a_flight_blocked_as_unreadable_is_checked_again_when_the_rules_read_it(
+    store, clock, flight_url, tmp_path
+):
+    service = now_service(store, clock)
+    monitor = service.create_monitor("alice", flight_url, "alice-request")
+    target = store.get("target:" + monitor["target_id"])
+    blocked = {**target.data, "last_error": "unsupported_itinerary", "failures": 1}
+    store.commit([target.update(blocked, partition=BLOCKED)])
+    plans = plan_changes(store, clock[0])
+    assert [(p.change.outcome, p.change.unblocked) for p in plans] == [("unblocked", True)]
+    pause(store)
+    run(store, clock, tmp_path)
+    again = store.get(target.key)
+    assert (again.partition, again.data["last_error"], again.data["failures"]) == (
+        COLLECTING,
+        None,
+        0,
+    )
+
+
+def test_a_restore_finishes_whenever_it_is_run_again(before, store, clock, flight_url, tmp_path):
+    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request", (30000, 29000))
+    keys = ["target:" + first["target_id"], "monitor:" + first["id"], "capacity:collection"]
+    original = snapshot(store, keys)
+    pause(store)
+    run(store, clock, tmp_path)
+
+    class Interrupted:
+        """Puts the first batch back, then stops as a crash would."""
+
+        def __init__(self, store):
+            self.store, self.commits = store, 0
+
+        def __getattr__(self, name):
+            return getattr(self.store, name)
+
+        def commit(self, documents):
+            self.commits += 1
+            if self.commits > 1:
+                raise RuntimeError("the process stopped")
+            self.store.commit(documents)
+
+    with pytest.raises(RuntimeError):
+        restore(Interrupted(store), tmp_path / "before.jsonl")
+    assert restore(store, tmp_path / "before.jsonl") == (1, [])
+    assert snapshot(store, keys) == original
+    assert restore(store, tmp_path / "before.jsonl") == (0, [])  # Nothing left: still done.
+
+
+def test_a_document_someone_wrote_after_the_run_is_never_reverted(
+    before, store, clock, flight_url, tmp_path
+):
+    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    pause(store)
+    run(store, clock, tmp_path)
+    # Alice changes her rule after the move: the revision moves on with her change.
+    service = now_service(store, clock)
+    service.set_policy("alice", monitor["id"], AlertPolicy(kind="below_price", threshold_minor=5))
+    restored, skipped = restore(store, tmp_path / "before.jsonl")
+    assert restored == 0 and Skipped("monitor:" + monitor["id"], "changed since the run") in skipped
+    assert service.get_monitor("alice", monitor["id"])["policy"]["threshold_minor"] == 5

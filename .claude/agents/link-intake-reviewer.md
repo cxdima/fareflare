@@ -28,9 +28,10 @@ Prove or refute each point with the code and, where it helps, a short script:
    surface logs or stores the link.
 4. **Identity.** `import_link(target["url"]) == target`, and the page address the worker
    reads back imports to the same id. What can change the price is in the id; what cannot
-   is not. Existing ids change only with a migration: `python -m fareflare.reidentify
-   --table gfpt-next-production` (a read-only plan) reports every flight `unchanged`
-   otherwise, and an identity-changing release follows the runbook in OPERATIONS.md.
+   is not. Existing ids change only with a migration: otherwise the read-only plan,
+   `python -m fareflare.reidentify --table gfpt-next-production`, says it is done as
+   [defined in OPERATIONS.md](../../docs/OPERATIONS.md#when-the-migration-is-done); an identity-changing release follows that
+   runbook.
 5. **Conservative with the unknown.** Unknown protobuf fields and unknown parameters are
    kept, not dropped. Missing a deduplication is acceptable; merging two differently
    priced products is not.

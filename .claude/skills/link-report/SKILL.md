@@ -50,8 +50,9 @@ description: Triage a Google Flights link that Fareflare refused or misread — 
    `import_link(target["url"]) == target`. Run the new tests against the old source
    (`git stash push -- <changed src files>`, run, `git stash pop`): they must fail there.
 6. **Existing flights keep their identity.**
-   `PYTHONPATH=src .venv/bin/python -m fareflare.reidentify --table gfpt-next-production`
-   (a read-only plan) must report every flight `unchanged` and exit 0. Otherwise the release
-   changes identities: it follows the runbook in [operations](../../../docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
+   The read-only plan, `PYTHONPATH=src .venv/bin/python -m fareflare.reidentify --table
+   gfpt-next-production`, must say the migration is [done](../../../docs/OPERATIONS.md#when-the-migration-is-done). Otherwise the
+   release changes identities: it follows the runbook in
+   [operations](../../../docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
 7. `make check`, a CHANGELOG entry, push to `main`. Release with the `release` skill once
    the maintainer says to deploy, then ask the reporter to send the link again.

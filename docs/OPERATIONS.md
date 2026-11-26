@@ -104,32 +104,53 @@ asked to write.
 ```bash
 TABLE=gfpt-next-production
 ADMIN=admin@fareflare.dev
+SHA=$(git rev-parse --short HEAD)
 # 1. A backup to fall back on.
 aws dynamodb create-backup --table-name "$TABLE" --backup-name "$TABLE-before-reidentify"
 # 2. Stop price checks, recording who and why.
 python -m fareflare.admin_cli --table "$TABLE" pause-checks --as "$ADMIN" --reason "Release: reidentify"
-# 3. Deploy as above, then see the plan: every move and merge, and nothing written.
+# 3. Deploy as above, then see the plan: every move, merge and stopped flight, nothing written.
 python -m fareflare.reidentify --table "$TABLE"
-# 4. Move the flights. What each write replaces is saved first.
-python -m fareflare.reidentify --table "$TABLE" --apply ".fareflare/reidentify-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
-# 5. Run the plan again until it exits 0 with nothing left to move.
+# 4. Write it. What each write replaces is saved first (see below for where).
+python -m fareflare.reidentify --table "$TABLE" --apply "$SHA"
+# 5. Repeat the plan until the migration is done.
 python -m fareflare.reidentify --table "$TABLE"
 # 6. Start price checks again.
 python -m fareflare.admin_cli --table "$TABLE" resume-checks --as "$ADMIN" --reason "Release: reidentify done"
 ```
 
-`--apply` and `--restore` refuse while price checks run. The saved file is created
-with mode 0600, in a directory only you can open. A flight a check still holds, or
-one whose watcher has an alert waiting, is reported as busy and moved by a later
-run; a busy, too large, conflicting or failed flight, or one whose watcher cannot be
-read, makes the command exit with status 1. A stored link the new rules refuse is
-blocked as `unsupported_itinerary`, as the collector blocks a flight it cannot
-read: its watchers see that, and later runs leave it be.
+#### When the migration is done
 
-To undo a run, keep checks paused and pass its saved file to `--restore`. It puts
-back each flight whose documents are still as the run left them and removes what the
-run created, moving collection reservations back on the record as it is now; a
-flight changed since (a new watcher, say) is listed and left alone, with status 1.
+The migration is **done** when the plan (`python -m fareflare.reidentify --table
+"$TABLE"`, which writes nothing) exits with status 0: nothing is left to write. Its
+status otherwise:
+
+| Status | Meaning |
+|---|---|
+| 0 | Done. Every flight is unchanged, or finished as stopped or left in place (below). |
+| 3 | Writes are pending: run step 4 (again). |
+| 1 | A problem needs a look: a flight is busy (a check holds it, or a watcher still has an alert to receive), too large for one transaction, changed underneath the run, failed, or has a watcher that cannot be read. A later run moves a busy flight. |
+| 2 | It could not start: checks are not paused, or the saved file is not usable. |
+
+A stored link the new rules refuse cannot be checked, and retrying cannot change
+that. A collected one is stopped as `unsupported_itinerary`, exactly as the collector
+stops a flight it cannot read, and its watchers who asked for notices are told. An
+idle or departed one is left where it is and reported. A flight stopped that way
+whose link a later release reads again is checked again. All three are finished
+states.
+
+#### The saved file
+
+`--apply SHA` saves every document it will change, before writing any, to
+`.fareflare/release-SHA/reidentify/apply-<UTC time>.jsonl`: a file only you can read
+(mode 0600) in a directory only you can open (0700), both created by the tool and
+never overwritten. To undo the run, keep checks paused and pass that file to
+`--restore`. It undoes each flight whose documents still hold what the run wrote,
+removes what the run created and moves collection reservations back on the record
+as it is now. A document someone changed since (a new watcher, an edited alert rule)
+is never reverted: its flight is listed with the document and left alone, with
+status 1. A restore can be run again at any time; what is already back is done.
+
 A request to create a flight retried with its old idempotency key after the move is
 recognized only when the flight's alert rule has not changed since; the run lists
 the records it could not rebuild.
