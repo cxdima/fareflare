@@ -39,6 +39,20 @@ sha = subprocess.run(
 release = release_dir(sha)
 before = json.loads((release / "production.auto.tfvars.before.json").read_text())
 after = json.loads(TFVARS.read_text())
+rollback = (
+    "copy production.auto.tfvars.before.json from this folder to "
+    "infra/production.auto.tfvars.json, then terraform plan and apply"
+)
+# Rolling back images does not undo a data migration: a release that moved flights
+# undoes that first (docs/OPERATIONS.md, "The saved file").
+migration = sorted(path.name for path in (release / "reidentify").glob("apply-*.jsonl"))
+if migration:
+    rollback = (
+        "with checks paused, reidentify --restore each file in reidentify/, newest first ("
+        + ", ".join(reversed(migration))
+        + "); then "
+        + rollback
+    )
 record = {
     "released_at": last(release / "applied-at.txt"),
     "source": sha,
@@ -53,8 +67,8 @@ record = {
     "plan": last(release / "plan.log", "Plan:"),
     "smoke": last(release / "smoke.log", "FAILURES:"),
     "watch": last(release / "watch.log", "FRESH"),
-    "rollback": "copy production.auto.tfvars.before.json from this folder to "
-    "infra/production.auto.tfvars.json, then terraform plan and apply",
+    "migration": migration or None,
+    "rollback": rollback,
 }
 (release / "release.json").write_text(json.dumps(record, indent=2) + "\n")
 print(json.dumps(record, indent=2))
