@@ -206,6 +206,17 @@ class SQLiteStore:
                     ),
                 )
 
+    def remove(self, documents: list[Document]) -> None:
+        """Delete documents, each only at the revision it was read at, all or none."""
+        _validate_batch(documents)
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            for doc in documents:
+                row = db.execute("SELECT revision FROM documents WHERE id=?", (doc.key,)).fetchone()
+                if not row or row[0] != doc.revision:
+                    raise Conflict(doc.key)
+                db.execute("DELETE FROM documents WHERE id=?", (doc.key,))
+
 
 class DynamoStore:
     """Accept explicit Fareflare tables and existing gfpt-next deployments.
@@ -327,5 +338,26 @@ class DynamoStore:
             if exc.response["Error"]["Code"] == "TransactionCanceledException" and any(
                 r.get("Code") in ("ConditionalCheckFailed", "TransactionConflict") for r in reasons
             ):
+                raise Conflict("Concurrent transaction") from exc
+            raise
+
+    def remove(self, documents: list[Document]) -> None:
+        """Delete documents, each only at the revision it was read at, all or none."""
+        _validate_batch(documents)
+        deletes = [
+            {
+                "Delete": {
+                    "TableName": self.table,
+                    "Key": {"id": {"S": doc.key}},
+                    "ConditionExpression": "revision = :r",
+                    "ExpressionAttributeValues": {":r": {"N": str(doc.revision)}},
+                }
+            }
+            for doc in documents
+        ]
+        try:
+            self.client.transact_write_items(TransactItems=deletes)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "TransactionCanceledException":
                 raise Conflict("Concurrent transaction") from exc
             raise

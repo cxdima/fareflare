@@ -516,7 +516,7 @@ class Admin:
         self._record(admin, FLIGHT_ACTIONS[status], account.data, detail)
         return result
 
-    def set_switches(self, admin: dict, changes: dict) -> dict:
+    def set_switches(self, admin: dict, changes: dict, reason: str = "") -> dict:
         changes = {key: bool(value) for key, value in changes.items() if key in SWITCHES}
         if not changes:
             raise ValueError("Nothing to change")
@@ -532,5 +532,5 @@ class Admin:
                 continue
         else:
             raise Conflict("The switches changed in another window; try again")
-        self._record(admin, "switches", None, changes)
+        self._record(admin, "switches", None, {**changes, **({"reason": reason} if reason else {})})
         return self.accounts.switches()

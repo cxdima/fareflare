@@ -11,7 +11,7 @@ from fareflare.accounts import Accounts
 from fareflare.mailer import MemoryMailer
 from fareflare.portal import create_portal
 from fareflare.product_config import ProductConfig
-from fareflare.refusals import REASONS
+from fareflare.refusals import REASONS, RefusalLog
 from fareflare.service import MonitoringService
 from fareflare.store import SQLiteStore
 
@@ -25,7 +25,12 @@ USER_PASSWORD = "a long password for the traveller"
 @pytest.fixture
 def env(store, clock, flight_url):
     config = ProductConfig(public_url=ORIGIN)
-    service = MonitoringService(store, lambda: clock[0], global_target_limit=20)
+    service = MonitoringService(
+        store,
+        lambda: clock[0],
+        global_target_limit=20,
+        refusals=RefusalLog(store, lambda: clock[0]),
+    )
     accounts = Accounts(store, config, lambda: clock[0], mailer=MemoryMailer())
     app = create_portal(service, config, accounts, auth_attempts_per_minute=500)
     return SimpleNamespace(
@@ -218,11 +223,13 @@ def test_admins_see_every_user_their_flights_and_the_service_but_no_secrets(env)
         "/v1/monitors", headers={**csrf, "Idempotency-Key": "refused-link"}, json={"url": explore}
     )
     assert refused.status_code == 422
-    assert refused.json() == {
-        "detail": REASONS["not_flights"],
-        "reason": "not_flights",
-        "check": "not_flights_page",
-    }
+    # The exact check is technical detail, for accounts with diagnostics on.
+    assert refused.json() == {"detail": REASONS["not_flights"], "reason": "not_flights"}
+    env.service.set_preferences(tenant, diagnostics=True)
+    again = client.post(
+        "/v1/monitors", headers={**csrf, "Idempotency-Key": "refused-again"}, json={"url": explore}
+    )
+    assert again.json()["check"] == "not_flights_page"
 
     users = admin.get("/v1/admin/users").json()
     assert users["total"] == 3 and users["truncated"] is False
@@ -258,8 +265,8 @@ def test_admins_see_every_user_their_flights_and_the_service_but_no_secrets(env)
     assert set(overview["email"]) == {"confirm", "reset", "notice"}
     assert overview["config"]["global_target_limit"] == 20
     assert len(overview["collection"]["hours"]) == 24
-    assert overview["refusals"]["total"] == 1
-    assert overview["refusals"]["reasons"][0]["checks"] == {"not_flights_page": 1}
+    assert overview["refusals"]["total"] == 2
+    assert overview["refusals"]["reasons"][0]["checks"] == {"not_flights_page": 2}
     assert "explore" not in json.dumps(overview)  # Counted by reason, never with the link.
     assert admin.get("/v1/admin/users/acct_" + "0" * 32).status_code == 404
 
@@ -443,3 +450,31 @@ def test_the_command_line_makes_lists_and_recovers_admins(tmp_path, capsys):
     temporary = printed.split("Temporary password: ")[1].split()[0]
     assert accounts.login("root@example.com", temporary)["account"]["must_change_password"]
     assert admin_cli.main([*run, "grant", "nobody@example.com"]) == 1
+
+
+def test_price_checks_are_paused_from_the_command_line_with_who_and_why(tmp_path, capsys):
+    database = tmp_path / "admin.sqlite3"
+    run = ["--database", str(database)]
+    admin_cli.main([*run, "bootstrap", "root@example.com", "--temporary-password", "123"])
+    store = SQLiteStore(database)
+    accounts = Accounts(store, ProductConfig())
+    accounts.register("helper@example.com", USER_PASSWORD)
+    capsys.readouterr()
+    pause = [*run, "pause-checks", "--as", "root@example.com", "--reason", "Release: reidentify"]
+    assert admin_cli.main(pause) == 0
+    assert "Price checks are paused." in capsys.readouterr().out
+    assert accounts.switches()["collection_paused"] is True
+    audit = store.page("admin_audit", limit=10).items
+    assert [(entry.data["action"], entry.data["admin"]) for entry in audit] == [
+        ("switches", "root@example.com")
+    ]
+    assert audit[0].data["detail"] == {"collection_paused": True, "reason": "Release: reidentify"}
+    resume = [*run, "resume-checks", "--as", "root@example.com", "--reason", "Done"]
+    assert admin_cli.main(resume) == 0
+    assert accounts.switches()["collection_paused"] is False
+    # Only an admin, and only with a reason.
+    assert (
+        admin_cli.main([*run, "pause-checks", "--as", "helper@example.com", "--reason", "x"]) == 1
+    )
+    assert admin_cli.main([*run, "pause-checks", "--as", "root@example.com", "--reason", " "]) == 1
+    assert accounts.switches()["collection_paused"] is False

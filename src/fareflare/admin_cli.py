@@ -6,6 +6,11 @@ admin role out of reach of anyone who only has a browser.
 
     python -m fareflare.admin_cli --table gfpt-next-production bootstrap admin@fareflare.dev
     python -m fareflare.admin_cli --database .fareflare/product.sqlite3 list
+    python -m fareflare.admin_cli --table gfpt-next-production pause-checks \
+        --as admin@fareflare.dev --reason "Release: moving flights to new identities"
+
+Pausing and resuming price checks is the same switch as in the admin panel, recorded
+in the same audit log with who changed it and why.
 """
 
 from __future__ import annotations
@@ -19,7 +24,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fareflare.accounts import Accounts
+from fareflare.admin import Admin
 from fareflare.product_config import ProductConfig
+from fareflare.service import MonitoringService
 from fareflare.store import DynamoStore, SQLiteStore, Store
 
 
@@ -65,9 +72,17 @@ def main(argv: list[str] | None = None) -> int:
     reset.add_argument("--temporary-password")
     reset.add_argument("--minutes", type=int, default=30, choices=range(5, 1441))
     sub.add_parser("list", help="List admins")
+    for command, purpose in (
+        ("pause-checks", "Stop every price check until resumed"),
+        ("resume-checks", "Start price checks again"),
+    ):
+        switch = sub.add_parser(command, help=purpose + ", recording who and why")
+        switch.add_argument("--as", dest="admin", required=True, help="Your admin sign-in name")
+        switch.add_argument("--reason", required=True)
     args = parser.parse_args(argv)
 
-    accounts = Accounts(_store(args), ProductConfig())
+    store = _store(args)
+    accounts = Accounts(store, ProductConfig())
     try:
         if args.command == "bootstrap":
             password = args.temporary_password or secrets.token_urlsafe(9)
@@ -94,6 +109,17 @@ def main(argv: list[str] | None = None) -> int:
             if not args.temporary_password:
                 print(f"Temporary password: {password}")
             print(f"Every browser was signed out. Sign in before {_when(result['expires_at'])}.")
+        elif args.command in ("pause-checks", "resume-checks"):
+            if not args.reason.strip():
+                raise ValueError("Say why, for the audit log")
+            switches = Admin(store, accounts, MonitoringService(store)).set_switches(
+                accounts.admin_named(args.admin),
+                {"collection_paused": args.command == "pause-checks"},
+                reason=args.reason.strip(),
+            )
+            print(
+                "Price checks are " + ("paused." if switches["collection_paused"] else "running.")
+            )
         else:
             print(json.dumps(accounts.admins(), indent=2))
     except ValueError as error:

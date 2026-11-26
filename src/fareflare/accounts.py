@@ -1405,6 +1405,17 @@ class Accounts:
             if document.data.get("role") == "admin"
         ]
 
+    def admin_named(self, name: str) -> dict:
+        """An active admin by sign-in name, for an action the command line records."""
+        account = self._named(_username(name))
+        if (
+            not account
+            or account.data.get("status") != "active"
+            or account.data.get("role") != "admin"
+        ):
+            raise ValueError("No active admin uses that name")
+        return account.data
+
     def set_admin(self, name: str, admin: bool) -> dict:
         """Grant or remove the admin role. Only the command line calls this."""
         account = self._named(_username(name))

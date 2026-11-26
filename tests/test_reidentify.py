@@ -1,18 +1,24 @@
 import hashlib
 import json
+from datetime import UTC, datetime
+from pathlib import Path
+from unittest.mock import Mock
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import pytest
 
-from fareflare.contracts import Reading
+from fareflare.contracts import CollectionFailure, Reading
+from fareflare.domain import AlertPolicy
 from fareflare.links import import_link
-from fareflare.reidentify import MOVED, main, reidentify
-from fareflare.service import COLLECTING, MonitoringService
-from fareflare.store import SQLiteStore
+from fareflare.reidentify import MOVED, apply, main, plan_changes, restore
+from fareflare.service import BLOCKED, COLLECTING, EXPIRED, MonitoringService
+from fareflare.store import Document, SQLiteStore
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def older_importer(url):
-    """Read a link the way the previous release did: click tracking was kept."""
+    """Read a link the way an older release did: click tracking was part of a target."""
     target = import_link(url)
     tracking = {k: v for k, v in parse_qsl(urlsplit(url).query) if k in ("sa", "ved", "utm_x")}
     query = dict(sorted({**target["provider_query"], **tracking}.items()))
@@ -29,10 +35,18 @@ def older_importer(url):
 
 @pytest.fixture
 def before(store, clock):
-    """The service as it stored targets before, with a global capacity to keep in step."""
+    """The service as an older release stored targets, with a capacity to keep in step."""
     return MonitoringService(
         store, lambda: clock[0], link_importer=older_importer, global_target_limit=20
     )
+
+
+def now_service(store, clock):
+    return MonitoringService(store, lambda: clock[0], global_target_limit=20)
+
+
+def pause(store):
+    store.commit([Document("configuration:admin", "configuration", {"collection_paused": True})])
 
 
 def watched(service, clock, tenant, url, key, prices=(30000,)):
@@ -47,123 +61,200 @@ def watched(service, clock, tenant, url, key, prices=(30000,)):
     return monitor
 
 
-def test_a_target_moves_to_its_new_identity_with_everything_that_names_it(
-    before, store, clock, flight_url
+def snapshot(store, keys):
+    return {key: (doc.partition, doc.data) if (doc := store.get(key)) else None for key in keys}
+
+
+def run(store, clock, tmp_path, name="before.jsonl"):
+    changes = []
+    apply(store, plan_changes(store, clock[0]), tmp_path / name, changes.append)
+    return changes
+
+
+def test_a_target_moves_with_every_monitor_its_history_and_its_requests(
+    before, store, clock, flight_url, tmp_path
 ):
-    monitor = watched(
+    alice = watched(
         before, clock, "alice", flight_url + "&sa=X&ved=abc", "alice-request", (30000, 29000)
     )
-    old = monitor["target_id"]
-    new = import_link(flight_url)["id"]
-    assert old != new
+    old, new = alice["target_id"], import_link(flight_url)["id"]
+    bob = before.create_monitor("bob", flight_url + "&sa=X&ved=abc", "bob-request-1")
+    before.set_status("bob", bob["id"], "cancelled")
+    carol = before.create_monitor("carol", flight_url + "&sa=X&ved=abc", "carol-request")
+    before.set_policy("carol", carol["id"], AlertPolicy(kind="below_price", threshold_minor=1))
+    before.process_events()
 
-    plan = reidentify(store, now=clock[0])
-    assert [(c.target, c.outcome, c.to, c.watchers, c.history) for c in plan] == [
-        (old, "moved", new, 1, 2)
+    plan = [plan.change for plan in plan_changes(store, clock[0])]
+    assert [(c.target, c.outcome, c.to, c.monitors, c.history, c.requests) for c in plan] == [
+        (old, "moved", new, 3, 2, 2)
     ]
+    # Carol changed her rule after creating the monitor: her request cannot be rebuilt.
+    assert len(plan[0].unmatched_requests) == 1
     assert store.get("target:" + new) is None  # A plan writes nothing.
 
-    reidentify(store, apply=True, now=clock[0])
-    service = MonitoringService(store, lambda: clock[0], global_target_limit=20)
-    moved = service.get_monitor("alice", monitor["id"])
-    assert moved["target_id"] == new and moved["target"] == import_link(flight_url)
-    assert moved["latest"]["target_id"] == new and moved["latest"]["amount_minor"] == 29000
-    assert [entry["amount_minor"] for entry in service.history("alice", monitor["id"])] == [
+    with pytest.raises(ValueError, match="Pause price checks"):
+        run(store, clock, tmp_path)
+    assert not (tmp_path / "before.jsonl").exists()
+    pause(store)
+    assert [c.outcome for c in run(store, clock, tmp_path)] == ["moved"]
+
+    service = now_service(store, clock)
+    for tenant, monitor in (("alice", alice), ("bob", bob), ("carol", carol)):
+        view = service.get_monitor(tenant, monitor["id"])
+        assert view["target_id"] == new and view["target"] == import_link(flight_url)
+    assert service.get_monitor("bob", bob["id"])["status"] == "cancelled"
+    assert [entry["amount_minor"] for entry in service.history("alice", alice["id"])] == [
         30000,
         29000,
     ]
+    assert len(service.monitors_page("bob")["items"]) == 1
     assert store.get("capacity:collection").data["targets"] == [new]
     tombstone = store.get("target:" + old)
     assert tombstone.partition == MOVED and tombstone.data == {"moved_to": new}
-    assert tombstone.expires_at is not None
-    assert store.get("target:" + new).partition == COLLECTING
-    # The next check finds the target where the link now leads.
-    assert service.accept_link(moved["target"]["url"])["id"] == new
-    assert {c.outcome for c in reidentify(store, apply=True, now=clock[0])} == {"unchanged"}
+    # A retried create request is recognized where it can be rebuilt.
+    assert service.create_monitor("alice", flight_url, "alice-request")["id"] == alice["id"]
+    assert {c.outcome for c in [p.change for p in plan_changes(store, clock[0])]} == {"unchanged"}
 
 
-def test_two_stored_links_of_one_flight_become_one_target(before, store, clock, flight_url):
-    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
-    second = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request", (31000, 30500))
-    assert first["target_id"] != second["target_id"]
-    changes = reidentify(store, apply=True, now=clock[0])
-    assert sorted(c.outcome for c in changes) == ["merged", "moved"]
+def test_an_expired_target_and_its_monitors_move_too(before, store, clock, flight_url, tmp_path):
+    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    clock[0] = int(datetime(2027, 3, 16, tzinfo=UTC).timestamp())
+    before.collect_due(Mock())
+    old = monitor["target_id"]
+    assert store.get("target:" + old).partition == EXPIRED
+    pause(store)
+    assert [c.outcome for c in run(store, clock, tmp_path)] == ["moved"]
     new = import_link(flight_url)["id"]
-    target = store.get("target:" + new)
-    assert sorted(target.data["subscribers"]) == sorted([first["id"], second["id"]])
-    service = MonitoringService(store, lambda: clock[0], global_target_limit=20)
-    for tenant, monitor in (("alice", first), ("bob", second)):
-        view = service.get_monitor(tenant, monitor["id"])
-        assert view["target_id"] == new
-        # Neither watcher is sent the other's past alerts.
-        assert view["last_sequence"] == target.data["sequence"]
-    assert len(service.history("bob", second["id"])) == 3
-    assert store.get("capacity:collection").data["targets"] == [new]
+    view = now_service(store, clock).get_monitor("alice", monitor["id"])
+    assert (view["status"], view["target_id"]) == ("expired", new)
+    assert store.get("target:" + new).partition == EXPIRED
 
 
-def test_a_changed_address_with_the_same_identity_is_rewritten_in_place(
-    before, store, clock, flight_url
-):
-    monitor = watched(before, clock, "alice", flight_url + "&utm_x=campaign", "alice-request")
-    stored = store.get("target:" + monitor["target_id"])
-    assert "utm_x" in stored.data["spec"]["url"]
-    changes = reidentify(store, apply=True, now=clock[0])
-    assert [(c.outcome, c.to) for c in changes] == [("rewritten", monitor["target_id"])]
-    assert store.get("target:" + monitor["target_id"]).data["spec"] == import_link(flight_url)
-
-
-def test_a_target_a_check_holds_or_with_an_alert_waiting_waits_for_a_later_run(
-    before, store, clock, flight_url
+def test_a_target_is_busy_while_held_or_while_a_watcher_waits_for_an_alert(
+    before, store, clock, flight_url, tmp_path
 ):
     monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
     target = store.get("target:" + monitor["target_id"])
     store.commit([target.update({**target.data, "lease_until": clock[0] + 60})])
-    assert [c.outcome for c in reidentify(store, apply=True, now=clock[0])] == ["busy"]
+    pause(store)
+    assert [c.outcome for c in run(store, clock, tmp_path, "1.jsonl")] == ["busy"]
     clock[0] += 120
-    before.record(
-        Reading(monitor["target_id"], 28000, "USD", clock[0], "test-fixture"), "unsent", None
-    )
-    assert [c.outcome for c in reidentify(store, apply=True, now=clock[0])] == ["busy"]
+    before.record(Reading(monitor["target_id"], 28000, "USD", clock[0], "test-fixture"), "unsent")
+    assert [c.outcome for c in run(store, clock, tmp_path, "2.jsonl")] == ["busy"]
     before.process_events()
-    assert [c.outcome for c in reidentify(store, apply=True, now=clock[0])] == ["moved"]
+    assert [c.outcome for c in run(store, clock, tmp_path, "3.jsonl")] == ["moved"]
 
 
-def test_a_run_that_stopped_part_way_finishes_moving_the_history(before, store, clock, flight_url):
-    monitor = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request", (30000, 29500))
-    old = monitor["target_id"]
-    straggler = store.page("history:" + old, limit=1).items[0]
-    reidentify(store, apply=True, now=clock[0])
+def test_twins_become_one_target_and_the_plan_says_so_first(
+    before, store, clock, flight_url, tmp_path
+):
+    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    second = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request", (31000, 30500))
     new = import_link(flight_url)["id"]
-    # As if the run had stopped before this observation moved.
-    moved = store.get(straggler.key)
-    store.commit([moved.update({**moved.data, "target_id": old}, partition="history:" + old)])
-    resumed = reidentify(store, apply=True, now=clock[0])
-    assert [(c.target, c.outcome, c.to, c.history) for c in resumed[:1]] == [(old, "moved", new, 1)]
-    assert store.page("history:" + old, limit=10).items == []
-    assert len(store.page("history:" + new, limit=10).items) == 2
+    assert [plan.change.outcome for plan in plan_changes(store, clock[0])] == ["moved", "merged"]
+    pause(store)
+    assert sorted(c.outcome for c in run(store, clock, tmp_path)) == ["merged", "moved"]
+    target = store.get("target:" + new)
+    assert sorted(target.data["subscribers"]) == sorted([first["id"], second["id"]])
+    assert target.data["latest"]["amount_minor"] == 30500  # The newer of the two prices.
+    assert target.data["sequence"] == 2 and target.partition == COLLECTING
+    service = now_service(store, clock)
+    for tenant, monitor in (("alice", first), ("bob", second)):
+        # Neither watcher is sent the other's past alerts.
+        assert service.get_monitor(tenant, monitor["id"])["last_sequence"] == 2
+    assert store.get("capacity:collection").data["targets"] == [new]
 
 
-def test_a_target_whose_link_no_longer_imports_is_reported_and_left_alone(store, clock, flight_url):
-    service = MonitoringService(store, lambda: clock[0])
-    monitor = service.create_monitor("alice", flight_url, "alice-request")
-    target = store.get("target:" + monitor["target_id"])
-    spec = {**target.data["spec"], "url": "https://example.com/"}
-    store.commit([target.update({**target.data, "spec": spec})])
-    assert [c.outcome for c in reidentify(store, apply=True, now=clock[0])] == ["unreadable"]
-    assert store.get("target:" + monitor["target_id"]).data["spec"] == spec
+def test_a_blocked_twin_keeps_its_watchers_able_to_retry(
+    before, store, clock, flight_url, tmp_path
+):
+    idle = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    before.set_status("alice", idle["id"], "paused")
+    blocked = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request")
+    provider = Mock()
+    provider.collect.side_effect = CollectionFailure("unsupported_itinerary")
+    clock[0] += 3600
+    before.collect_due(provider)
+    targets = {store.get("target:" + m["target_id"]).partition for m in (idle, blocked)}
+    assert BLOCKED in targets
+    pause(store)
+    run(store, clock, tmp_path)
+    merged = store.get("target:" + import_link(flight_url)["id"])
+    # Bob still watches it and can choose Retry collection: it is not left idle.
+    assert merged.partition == BLOCKED and merged.data["last_error"] == "unsupported_itinerary"
+    assert now_service(store, clock).get_monitor("bob", blocked["id"])["collection_status"] == (
+        "blocked"
+    )
 
 
-def test_the_command_plans_by_default_and_applies_only_when_asked(
+def test_a_run_is_undone_exactly_from_what_it_saved(before, store, clock, flight_url, tmp_path):
+    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request", (30000, 29000))
+    second = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request")
+    keys = [
+        "target:" + first["target_id"],
+        "target:" + second["target_id"],
+        "target:" + import_link(flight_url)["id"],
+        "monitor:" + first["id"],
+        "monitor:" + second["id"],
+        "capacity:collection",
+        *(doc.key for doc in store.page("history:" + first["target_id"], limit=10).items),
+    ]
+    original = snapshot(store, keys)
+    history = [doc.key for doc in store.page("history:" + first["target_id"], limit=10).items]
+    pause(store)
+    run(store, clock, tmp_path)
+    assert snapshot(store, keys) != original
+    assert restore(store, tmp_path / "before.jsonl") > 0
+    assert snapshot(store, keys) == original
+    assert store.get("target:" + import_link(flight_url)["id"]) is None  # Removed, not emptied.
+    assert [doc.key for doc in store.page("history:" + first["target_id"], limit=10).items] == (
+        history
+    )
+
+
+def test_a_target_changed_underneath_the_run_is_a_conflict_and_the_rest_continue(
+    before, store, clock, flight_url, tmp_path
+):
+    other = json.loads((FIXTURES / "selected_jpy.json").read_text())["page"]["url"]
+    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request")
+    second = before.create_monitor("bob", other + "&ved=Z", "bob-request")
+    plans = plan_changes(store, clock[0])
+    # Someone pauses Alice's monitor between the plan and its write.
+    before.set_status("alice", first["id"], "paused")
+    pause(store)
+    changes = []
+    apply(store, plans, tmp_path / "before.jsonl", changes.append)
+    outcomes = {change.target: change.outcome for change in changes}
+    assert outcomes == {first["target_id"]: "conflict", second["target_id"]: "moved"}
+    # The capacity record swaps only the reservation that moved.
+    reserved = store.get("capacity:collection").data["targets"]
+    assert first["target_id"] in reserved and import_link(other)["id"] in reserved
+
+
+def test_the_command_plans_by_default_and_reports_problems_by_its_status(
     tmp_path, clock, capsys, flight_url
 ):
     database = tmp_path / "local.sqlite3"
     store = SQLiteStore(database)
     service = MonitoringService(store, lambda: clock[0], link_importer=older_importer)
     monitor = service.create_monitor("alice", flight_url + "&ved=abc", "alice-request")
-    main(["--database", str(database)])
-    assert json.loads(capsys.readouterr().out)["outcome"] == "moved"
-    assert store.get("target:" + monitor["target_id"]).partition == COLLECTING
-    main(["--database", str(database), "--apply"])
+    assert main(["--database", str(database)]) == 0
+    printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [line["outcome"] for line in printed] == ["moved"]
+    assert list(tmp_path.iterdir()) == [database]  # A plan saves nothing either.
+    saved = tmp_path / "before.jsonl"
+    assert main(["--database", str(database), "--apply", str(saved)]) == 2  # Not paused.
+    pause(store)
+    assert main(["--database", str(database), "--apply", str(saved)]) == 0
     assert store.get("target:" + monitor["target_id"]).partition == MOVED
+    assert main(["--database", str(database), "--apply", str(saved)]) == 2  # Never overwrites.
+    # A link that no longer imports is reported with its check, and the status says so.
+    target = store.get("target:" + import_link(flight_url)["id"])
+    spec = {**target.data["spec"], "url": "https://example.com/"}
+    store.commit([target.update({**target.data, "spec": spec})])
+    capsys.readouterr()
+    assert main(["--database", str(database)]) == 1
+    printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [(line["outcome"], line["check"]) for line in printed] == [("unreadable", "not_google")]
     with pytest.raises(SystemExit):
         main(["--database", str(tmp_path / "missing.sqlite3")])

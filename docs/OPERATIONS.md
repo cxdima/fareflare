@@ -93,6 +93,40 @@ time and resource use before choosing `worker_max_targets`,
 target and the default dispatch interval is five minutes. Dispatch frequency is
 not a guarantee of price freshness.
 
+### A release that changes how links are read
+
+When a release changes how a link is read into a flight's identity (the CHANGELOG
+says so), stored flights have to move to their new identity at the moment the new
+code starts. Until they do, every check of a moved flight fails as a changed
+itinerary. `python -m fareflare.reidentify` does the move; it only plans unless
+asked to write.
+
+```bash
+TABLE=gfpt-next-production
+ADMIN=admin@fareflare.dev
+# 1. A backup to fall back on.
+aws dynamodb create-backup --table-name "$TABLE" --backup-name "$TABLE-before-reidentify"
+# 2. Stop price checks, recording who and why.
+python -m fareflare.admin_cli --table "$TABLE" pause-checks --as "$ADMIN" --reason "Release: reidentify"
+# 3. Deploy as above, then see the plan: every move and merge, and nothing written.
+python -m fareflare.reidentify --table "$TABLE"
+# 4. Move the flights. What each write replaces is saved first.
+python -m fareflare.reidentify --table "$TABLE" --apply ".fareflare/reidentify-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
+# 5. Run the plan again until every flight is "unchanged" (it exits 0).
+python -m fareflare.reidentify --table "$TABLE"
+# 6. Start price checks again.
+python -m fareflare.admin_cli --table "$TABLE" resume-checks --as "$ADMIN" --reason "Release: reidentify done"
+```
+
+`--apply` refuses while price checks run. A flight a check still holds, or one whose
+watcher has an alert waiting, is reported as busy and moved by a later run; any
+busy, unreadable, too large or conflicting flight makes the command exit with
+status 1. To undo a run, keep checks paused and pass its saved file to `--restore`:
+it puts back every document the run changed and removes the ones it created. A
+request to create a flight retried with its old idempotency key after the move is
+recognized only when the flight's alert rule has not changed since; the run lists
+the records it could not rebuild.
+
 ## CDN (CloudFront)
 
 With `cdn_enabled=true` and an `edge_secret` of at least 32 random characters in the
