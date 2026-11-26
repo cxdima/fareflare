@@ -49,9 +49,9 @@ confidence because they saw the recorded price history, not a guess.
 
 ## Capabilities and Constraints
 
-- Supported: economy, one or two adults, US prices in USD or JPY, nonstop one-way
-  or fully selected round trip, in any page language and however the flight was
-  searched; route searches for exact airports and date.
+- Supported: chosen flights and route searches within the limits in
+  `src/fareflare/limits.py`, described for people in the guide
+  [Choose a flight link to monitor](https://fareflare.dev/guides/choosing-a-flight-link).
 - Rules: new observed low, below a target price, optional alerts on a rise,
   minimum drop, pause, quiet hours, message styles.
 - History by date range with CSV export; gaps in checking are shown as gaps.

@@ -13,7 +13,9 @@ from datetime import date
 from decimal import Decimal
 
 from fareflare.contracts import CollectionFailure, QuoteEvidence, Reading, SliceTimes
+from fareflare.limits import FLIGHTS
 from fareflare.links import import_link
+from fareflare.refusals import LinkRefused
 
 QuoteUnavailable = CollectionFailure
 
@@ -34,13 +36,14 @@ def collection_refusal(target: dict) -> str | None:
 
     The page is always read in US English, so the link's language never matters.
     """
+    limits = FLIGHTS
     for unsupported, check in (
-        (len(target["segments"]) not in (1, 2), "multi_city"),
+        (len(target["segments"]) not in (1, len(limits.trips)), "multi_city"),
         (any(len(segment["legs"]) != 1 for segment in target["segments"]), "connections"),
-        (target["cabin"] != 1, "cabin"),
-        (target["adults"] not in (1, 2), "adults"),
-        (target["currency"] not in ("USD", "JPY"), "currency"),
-        (target["market"] != "US", "country"),
+        (target["cabin"] != limits.cabin, "cabin"),
+        (not 1 <= target["adults"] <= limits.adults, "adults"),
+        (target["currency"] not in limits.currencies, "currency"),
+        (target["market"] != limits.country, "country"),
     ):
         if unsupported:
             return check
@@ -111,7 +114,7 @@ def verified_reading(target: dict, page: PageEvidence, observed_at: int) -> Read
     supported_target(target)
     try:
         actual = import_link(page.url)
-    except ValueError:
+    except LinkRefused:
         raise QuoteUnavailable("unexpected_page") from None
     if actual["id"] != target["id"]:
         raise QuoteUnavailable("itinerary_changed")

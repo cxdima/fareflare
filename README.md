@@ -108,10 +108,10 @@ an opt-in for developers.
 
 ### Supported flights
 
-| Input | Current coverage |
-|---|---|
-| Selected itinerary | Economy, one or two adults, US prices in USD or JPY, nonstop one-way or a fully selected round trip; any page language, found by any search |
-| Route search | Exact airports and date, one way, nonstop, one adult, USD, economy excluding Basic |
+Fareflare watches a chosen flight, or a route search when several flights would do.
+Which links work, and why one is refused, is in the guide
+[Choose a flight link to monitor](https://fareflare.dev/guides/choosing-a-flight-link); the limits there are written from
+`src/fareflare/limits.py`, which the checks also use.
 
 Route searches are on at fareflare.dev and opt-in when self-hosting. Connections,
 flexible dates, nearby airports, other passenger types, cabins and markets need

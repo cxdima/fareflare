@@ -395,6 +395,8 @@ test('route-search capability displays the actual matching flight and offer link
         billing_enabled: false,
         registration_mode: 'open',
         capabilities: { route_searches: true },
+        // The server writes these from its limits table; the dashboard shows them as given.
+        supported: { flights: 'Sample flight limits.', route_searches: 'Sample search limits.' },
         limits: { monitors: 3, min_interval_seconds: 600 },
       },
     }),
@@ -408,8 +410,12 @@ test('route-search capability displays the actual matching flight and offer link
   await expect(page.getByRole('link', { name: /View flight/ })).toHaveAttribute('href', flightUrl);
   await page.getByRole('button', { name: 'Watch a flight', exact: true }).click();
   await page.getByText('Supported flights and searches', { exact: true }).click();
-  await expect(page.getByText(/Route searches: exact airports and date/)).toBeVisible();
-  await expect(page.getByText(/economy excluding Basic/)).toBeVisible();
+  await expect(page.getByText('Sample flight limits.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sample search limits.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Which links work' })).toHaveAttribute(
+    'href',
+    '/guides/choosing-a-flight-link',
+  );
 });
 
 test('connection setup copies complete URLs and requests without clipping on mobile', async ({

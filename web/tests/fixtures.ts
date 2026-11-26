@@ -615,15 +615,14 @@ export async function mockAdmin(
           reasons: [
             {
               reason: 'connections',
-              sentence:
-                'Fareflare watches nonstop flights only for now. Choose a nonstop flight and send its link.',
+              // Sample text: the server writes the real sentences.
+              sentence: 'Sample sentence about connections.',
               count: 3,
               checks: { connections: 3 },
             },
             {
               reason: 'incomplete',
-              sentence:
-                'This Google Flights link is incomplete. Copy it again and send the whole link.',
+              sentence: 'Sample sentence about an incomplete link.',
               count: 1,
               checks: { token: 1 },
             },

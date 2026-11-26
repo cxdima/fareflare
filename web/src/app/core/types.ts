@@ -7,6 +7,8 @@ export type ProductConfig = {
   limits: { monitors: number; min_interval_seconds: number };
   mcp_url?: string;
   capabilities?: { route_searches?: boolean };
+  /** What a link may be, as one sentence per kind: written by the server's limits table. */
+  supported?: { flights: string; route_searches: string };
 };
 export type Account = {
   id: string;

@@ -8,13 +8,10 @@ The [hosted service](https://fareflare.dev)
 is free with open registration, with billing disabled and route searches enabled. Current
 collection supports:
 
-- **Selected itineraries:** economy, one or two adults, US prices in USD/JPY, and
-  nonstop one-way or fully selected round trips, whatever the page language and
-  however the flight was searched.
-- **Route searches:** exact departure and arrival airports, an exact date, one way,
-  nonstop, one adult, USD, and economy excluding Basic. The collector
-  compares eligible offers returned for that search; flexible dates, nearby-airport
-  searches, and unrestricted market-wide comparisons are unsupported.
+- **Chosen flights and route searches**, within the limits in `src/fareflare/limits.py`;
+  the guide [Choose a flight link to monitor](https://fareflare.dev/guides/choosing-a-flight-link) describes them for people.
+  For a route search the collector compares the eligible offers returned for that
+  search.
 
 Unsupported inputs fail explicitly. Route observations retain the actual matching
 flight and fare; the dashboard's **View flight** opens that observed offer's selected

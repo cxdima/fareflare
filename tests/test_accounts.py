@@ -14,6 +14,7 @@ from fareflare.accounts import (
     verify_password,
 )
 from fareflare.credentials import RateLimited
+from fareflare.limits import FLIGHTS, ROUTE_SEARCHES, supported
 from fareflare.product_config import ProductConfig
 from fareflare.service import MonitoringService, Reading
 
@@ -36,6 +37,11 @@ def test_default_product_is_free_open_and_bounded():
         "product_name": "Fareflare",
         "billing_enabled": False,
         "capabilities": {"route_searches": False},
+        # The dashboard describes supported links in the limits table's own words.
+        "supported": {
+            "flights": supported(FLIGHTS),
+            "route_searches": supported(ROUTE_SEARCHES),
+        },
         "registration_mode": "open",
         "limits": {"monitors": 100, "min_interval_seconds": 600, "global_targets": 100},
     }

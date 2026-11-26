@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from fareflare.airlines import airline_name
+from fareflare.limits import CABINS, ECONOMY
 from fareflare.links import import_link, itinerary_link
 from fareflare.message_templates import (
     DIRECTIONAL,
@@ -81,7 +82,6 @@ _FAILURE_MEANING = {
     "browser_start_failed": "the browser could not start",
     "browser_failed": "the browser stopped unexpectedly",
 }
-CABINS = {1: "Economy", 2: "Premium economy", 3: "Business", 4: "First"}
 # What an editor can preview: each alert, and the flight list as a whole.
 PreviewKind = Literal[AlertKey, "flight_list"]
 PREVIEWS: dict[PreviewKind, str] = {
@@ -745,7 +745,7 @@ def _sample_delivery(reason: str, scenario: _Scenario, now: int) -> dict:
         },
         "itinerary": {
             "adults": scenario.adults,
-            "cabin": 1,
+            "cabin": ECONOMY,
             "url": itinerary_link(segments, adults=scenario.adults),
             "segments": segments,
         },
@@ -770,7 +770,7 @@ def _sample_monitor(
         },
         "target": {
             "adults": scenario.adults,
-            "cabin": 1,
+            "cabin": ECONOMY,
             "currency": "USD",
             "segments": segments,
         },

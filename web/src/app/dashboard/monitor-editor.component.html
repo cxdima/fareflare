@@ -52,17 +52,16 @@
         </details>
         <details class="supported-inputs">
           <summary>Supported flights and searches</summary>
-          <p>
-            Selected nonstop itineraries: one way or round trip, economy, 1–2 adults, US prices in
-            USD or JPY. Any page language, and a flight found by searching a city, work.
-          </p>
-          @if (workspace.session.config()?.capabilities?.route_searches) {
-            <p>
-              Route searches: exact airports and date, one way, nonstop, 1 adult, economy excluding
-              Basic, and USD.
-            </p>
+          @if (workspace.session.config()?.supported; as supported) {
+            <p>{{ supported.flights }}</p>
+            @if (workspace.session.config()?.capabilities?.route_searches) {
+              <p>{{ supported.route_searches }}</p>
+            }
           }
-          <p>Flexible dates, connections, and nearby-airport searches are not supported yet.</p>
+          <p>
+            You can search by airport, city or several airports, in any language.
+            <a href="/guides/choosing-a-flight-link">Which links work</a>
+          </p>
         </details>
       </div>
     }

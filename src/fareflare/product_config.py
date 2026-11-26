@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from fareflare.contracts import CHECK_INTERVAL_SECONDS
+from fareflare.limits import FLIGHTS, ROUTE_SEARCHES, supported
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,11 @@ class ProductConfig:
             "billing_enabled": self.billing_enabled,
             "registration_mode": self.registration_mode,
             "capabilities": {"route_searches": self.search_enabled},
+            # What a link may be, in the words the guide uses.
+            "supported": {
+                "flights": supported(FLIGHTS),
+                "route_searches": supported(ROUTE_SEARCHES),
+            },
             "limits": {
                 "monitors": self.monitor_limit,
                 "min_interval_seconds": self.min_interval_seconds,

@@ -70,7 +70,7 @@ test('the overview shows people, flights, checks, protection, email and the serv
   // Refused links in the words people were shown, with the exact checks for the operator.
   const refusals = page.getByRole('region', { name: 'Refused links, last 30 days' });
   await expect(refusals.getByText('4 links refused.')).toBeVisible();
-  await expect(refusals.getByText(/nonstop flights only for now/)).toBeVisible();
+  await expect(refusals.getByText('Sample sentence about connections.')).toBeVisible();
   await expect(refusals.getByText('3 · 75%')).toBeVisible();
   await expect(refusals.getByText('connections 3')).toBeVisible();
   expect(await axe(page)).toEqual([]);

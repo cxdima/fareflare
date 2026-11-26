@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from html import escape
 
 from fareflare.contracts import RETRY_SECONDS
+from fareflare.limits import FLIGHTS, ROUTE_SEARCHES, supported
 from fareflare.product_config import ProductConfig
 
 GITHUB_URL = "https://github.com/cxdima/fareflare"
@@ -229,14 +230,16 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "Watch a selected itinerary when the flight matters",
                     (
                         "Choose the flights you want in Google Flights, then copy the resulting link. A selected-itinerary monitor is useful when the departure time, airline, or return flight is part of your decision.",
-                        "Current selected-itinerary collection supports economy, one or two adults, US prices in USD or JPY, and nonstop one-way trips or fully selected round trips, whatever the page language and however you searched: by airport, city or several airports. For a round trip, choose both the outbound and return flight before copying the link. An incomplete selection is not the same itinerary.",
+                        supported(FLIGHTS)
+                        + " Search however you like, by airport, city or several airports, in any language. For a round trip, choose both the outbound and the return flight before copying the link.",
                     ),
                 ),
                 Section(
                     "Watch a route when several flights would work",
                     (
                         "A route-search monitor compares the eligible results for a supported search and keeps the actual matching flight with each observation. The cheapest matching result may be a different flight on the next successful check.",
-                        "Supported route searches use exact departure and arrival airports, an exact date, one way, nonstop, one adult, USD, and economy excluding Basic. Flexible dates, nearby-airport searches, and unrestricted combinations are not supported.",
+                        supported(ROUTE_SEARCHES)
+                        + " Flexible dates and searches by city are not supported.",
                         route_status,
                     ),
                 ),
@@ -247,7 +250,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                         "No customer Google account access is required. Fareflare collects anonymous public prices. You should not paste Google cookies, passwords, authenticator codes, or any other account credentials into a monitor.",
                     ),
                     bullets=(
-                        "Pick the supported locale, currency, passenger count, and cabin.",
+                        "Pick a supported cabin, number of passengers, currency and location.",
                         "For a selected round trip, complete both flight selections.",
                         "Copy the full link and add it to your watchlist.",
                         "Check the monitor’s first verified observation before relying on its alerts.",
