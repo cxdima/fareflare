@@ -302,8 +302,10 @@ def _selected_segment(segment: Any) -> dict:
         )
     if legs[0]["date"] != segment.date:
         raise LinkRefused("leg_date")
+    # Connections are in time order. They need not share an airport: Google sells
+    # trips that change airports within a city (São Paulo CGH, then GRU).
     for previous, following in pairwise(legs):
-        if previous["destination"] != following["origin"] or previous["date"] > following["date"]:
+        if previous["date"] > following["date"]:
             raise LinkRefused("connection_mismatch")
     if not _search_admits(segment.origins, legs[0]["origin"]) or not _search_admits(
         segment.destinations, legs[-1]["destination"]
@@ -325,6 +327,11 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
     parts = _address(url)
     params = _parameters(parts)
     message = _itinerary(params)
+    # Search and Deals links leave out Google's defaults: one adult, in economy.
+    if not message.passengers:
+        message.passengers.append(1)
+    if not message.HasField("cabin"):
+        message.cabin = 1
     trip = (
         message.trip
         if message.HasField("trip")
@@ -336,8 +343,6 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
         2 if trip == ROUND_TRIP else 1
     ):
         raise LinkRefused("segments")
-    if not message.passengers:
-        raise LinkRefused("passengers_missing")
     if any(passenger != 1 for passenger in message.passengers):
         raise LinkRefused("children")  # Only adults are encoded as 1.
     if len(message.passengers) > 9:

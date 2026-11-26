@@ -59,7 +59,6 @@ CHECKS: dict[str, str] = {
     "token": "incomplete",
     "token_undecodable": "incomplete",
     "segments": "incomplete",
-    "passengers_missing": "incomplete",
     "cabin_missing": "incomplete",
     "currency_mismatch": "incomplete",
     "codes": "incomplete",

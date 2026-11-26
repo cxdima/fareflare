@@ -134,6 +134,16 @@ def test_the_country_and_currency_are_read_in_either_case(flight_url):
     assert refused(flight_url.replace("curr=USD", "curr=U5D")) == "codes"
 
 
+def test_google_defaults_left_out_of_a_link_are_read_as_written(flight_url):
+    def defaults_left_out(message):
+        message.ClearField("passengers")
+        message.ClearField("cabin")
+
+    target = import_link(change_token(flight_url, defaults_left_out))
+    assert (target["adults"], target["cabin"]) == (1, 1)
+    assert target["id"] == import_link(flight_url)["id"]
+
+
 def test_google_on_another_country_domain_needs_a_stated_location(flight_url):
     german = flight_url.replace("www.google.com", "www.google.de")
     assert import_link(german) == import_link(flight_url)
@@ -289,6 +299,15 @@ def _connect(message):
     leg.destination = "ORD"
 
 
+def _back_in_time(message):
+    """Three legs where the last leaves before the second."""
+    _connect(message)
+    legs = message.segments[0].legs
+    third = legs.add()
+    third.CopyFrom(legs[1])
+    legs[1].date, legs[1].destination, third.origin = "2027-03-16", "MDW", "MDW"
+
+
 @pytest.mark.parametrize(
     ("mutation", "check"),
     [
@@ -305,17 +324,13 @@ def _connect(message):
         (lambda m: setattr(m, "trip", 1), "segments"),
         (lambda m: setattr(m, "trip", 7), "segments"),
         (lambda m: m.passengers.append(2), "children"),
-        (lambda m: m.ClearField("passengers"), "passengers_missing"),
         (lambda m: m.passengers.extend([1] * 9), "adults"),
         (lambda m: setattr(m, "currency", "EUR"), "currency_mismatch"),
         (
             lambda m: [m.segments[0].legs.add().CopyFrom(m.segments[0].legs[0]) for _ in range(4)],
             "too_many_legs",
         ),
-        (
-            lambda m: (_connect(m), setattr(m.segments[0].legs[1], "origin", "MDW")),
-            "connection_mismatch",
-        ),
+        (_back_in_time, "connection_mismatch"),
         (_add_return("DFW", "ORD"), "open_jaw"),
     ],
 )
@@ -324,6 +339,13 @@ def test_an_incomplete_or_unreadable_itinerary_names_its_fault(flight_url, mutat
 
 
 def test_a_connection_imports_and_is_refused_by_the_collector(flight_url):
+    # Including one that changes airports within a city.
+    changing = import_link(
+        change_token(
+            flight_url, lambda m: (_connect(m), setattr(m.segments[0].legs[1], "origin", "MDW"))
+        )
+    )
+    assert collection_refusal(changing) == "connections"
     target = import_link(change_token(flight_url, _connect))
     assert [leg["destination"] for leg in target["segments"][0]["legs"]] == ["ORD", "DFW"]
     assert collection_refusal(target) == "connections"
