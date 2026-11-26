@@ -62,6 +62,10 @@ Notable changes to Fareflare. The format follows
   city is now refused as a connection, as connections still are, instead of as a
   broken link. Links in Google Flights' format from before 2020 get their own
   sentence.
+- **A flight whose saved link Fareflare can no longer read stops being checked**,
+  instead of failing every check as a changed itinerary, and watchers who asked for
+  notices are told. When a later release reads the link again, checks start again by
+  themselves; a flight stopped for any other reason still waits for Retry collection.
 
 ### Upgrade notes
 
