@@ -30,6 +30,7 @@ from fareflare.outbox import DeliveryOutbox
 from fareflare.preferences import merge_preferences, stored_preferences
 from fareflare.refusals import LinkRefused, RefusalLog
 from fareflare.store import Conflict, Document, Store
+from fareflare.switches import switches
 from fareflare.webhooks import WebhookRegistry, WebhookTransport
 
 log = logging.getLogger(__name__)
@@ -63,6 +64,18 @@ class CapacityReached(ValueError):
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def receives_alerts(store: Store, monitor: Document) -> bool:
+    """Whether a monitor is sent its flight's alerts: it is watching, and the account
+    it belongs to, when it belongs to one, is active."""
+    if monitor.data["status"] not in WATCHING:
+        return False
+    tenant = monitor.data["tenant"]
+    if not tenant.startswith("acct_"):
+        return True
+    account = store.get("account:" + tenant)
+    return account is not None and account.data.get("status") == "active"
 
 
 def request_hash(
@@ -399,16 +412,11 @@ class MonitoringService:
         target = self.store.get("target:" + target_id)
         assert target is not None
         monitors = [self.store.get("monitor:" + mid) for mid in target.data.get("subscribers", [])]
-        active = []
-        for monitor in monitors:
-            if not monitor or monitor.data["status"] not in WATCHING:
-                continue
-            if monitor.data["tenant"].startswith("acct_"):
-                account = self.store.get("account:" + monitor.data["tenant"])
-                if not account or account.data.get("status") != "active":
-                    continue
-            active.append(monitor)
-        return active
+        return [
+            monitor
+            for monitor in monitors
+            if monitor is not None and receives_alerts(self.store, monitor)
+        ]
 
     def record(
         self,
@@ -651,7 +659,10 @@ class MonitoringService:
             return
         if not isinstance(offer, ObservedOffer) or reading.evidence is None:
             raise ValueError("An observed offer requires verified price evidence")
-        selected = import_link(offer.url)
+        try:
+            selected = import_link(offer.url)
+        except LinkRefused:
+            raise ValueError("Observed offer has an address Fareflare cannot read") from None
         serialized = json.loads(json.dumps(asdict(offer)))
         if (
             selected["id"] != offer.target_id
@@ -702,8 +713,7 @@ class MonitoringService:
         codes: dict[str, int] = {}
         # An admin can pause every price check, for example while Google is refusing
         # them; due flights simply wait and are checked once checks resume.
-        switches = self.store.get("configuration:admin")
-        if switches and switches.data.get("collection_paused"):
+        if switches(self.store)["collection_paused"]:
             return CollectionBatch(counts, (), codes)
         started = self._now()
         due_by = started + early_seconds

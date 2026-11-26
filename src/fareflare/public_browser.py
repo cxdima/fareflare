@@ -296,14 +296,18 @@ def _opened[Shown](
     return result
 
 
-def _reimport(url: str, *, allow_search: bool = False) -> dict:
-    """What an address imports to now. A refused one means the itinerary changed;
-    the refusal's check is logged, never the address."""
+def _reimport(
+    url: str, *, page: str, failure: str = "itinerary_changed", allow_search: bool = False
+) -> dict:
+    """What an address imports to now, or ``failure`` if it is refused. A stored
+    address that no longer imports means the itinerary changed; a page Google opened
+    that does not is an unexpected page. Which page and the refusal's check are
+    logged, never the address."""
     try:
         return import_link(url, allow_search=allow_search)
     except LinkRefused as refusal:
-        log.warning("Public browser address refused check=%s", refusal.check)
-        raise QuoteUnavailable("itinerary_changed") from None
+        log.warning("Public browser address refused page=%s check=%s", page, refusal.check)
+        raise QuoteUnavailable(failure) from None
 
 
 # These can occur while an otherwise correct booking page is being updated.
@@ -343,7 +347,7 @@ class PublicGoogleFlightsProvider:
         supported_target(target)  # Unsupported targets never launch Chrome.
         # Revalidate the navigation URL before a browser sees it, even if callers
         # constructed a target themselves instead of using the importer.
-        checked = _reimport(target["url"])
+        checked = _reimport(target["url"], page="stored")
         if checked != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
@@ -439,7 +443,7 @@ class PublicGoogleFlightsProvider:
             verified_search_reading,
         )
 
-        if _reimport(target["url"], allow_search=True) != target:
+        if _reimport(target["url"], page="stored", allow_search=True) != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
 
@@ -556,7 +560,9 @@ class PublicGoogleFlightsProvider:
                 )
 
             wait_for(booking_ready)
-            selected = _reimport(driver.current_url)
+            selected = _reimport(
+                driver.current_url, page="booking_from_results", failure="unexpected_page"
+            )
             details = [
                 button
                 for button in driver.find_elements(

@@ -267,3 +267,20 @@ def test_search_challenge_after_selection_stops_before_booking_capture(search_br
         "Public search refused code=challenge signal=unusual_traffic phase=search_booking"
         in caplog.text
     )
+
+
+def test_a_booking_page_whose_address_does_not_import_is_an_unexpected_page(search_browser, caplog):
+    _, target, driver, _, _, select, _, _ = search_browser
+
+    def elsewhere():
+        # A booking page, but its itinerary token does not decode.
+        driver.current_url = "https://www.google.com/travel/flights/booking?tfs=AAAA&secret=1"
+
+    select.click.side_effect = elsewhere
+    with (
+        caplog.at_level("WARNING", logger="fareflare.public_browser"),
+        pytest.raises(QuoteUnavailable, match="unexpected_page"),
+    ):
+        PublicGoogleFlightsProvider(clock=lambda: 42).collect(target)
+    assert "page=booking_from_results check=token_undecodable" in caplog.text
+    assert "secret" not in caplog.text

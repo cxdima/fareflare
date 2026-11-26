@@ -279,13 +279,36 @@ _PLACE = st.one_of(
 )
 
 
-def _search_from(url, segment_places):
-    """The same link, as if the search had named other places."""
+# How a search can be narrowed, and where a link can come from: none of it is a price.
+_CRITERIA = st.fixed_dictionaries(
+    {},
+    optional={
+        "max_stops": st.integers(0, 2),
+        "airlines": st.lists(st.sampled_from(["UA", "AA", "STAR_ALLIANCE"]), max_size=2),
+        "earliest_departure": st.integers(0, 23),
+        "max_duration": st.integers(60, 1800),
+        "made_by": st.sampled_from([1, 2, 26, 27, 28, 42]),
+        "max_price": st.integers(50, 5000),
+    },
+)
+
+
+def _search_from(url, segment_places, criteria=None):
+    """The same link, as if found by another search: other places and filters."""
     params = dict(parse_qsl(urlsplit(url).query))
     message = ItineraryMessage()
     message.ParseFromString(
         base64.urlsafe_b64decode(params["tfs"] + "=" * (-len(params["tfs"]) % 4))
     )
+    for name, value in (criteria or {}).items():
+        if name in ("made_by", "max_price"):
+            setattr(message, name, value)
+        else:
+            for segment in message.segments:
+                if isinstance(value, list):
+                    getattr(segment, name).extend(value)
+                else:
+                    setattr(segment, name, value)
     for segment, (origins, destinations) in zip(message.segments, segment_places, strict=False):
         legs = segment.legs
         for field, places, airport in (
@@ -304,14 +327,19 @@ def _search_from(url, segment_places):
     itineraries(),
     _CONTEXT,
     st.lists(st.tuples(st.lists(_PLACE, max_size=2), st.lists(_PLACE, max_size=2)), max_size=2),
+    _CRITERIA,
 )
-def test_a_flight_has_one_identity_however_its_link_was_found(itinerary, context, places):
+def test_a_flight_has_one_identity_and_address_however_its_link_was_found(
+    itinerary, context, places, criteria
+):
     plain = import_link(_link(itinerary))
     # Importing a target's own address gives back exactly that target.
     assert import_link(plain["url"]) == plain
-    found = import_link(_search_from(_link(itinerary, **context), places))
+    found = import_link(_search_from(_link(itinerary, **context), places, criteria))
     assert found["id"] == plain["id"]
-    assert import_link(found["url"]) == found
+    # The same identity is the same address: no search or session of the first person
+    # to add a flight is passed on to the next.
+    assert found["url"] == plain["url"]
 
 
 @given(itineraries(), st.data())

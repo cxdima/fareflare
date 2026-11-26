@@ -6,7 +6,13 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import pytest
 
 from fareflare.google_domains import GOOGLE_DOMAINS
-from fareflare.links import ItineraryMessage, import_link, itinerary_link, parameter_kind
+from fareflare.links import (
+    ItineraryMessage,
+    import_link,
+    itinerary_link,
+    parameter_kind,
+    parse_token,
+)
 from fareflare.public_quotes import collection_refusal
 from fareflare.refusals import LinkRefused
 
@@ -78,6 +84,16 @@ def test_a_flight_found_by_searching_a_city_in_safari_is_watchable():
     assert target["provider_query"]["hl"] == "en-US"
     assert collection_refusal(target) is None
     assert import_link(target["url"]) == target
+    # The address keeps the flight and its price facts, not the person's search or session.
+    stored = parse_token(target["provider_query"]["tfs"])
+    segment = stored.segments[0]
+    assert [(place.kind, place.code) for place in (*segment.origins, *segment.destinations)] == [
+        (1, "DEN"),
+        (1, "DFW"),
+    ]
+    assert not segment.airlines and stored.exclude_basic == 1
+    assert not any(stored.HasField(name) for name in ("made_by", "constant", "pin"))
+    assert (stored.page, stored.trip) == (2, 2)
 
 
 def test_what_never_changes_a_price_is_left_out_of_the_target(flight_url):
@@ -180,10 +196,8 @@ def _searched(origins, destinations):
 def test_a_flight_has_one_identity_whatever_was_searched(flight_url, origins, destinations):
     target = import_link(change_token(flight_url, _searched(origins, destinations)))
     airports = import_link(flight_url)
-    assert target["id"] == airports["id"]
-    # The address keeps the search the person made; only the identity is shared.
-    assert target["provider_query"]["tfs"] != airports["provider_query"]["tfs"]
-    assert import_link(target["url"]) == target
+    # One flight, one identity and one address: nobody's search is passed on.
+    assert target == airports
 
 
 @pytest.mark.parametrize(

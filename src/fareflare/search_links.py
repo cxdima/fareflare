@@ -14,7 +14,14 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fareflare.limits import ROUTE_SEARCHES
-from fareflare.links import AIRPORT, AIRPORT_KIND, constraint_hash, parse_day, parse_token
+from fareflare.links import (
+    AIRPORT,
+    AIRPORT_KIND,
+    constraint_hash,
+    parse_day,
+    parse_token,
+    price_facts,
+)
 from fareflare.refusals import LinkRefused
 
 
@@ -48,14 +55,21 @@ def import_search_target(message: Any, query: dict[str, str]) -> dict:
         (message.cabin != limits.cabin, "search_cabin"),
         (query["curr"] not in limits.currencies, "search_currency"),
         (query["gl"] != limits.country, "search_country"),
-        (not segment.HasField("max_stops") or segment.max_stops != 0, "search_stops"),
         (
-            len(segment.origins) != 1
-            or len(segment.destinations) != 1
-            or any(
-                place.kind != AIRPORT_KIND or not AIRPORT.fullmatch(place.code) for place in places
-            )
-            or segment.origins[0].code == segment.destinations[0].code,
+            limits.nonstop and (not segment.HasField("max_stops") or segment.max_stops != 0),
+            "search_stops",
+        ),
+        (
+            limits.exact_airports
+            and (
+                len(segment.origins) != 1
+                or len(segment.destinations) != 1
+                or any(
+                    place.kind != AIRPORT_KIND or not AIRPORT.fullmatch(place.code)
+                    for place in places
+                )
+                or segment.origins[0].code == segment.destinations[0].code
+            ),
             "search_places",
         ),
         # The route-search reader verifies the fares that leave Basic out.
@@ -107,8 +121,11 @@ def offer_matches_search(target: dict, selected: dict) -> bool:
     criteria = target["search"]
     if any(leg[key] != criteria[key] for key in ("origin", "destination", "date")):
         return False
-    # The chosen flight's page, without its choice, is the same search.
-    chosen = parse_token(selected["provider_query"]["tfs"])
-    for segment in chosen.segments:
-        segment.ClearField("legs")
-    return _search_identity(chosen, selected["provider_query"]) == criteria["constraints_digest"]
+    # The flight chosen from the results meets the search's criteria by construction;
+    # what must survive the click is everything that decides its price.
+    expected, actual = target["provider_query"], selected["provider_query"]
+    return price_facts(parse_token(actual["tfs"])) == price_facts(
+        parse_token(expected["tfs"])
+    ) and {k: v for k, v in actual.items() if k != "tfs"} == {
+        k: v for k, v in expected.items() if k != "tfs"
+    }
