@@ -33,6 +33,8 @@ def _search_message_class() -> Any:
     schema.name = "fareflare_search.proto"
     segment = next(item for item in schema.message_type if item.name == "Segment")
     segment.field.add(name="max_stops", number=5, type=13, label=1)
+    itinerary = next(item for item in schema.message_type if item.name == "Itinerary")
+    itinerary.field.add(name="exclude_basic", number=25, type=13, label=1)
     pool = descriptor_pool.DescriptorPool()
     pool.Add(schema)
     return message_factory.GetMessageClass(pool.FindMessageTypeByName("Itinerary"))
@@ -41,14 +43,19 @@ def _search_message_class() -> Any:
 SearchMessage = _search_message_class()
 
 
-def _without_selection(token: str) -> str:
-    message = ItineraryMessage()
-    message.ParseFromString(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
-    for segment in message.segments:
-        segment.ClearField("legs")
+def _search_token(message: Any) -> str:
+    """A search's token, written by the search schema so its fields have one order."""
     return (
         base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode().rstrip("=")
     )
+
+
+def _without_selection(token: str) -> str:
+    message = SearchMessage()
+    message.ParseFromString(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+    for segment in message.segments:
+        segment.ClearField("legs")
+    return _search_token(message)
 
 
 def import_search_target(message: Any, query: dict[str, str]) -> dict:
@@ -73,10 +80,13 @@ def import_search_target(message: Any, query: dict[str, str]) -> dict:
             or segment.origins[0].code == segment.destinations[0].code,
             "search_places",
         ),
+        # Economy excluding Basic is the fare the route-search reader verifies.
+        (decoded.exclude_basic != 1, "search_cabin"),
     ):
         if unsupported:
             raise LinkRefused(check)
     parse_day(segment.date, "date")
+    query = {**query, "tfs": _search_token(decoded)}
     digest = hashlib.sha256(json.dumps(query, sort_keys=True).encode()).hexdigest()
     criteria = SearchTarget(
         segment.origins[0].code, segment.destinations[0].code, segment.date, 0, digest

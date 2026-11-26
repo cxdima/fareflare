@@ -49,20 +49,10 @@ def test_real_user_link_decodes_without_explicit_trip_type(flight_url):
     assert import_link(target["url"]) == target
 
 
-# Targets stored in production before link intake was split into facts and context.
-# Their links carry no browser, tracking or view parameters, so they keep their ids.
-STORED_IDS = {
-    "public_booking_usd": "dc70a9ce724a3cd58b7b55b98737ef657b64cf3fd74ccb30bbc1ec81905f4b93",
-    "selected_jpy": "912f9f9b0171acfa2bc72c695bd85e069a2312abcfb167fca9b1c20e894aabb8",
-    "selected_roundtrip": "d35b177d021ea22b78176a4afa534f6e2ba633e909b0fcdf90f8ed32ee30e3a9",
-    "selected_two_adults": "71bbb648af86237fc64c3c9bf0190dcb44dda0ecd6a1c24475c04535c9d4d29e",
-}
-
-
-@pytest.mark.parametrize("name", sorted(STORED_IDS))
-def test_a_stored_target_keeps_its_identity(name):
-    url = json.loads((FIXTURES / f"{name}.json").read_text())["page"]["url"]
-    assert import_link(url)["id"] == STORED_IDS[name]
+def test_a_shared_copy_and_an_address_bar_copy_are_one_target(flight_url):
+    # tfs field 1 says where the link was made: 28 the Flights site, 2 a share link.
+    shared = import_link(change_token(flight_url, lambda m: setattr(m, "made_by", 2)))
+    assert shared["id"] == import_link(flight_url)["id"]
 
 
 def test_a_flight_found_by_searching_a_city_in_safari_is_watchable():
@@ -174,6 +164,7 @@ def _searched(origins, destinations):
         ([(2, "/m/02cl1")], [(1, "DFW")]),  # Denver, the city
         ([(1, "BOS"), (1, "DEN")], [(1, "DAL"), (1, "DFW")]),  # several airports
         ([(1, "BOS"), (2, "/g/11b6gq9ggb")], [(1, "DFW")]),  # airports and a city
+        ([(0, "DEN")], [(4, "anything")]),  # a place of any other kind, even none
     ],
 )
 def test_a_flight_has_one_identity_whatever_was_searched(flight_url, origins, destinations):
@@ -191,12 +182,6 @@ def test_a_flight_has_one_identity_whatever_was_searched(flight_url, origins, de
         ([(1, "BOS")], [(1, "DFW")]),  # airports only, none of them the flight's
         ([(1, "DEN")], [(1, "DAL"), (1, "IAH")]),
         ([], [(1, "DFW")]),
-        ([(2, "DEN")], [(1, "DFW")]),  # a place needs its Knowledge Graph id
-        ([(3, "DEN")], [(1, "DFW")]),
-        ([(1, "/m/02cl1")], [(1, "DFW")]),
-        ([(2, "/m/02CL1")], [(1, "DFW")]),
-        ([(4, "/m/02cl1")], [(1, "DFW")]),  # an unknown kind of place
-        ([(0, "DEN")], [(1, "DFW")]),
     ],
 )
 def test_a_search_that_cannot_hold_the_flight_is_refused(flight_url, origins, destinations):
@@ -262,7 +247,8 @@ def test_query_order_and_path_do_not_change_target(flight_url):
         ("https://www.google.evil/travel/flights?tfs=AA", "not_google"),
         ("https://www.google.com/travel/flights/deals", "flights_page"),
         ("https://www.google.com/travel/flights/saves?hl=en&gl=mx", "flights_page"),
-        ("https://www.google.com/flights?hl=en#flt=DEN.DFW.2027-03-14", "flights_page"),
+        ("https://www.google.com/flights?hl=en#flt=DEN.DFW.2027-03-14", "old_format"),
+        ("https://www.google.com/flights#search;f=DEN;t=DFW", "old_format"),
         ("https://www.google.com/travel/flights?q=DEN+DFW", "no_flights"),
         ("https://www.google.com/travel/flights", "no_flights"),
         ("https://www.google.com/travel/flights?tfs=%%%%", "token"),

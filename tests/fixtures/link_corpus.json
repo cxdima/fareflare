@@ -374,7 +374,7 @@
    "page": "https://news.ycombinator.com/item?id=38895484",
    "url": "https://google.com/flights",
    "expected": {
-    "refused": "flights_page"
+    "refused": "no_flights"
    }
   },
   {
@@ -430,7 +430,7 @@
    "page": "https://news.ycombinator.com/item?id=29143987",
    "url": "https://www.google.com/flights?tfs=CBoQAho-EgoyMDIyLTAzLTI5Ih4KA0FLTBIKMjAyMi0wMy0yORoDTlJUKgJOWjICOTlqBwgBEgNBS0xyBwgBEgNOUlQaYBIKMjAyMi0wNC0yMCIeCgNOUlQSCjIwMjItMDQtMjAaA0hFTCoCQVkyAjc0IiAKA0hFTBIKMjAyMi0wNC0yMBoDUklYKgJBWTIEMTA3NWoHCAESA05SVHIHCAESA1JJWEADQAJAAUABSAFSA05aRHpoQ2pSSWRHNU5YM1Z1UjNKcE1ITkJVVlZpTmxGQ1J5MHRMUzB0TFMwdGRHaGtZekUwTlVGQlFVRkJSMGRKVkdjMFEzSTNaRUZCRWdJeE1Cb0xDSUw2SHhBQ0dnTk9Xa1E0RjNDRDNoWT0&hl=en-GB&gl=NZ&curr=NZD&gsas=1&sa=X&ved=0CBAQ2I8EahcKEwig0-7HoYf0AhUAAAAAHQAAAAAQEQ",
    "expected": {
-    "refused": "flights_page"
+    "refused": "children"
    }
   },
   {
@@ -448,7 +448,7 @@
    "page": "https://news.ycombinator.com/item?id=20393115",
    "url": "https://www.google.com/flights?hl=en#flt=/m/0156q./m/0jwz5.2019-08-19.TXLPMI0FR280*/m/0jwz5./m/0156q.2019-08-28.PMITXL0FR277;c:EUR;e:1;p:5000.2.EUR;sd:1;t:b;sp:2.EUR.1998*2.EUR.1998",
    "expected": {
-    "refused": "flights_page"
+    "refused": "old_format"
    }
   },
   {

@@ -49,6 +49,7 @@ def _message_class() -> Any:
             (14, "destinations", 11, True, ".Location"),
         ],
         "Itinerary": [
+            (1, "made_by", 13, False, None),  # Where the link was made: never a price fact.
             (3, "segments", 11, True, ".Segment"),
             (8, "passengers", 13, True, None),
             (9, "cabin", 13, False, None),
@@ -81,16 +82,12 @@ _TOKEN = re.compile(r"[A-Za-z0-9_-]{1,6000}={0,2}\Z")
 _GOOGLE = re.compile(r"(?:www\.)?google\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})\Z")
 _US_HOSTS = {"google.com", "www.google.com"}
 # The pages a flight's link opens: a search, a booking page, or the Flights page
-# itself. Other Flights pages (deals, saved flights, the old /flights) name none.
-_FLIGHT_PAGES = {"/travel/flights", "/travel/flights/search", "/travel/flights/booking"}
+# itself, old or new. Other Flights pages (deals, saved flights) name none.
+_FLIGHT_PAGES = {"/flights", "/travel/flights", "/travel/flights/search", "/travel/flights/booking"}
 _FLIGHTS = re.compile(r"/(?:travel/)?flights(?:/.*)?\Z")
-# A searched place is an airport, by its code, or a place known by its Knowledge
-# Graph id: Google marks cities and wider areas with kinds 2 and 3.
+# A searched place of kind 1 is an airport, by its code. Google marks cities and
+# wider areas with kinds 2 and 3, and the same place appears with either.
 AIRPORT_KIND = 1
-_PLACE_CODES = {
-    AIRPORT_KIND: AIRPORT,
-    **dict.fromkeys((2, 3), re.compile(r"/[mg]/[0-9a-z_]{1,32}\Z")),
-}
 # Trip types as Google encodes them.
 ROUND_TRIP, ONE_WAY, MULTI_CITY = 1, 2, 3
 # The page language the collector reads. Every target is checked in it.
@@ -208,6 +205,8 @@ def _address(url: str) -> SplitResult:
         raise LinkRefused("not_flights_page")
     if parts.path not in _FLIGHT_PAGES:
         raise LinkRefused("flights_page")
+    if parts.fragment.startswith(("flt=", "search;")):
+        raise LinkRefused("old_format")  # Google Flights links from before 2020.
     if parts.fragment:
         raise LinkRefused("fragment")
     return parts
@@ -268,11 +267,6 @@ def _search_admits(locations: Any, airport: str) -> bool:
     The selected flights decide the trip. A place's airports are not known offline,
     so the airport is checked only against an endpoint made of airports alone.
     """
-    if not locations or not all(
-        location.kind in _PLACE_CODES and _PLACE_CODES[location.kind].fullmatch(location.code)
-        for location in locations
-    ):
-        return False
     return any(location.kind != AIRPORT_KIND or location.code == airport for location in locations)
 
 
@@ -387,6 +381,7 @@ def _selected_target(message: Any, segments: list[dict], query: dict) -> dict:
     identity.CopyFrom(message)
     identity.ClearField("trip")
     identity.ClearField("currency")
+    identity.ClearField("made_by")
     for entry, segment in zip(identity.segments, segments, strict=True):
         for field, airport in (
             ("origins", segment["legs"][0]["origin"]),

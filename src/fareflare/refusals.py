@@ -18,7 +18,10 @@ log = logging.getLogger(__name__)
 REASONS: dict[str, str] = {
     "not_flights": "This isn't a Google Flights link. Open your flight in Google Flights "
     "and send its link.",
-    "incomplete": "This Google Flights link is incomplete. Copy it again and send the whole link.",
+    "incomplete": "This Google Flights link is incomplete. Copy it again from the address bar "
+    "and send the whole link.",
+    "old_link": "This is an old Google Flights link. Open it, then send the link Google Flights "
+    "shows.",
     "short_link": "This short link didn't open. Open it, then send the full Google Flights link.",
     "no_flight_chosen": "This link doesn't name a flight. Choose your flights in Google "
     "Flights, then send the link.",
@@ -54,6 +57,7 @@ CHECKS: dict[str, str] = {
     "characters": "incomplete",
     "credentials": "incomplete",
     "fragment": "incomplete",
+    "old_format": "old_link",
     "query": "incomplete",
     "repeated_parameter": "incomplete",
     "token": "incomplete",
