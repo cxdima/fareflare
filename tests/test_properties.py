@@ -7,6 +7,7 @@ by an account, links pasted by a person and pages served by a third party.
 import base64
 import json
 import re
+from datetime import date, timedelta
 from html import unescape
 from itertools import pairwise
 from urllib.parse import parse_qsl, urlencode, urlsplit
@@ -15,7 +16,7 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from fareflare.contracts import Reading, SliceTimes
-from fareflare.links import import_link
+from fareflare.links import ItineraryMessage, import_link, itinerary_link
 from fareflare.message_templates import (
     DIRECTIONAL,
     MAX_PLACEHOLDERS,
@@ -28,7 +29,7 @@ from fareflare.message_templates import (
 )
 from fareflare.preferences import Preferences, clock_time, in_quiet_hours
 from fareflare.public_quotes import slice_times
-from fareflare.refusals import LinkRefused
+from fareflare.refusals import CHECKS, LinkRefused
 from fareflare.service import MonitoringService
 from fareflare.telegram_templates import TEMPLATE_KEYS, VOCABULARY, validate_templates
 from tests.conftest import EXAMPLE
@@ -218,11 +219,126 @@ def test_a_link_is_refused_politely_or_imported_to_a_stable_itinerary(url):
     try:
         target = import_link(url)
     except LinkRefused as error:
-        assert str(error)
+        # Only a known check, never a crash or an unexplained refusal.
+        assert error.check in CHECKS and str(error)
         return
     # Importing the canonical link again gives the same itinerary.
     again = import_link(target["url"])
     assert again == target
+
+
+_IATA = st.text("ABCDEFGHIJKLMNOPQRSTUVWXYZ", min_size=3, max_size=3)
+
+
+@st.composite
+def itineraries(draw):
+    """A one-way or round trip of nonstop flights, as Google encodes a chosen itinerary."""
+    origin, destination = draw(st.lists(_IATA, min_size=2, max_size=2, unique=True))
+    out = draw(st.dates(min_value=date(2027, 1, 1), max_value=date(2027, 12, 1)))
+    flight = st.builds(
+        lambda airline, number: (airline, str(number)),
+        st.sampled_from(["UA", "AA", "DL", "WN", "B6"]),
+        st.integers(1, 9999),
+    )
+    directions = [(origin, destination, out)]
+    if draw(st.booleans()):
+        directions.append((destination, origin, out + timedelta(draw(st.integers(0, 30)))))
+    segments = []
+    for start, end, day in directions:
+        airline, number = draw(flight)
+        leg = {"origin": start, "destination": end, "airline": airline, "number": number}
+        segments.append({"date": day.isoformat(), "legs": [leg]})
+    return {
+        "segments": segments,
+        "adults": draw(st.integers(1, 9)),
+        "cabin": draw(st.integers(1, 4)),
+        "currency": draw(st.sampled_from(["USD", "JPY", "EUR"])),
+    }
+
+
+def _link(itinerary, **params):
+    url = itinerary_link(
+        itinerary["segments"],
+        adults=itinerary["adults"],
+        cabin=itinerary["cabin"],
+        currency=itinerary["currency"],
+    )
+    return url + "".join(f"&{name}={value}" for name, value in params.items())
+
+
+# Context that never changes a price, in the forms Google and browsers add it.
+_CONTEXT = st.dictionaries(
+    st.sampled_from(
+        ["hl", "tfu", "authuser", "client", "biw", "sa", "ved", "source", "sxsrf", "utm_source"]
+    ),
+    st.text("abcdefXYZ0123456789-_", min_size=1, max_size=12),
+    max_size=6,
+)
+_PLACE = st.one_of(
+    st.just((2, "/m/0f2rq")), st.just((3, "/g/11b6gq9ggb")), st.tuples(st.just(1), _IATA)
+)
+
+
+def _search_from(url, segment_places):
+    """The same link, as if the search had named other places."""
+    params = dict(parse_qsl(urlsplit(url).query))
+    message = ItineraryMessage()
+    message.ParseFromString(
+        base64.urlsafe_b64decode(params["tfs"] + "=" * (-len(params["tfs"]) % 4))
+    )
+    for segment, (origins, destinations) in zip(message.segments, segment_places, strict=False):
+        legs = segment.legs
+        for field, places, airport in (
+            ("origins", origins, legs[0].origin),
+            ("destinations", destinations, legs[-1].destination),
+        ):
+            segment.ClearField(field)
+            # Places of unknown airports, beside the flight's own airport.
+            for kind, code in [*places, (1, airport)]:
+                getattr(segment, field).add(kind=kind, code=code)
+    params["tfs"] = base64.urlsafe_b64encode(message.SerializeToString()).decode().rstrip("=")
+    return "https://www.google.com/travel/flights?" + urlencode(params)
+
+
+@given(
+    itineraries(),
+    _CONTEXT,
+    st.lists(st.tuples(st.lists(_PLACE, max_size=2), st.lists(_PLACE, max_size=2)), max_size=2),
+)
+def test_a_flight_has_one_identity_however_its_link_was_found(itinerary, context, places):
+    plain = import_link(_link(itinerary))
+    # Importing a target's own address gives back exactly that target.
+    assert import_link(plain["url"]) == plain
+    found = import_link(_search_from(_link(itinerary, **context), places))
+    assert found["id"] == plain["id"]
+    assert import_link(found["url"]) == found
+
+
+@given(itineraries(), st.data())
+def test_every_price_defining_change_is_a_different_target(itinerary, data):
+    plain = import_link(_link(itinerary))
+    segments = json.loads(json.dumps(itinerary["segments"]))
+    leg = segments[0]["legs"][0]
+    change = data.draw(
+        st.sampled_from(["number", "day", "adults", "cabin", "currency", "country", "unknown"])
+    )
+    changed = {**itinerary, "segments": segments}
+    params = {}
+    if change == "number":
+        leg["number"] = str(int(leg["number"]) % 9999 + 1)
+    elif change == "day":
+        later = date.fromisoformat(segments[-1]["date"]) + timedelta(days=1)
+        segments[-1]["date"] = later.isoformat()
+        segments[-1]["legs"][0]["date"] = later.isoformat()
+    elif change in ("adults", "cabin"):
+        changed[change] = itinerary[change] % (9 if change == "adults" else 4) + 1
+    elif change == "currency":
+        changed["currency"] = "GBP"
+    elif change == "country":
+        params["gl"] = "CA"
+    else:
+        params["futureFareOption"] = data.draw(st.text("abc123", min_size=1, max_size=8))
+    assert import_link(_link(changed, **params))["id"] != plain["id"]
 
 
 @given(st.text(max_size=120))
