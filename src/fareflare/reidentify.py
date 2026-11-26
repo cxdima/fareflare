@@ -8,22 +8,10 @@ changes moves to its new key with everything that names it: every monitor on it 
 any state, the records that recognize a retried create request, its price history
 and its place in the collection capacity. When another stored target already has
 that identity, the two become one, as they would had both links been added today.
-A stored link the rules now refuse is blocked as ``unsupported_itinerary``, as the
-collector blocks a flight it cannot read: its watchers see it, and it stays put.
 
-Release order (docs/OPERATIONS.md has the commands): take an on-demand backup of the
-table, pause price checks, deploy, run this with ``--apply``, run it again without
-``--apply`` until it exits 0 with nothing left to move, then resume price checks.
-
-- Without ``--apply`` it prints the plan, merges included, and writes nothing.
-- ``--apply FILE`` and ``--restore FILE`` refuse while price checks run. Before writing
-  anything, ``--apply`` saves every document it will change to FILE (mode 0600, in a
-  directory only its owner can open). ``--restore`` undoes each target whose documents
-  are still as the run left them, and lists the rest.
-- A target is busy while a check holds it or a watcher still has an alert to receive;
-  a later run moves it. Each change is printed as it happens, and the command exits
-  with status 1 if any target was busy, too large, conflicting, missing a watcher or
-  failed; status 2 means it could not start.
+How to run it in a release, when it is done, what each exit status means, where it
+saves what it replaces and how to undo a run: docs/OPERATIONS.md, section "A release
+that changes how links are read".
 """
 
 from __future__ import annotations
