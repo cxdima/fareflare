@@ -17,25 +17,33 @@ Notable changes to Fareflare. The format follows
   makes of it. Claude Code gets `release` and `link-report` skills, two reviewer agents
   and a hook that formats each Python file it edits.
 - **Every refused link says why.** The bot, the dashboard, the API, MCP and the
-  command line give one plain sentence per reason (a connection, a cabin, the
-  passengers, the currency or country, a search instead of a flight, a damaged
-  link) and what to do. The API adds the `reason` and the exact `check`; accounts
-  with diagnostics on see the check in Telegram.
-- **Refused links in the admin panel**, by reason and check, for 30 days. Only
-  counts are kept, never the link.
-- **`python -m fareflare.reidentify`** brings stored flights in line with how links
-  are read now, moving each one's watchers, price history and capacity to its new
-  identity. It only plans unless given `--apply`.
+  command line answer a refused link with one plain sentence that names what is
+  supported and what to change, such as a connection, the cabin, the number of
+  passengers, the currency or location, a search instead of a chosen flight, an old
+  or damaged link, or a flight that has already left. The API also returns the
+  `reason`; accounts with diagnostics on also get the exact check, in the API and in
+  Telegram.
+- **Refused links in the admin panel**, by reason and check, for the last 30 days.
+  Only the counts are kept, never the link.
+- **Pause and resume price checks from the command line**
+  (`python -m fareflare.admin_cli pause-checks`/`resume-checks`), recorded in the
+  admin audit log with who did it and why, like the panel's switch.
 
 ### Changed
 
-- **A flight has one identity however its link was found.** What never changes a
-  price no longer splits a flight in two or follows it into the link it is
-  checked at: the places searched for, where the link was made (the Flights site,
-  a share link, Search or Deals), the page language (every page is read in US
-  English), Google's view and session state (`tfu`), the browser and click
-  tracking. Every stored flight moves to its new identity with `reidentify`. Unknown parameters and fields still count, so two links are never
-  merged on a guess.
+- **A flight has one identity however its link was found.** These no longer split one
+  flight into two or follow it into the address it is checked at: where the link
+  was made (the Flights site, a share, Search or Deals), the places you searched for
+  once flights are chosen, the page language, how Google was showing the page, the
+  browser and click tracking. Parameters Fareflare does not know still count, so two
+  links are never merged on a guess. Route searches follow the same rules.
+- **Alert links open Google Flights in US English**, the language every check reads.
+- **Route searches that include Basic fares are refused**, with the setting to
+  choose: Economy (exclude Basic). Route-search prices are only read for fares without
+  Basic, so such links used to be accepted and then fail every check.
+- **One table of what can be watched** (`src/fareflare/limits.py`) writes the checks,
+  the refusal sentences, the guide and the dashboard's description, so they cannot
+  disagree.
 
 ### Fixed
 
@@ -48,12 +56,23 @@ Notable changes to Fareflare. The format follows
   include the flight's airport.
 - **Links shared from Safari are accepted.** Safari writes the country in lower case
   (`gl=us`), which was refused. Route searches read it the same way.
-- **More real links are accepted**, from 98 that people shared in public: searched
-  places of any kind, Google's country domains with a stated location,
-  a lower-case currency, links that leave out the default passenger and cabin, and
-  connections that change airports within a city, and the old `/flights` path. Old
-  `#flt=` links get their own reason. Route-search links no longer need `gsas` or a
-  particular result order, and now check that Basic fares are excluded.
+- **More real links are accepted**, from 98 that people shared in public: links on
+  Google's country sites that state a location, a currency written in lower case,
+  links that leave out the default passengers and cabin, the old Flights address, and
+  route searches with any result order. A connection that changes airports within a
+  city is now refused as a connection, as connections still are, instead of as a
+  broken link. Links in Google Flights' format from before 2020 get their own
+  sentence.
+
+### Operators
+
+- **Stored flights move to their new identity once, during the release.** Take a
+  table backup, pause price checks, deploy, run
+  `python -m fareflare.reidentify --apply <file>` (it saves what it replaces to that
+  file first, and `--restore <file>` undoes it), repeat the plan until every flight
+  is unchanged, then resume price checks. Until the move, every check of a moved
+  flight fails as a changed itinerary. Steps are in
+  [operations](docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
 
 ## 2.1.0 — 2026-11-23
 

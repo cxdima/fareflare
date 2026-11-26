@@ -1,12 +1,11 @@
 {
  "captured_at": "2026-11-25",
- "description": "Google Flights links people shared in public (Reddit, Hacker News, GitHub), decoded by hand and in code. Account indexes are removed. Each expected outcome was reviewed: what the importer reads, and what the collector says it can price.",
+ "description": "Google Flights links people shared in public (Reddit, Hacker News, GitHub, scraping-API documentation), each with its reviewed outcome: what the importer reads, and what the collector says it can price. Account indexes are removed and per-session values (view state, click tracking, window size) are replaced with X: links are classified by parameter name, so outcomes do not depend on them.",
  "links": [
   {
    "id": "c01",
-   "source": "reddit comment (r/Brazil) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Brazil/comments/1wstq1a/flying_into_manaus/pe3vxhp/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpNEgoyMDI3LTAyLTEyIiAKA01JQRIKMjAyNy0wMi0xMhoDTUFPKgJHMzIENzczOSgAagwIAxIIL20vMHJqMHpyDQgDEgkvbS8wMmJrazNAAUgBcAGCAQsI____________AZgBAg&tfu=CmxDalJJZVRJNGJYTnJRemQ2WTJkQlVHNUVZbmRDUnkwdExTMHRMUzB0TFdObmNXZ3hOa0ZCUVVGQlIzSkZTRGs0U1dJNWFtMUJFZ1pITXpjM016a2FDd2lHbEF3UUFob0RRbEpNT0J4d3FyY0MSAggAIgA&hl=pt-BR&gl=BR",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpNEgoyMDI3LTAyLTEyIiAKA01JQRIKMjAyNy0wMi0xMhoDTUFPKgJHMzIENzczOSgAagwIAxIIL20vMHJqMHpyDQgDEgkvbS8wMmJrazNAAUgBcAGCAQsI____________AZgBAg&tfu=X&hl=pt-BR&gl=BR",
    "expected": {
     "kind": "itinerary",
     "collector": "country"
@@ -14,9 +13,8 @@
   },
   {
    "id": "c02",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1wyc1zh/did_we_overpay/pe1l72g/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTEyLTIwIh8KA1NGTxIKMjAyNi0xMi0yMBoDSUNOKgJPWjIDMjExIh8KA0lDThIKMjAyNi0xMi0yMhoDQktLKgJPWjIDNzQzagcIARIDU0ZPcgcIARIDQktLGmASCjIwMjctMDEtMDEiHwoDQktLEgoyMDI3LTAxLTAxGgNJQ04qAk9aMgM3NDQiHwoDSUNOEgoyMDI3LTAxLTAxGgNTRk8qAk9aMgMyMTJqBwgBEgNCS0tyBwgBEgNTRk9AAUABSAFwAYIBCwj___________8BiAEBmAEB&tfu=CnhDalJJVjJsM1pGQTJXVVUzYm05QlQzaFBPSGRDUnkwdExTMHRMUzB0TFhkaWJHSXhNMEZCUVVGQlIzSkVNRkJOU0hRd2VrTkJFZzFQV2pjME5IeFBXakl4TWlNeEdnc0lwdFloRUFJYUExVlRSRGdjY0tiV0lRPT0SAggAIgMKATA&curr=USD",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTEyLTIwIh8KA1NGTxIKMjAyNi0xMi0yMBoDSUNOKgJPWjIDMjExIh8KA0lDThIKMjAyNi0xMi0yMhoDQktLKgJPWjIDNzQzagcIARIDU0ZPcgcIARIDQktLGmASCjIwMjctMDEtMDEiHwoDQktLEgoyMDI3LTAxLTAxGgNJQ04qAk9aMgM3NDQiHwoDSUNOEgoyMDI3LTAxLTAxGgNTRk8qAk9aMgMyMTJqBwgBEgNCS0tyBwgBEgNTRk9AAUABSAFwAYIBCwj___________8BiAEBmAEB&tfu=X&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -24,9 +22,8 @@
   },
   {
    "id": "c03",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1wxfzv8/us_west_coast_to_guangzhou_can_with_bad_back/pdu7dir/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhplEgoyMDI2LTEyLTIzIh8KA0xBWBIKMjAyNi0xMi0yMxoDQ0FOKgJDWjIDMzI4KABqBwgBEgNTQU5qBwgBEgNMQVhqBwgBEgNTRk9qBwgBEgNTRUFqBwgBEgNZVlJyBwgBEgNDQU4aZRIKMjAyNy0wMS0wMyIfCgNDQU4SCjIwMjctMDEtMDMaA0xBWCoCQ1oyAzMyNygAagcIARIDQ0FOcgcIARIDU0FOcgcIARIDTEFYcgcIARIDU0ZPcgcIARIDU0VBcgcIARIDWVZSQAFIAXABggELCP___________wGYAQE&tfu=CmxDalJJWkhkelRYZENWbU5qWTAxQlUwdHRWSGRDUnkwdExTMHRMUzB0TFc5NVltUnFNa0ZCUVVGQlIzSkRaM1Z2U0ZJMVFrVkJFZ1ZEV2pNeU54b0xDSlg1RkJBQ0dnTlZVMFE0SEhDVitSUT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhplEgoyMDI2LTEyLTIzIh8KA0xBWBIKMjAyNi0xMi0yMxoDQ0FOKgJDWjIDMzI4KABqBwgBEgNTQU5qBwgBEgNMQVhqBwgBEgNTRk9qBwgBEgNTRUFqBwgBEgNZVlJyBwgBEgNDQU4aZRIKMjAyNy0wMS0wMyIfCgNDQU4SCjIwMjctMDEtMDMaA0xBWCoCQ1oyAzMyNygAagcIARIDQ0FOcgcIARIDU0FOcgcIARIDTEFYcgcIARIDU0ZPcgcIARIDU0VBcgcIARIDWVZSQAFIAXABggELCP___________wGYAQE&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -34,9 +31,8 @@
   },
   {
    "id": "c04",
-   "source": "reddit comment (r/delta) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/delta/comments/1wtp1lb/we_were_considering_taking_the_family_to/pd1yk4b/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpjEgoyMDI2LTEyLTEwIiAKA0FUTBIKMjAyNi0xMi0xMBoDU0ZPKgJVQTIEMTg1NiIfCgNTRk8SCjIwMjYtMTItMTAaA1NZRCoCVUEyAzg2MygBagcIARIDQVRMcgcIARIDU1lEGmMSCjIwMjYtMTItMzAiHwoDU1lEEgoyMDI2LTEyLTMwGgNJQUgqAlVBMgMxMDAiIAoDSUFIEgoyMDI2LTEyLTMwGgNBVEwqAlVBMgQ2MTM3KAFqBwgBEgNTWURyBwgBEgNBVExAAUgBcAGCAQsI____________AZgBAQ&tfu=CnRDalJJYzJSTFFsOWxRM2hrT0ZGQlIwSjRhMmRDUnkwdExTMHRMVzlyZUdNeE9DMXVNa0ZCUVVGQlIzRTVWWHBOUTBGcFdWTkJFZ3hWUVRFd01IeFZRVFl4TXpjYUN3ampnQXNRQWhvRFZWTkVPQnh3NDRBTBICCAAiAwoBMA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpjEgoyMDI2LTEyLTEwIiAKA0FUTBIKMjAyNi0xMi0xMBoDU0ZPKgJVQTIEMTg1NiIfCgNTRk8SCjIwMjYtMTItMTAaA1NZRCoCVUEyAzg2MygBagcIARIDQVRMcgcIARIDU1lEGmMSCjIwMjYtMTItMzAiHwoDU1lEEgoyMDI2LTEyLTMwGgNJQUgqAlVBMgMxMDAiIAoDSUFIEgoyMDI2LTEyLTMwGgNBVEwqAlVBMgQ2MTM3KAFqBwgBEgNTWURyBwgBEgNBVExAAUgBcAGCAQsI____________AZgBAQ&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -44,9 +40,8 @@
   },
   {
    "id": "c05",
-   "source": "reddit comment (r/travel) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/travel/comments/1wnhbbv/indian_passport_on_a_b1b2_bouncing_in_and_out_of/pbfr9xq/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqFARIKMjAyNi0xMC0wNiIfCgNCT00SCjIwMjYtMTAtMDYaA0NERyoCQUYyAzIxNyIeCgNDREcSCjIwMjYtMTAtMDYaA0FUTCoCQUYyAjMwIh8KA0FUTBIKMjAyNi0xMC0wNhoDTUVYKgJETDIDNTg1agcIARIDQk9NcgwIAxIIL20vMDRzcWpAAUgBcAGCAQsI____________AZgBAg&tfu=CnxDalJJTmxndFEwWmFNVVowTld0QlFWaFhSSGRDUnkwdExTMHRMUzB0TFhCbVltUnpNMEZCUVVGQlIzRjVOVXQzVFdGc05HTkJFaEJCUmpJeE4zeEJSak13ZkVSTU5UZzFHZ3NJNFprRkVBSWFBMVZUUkRnY2NPR1pCUT09EgIIACIA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqFARIKMjAyNi0xMC0wNiIfCgNCT00SCjIwMjYtMTAtMDYaA0NERyoCQUYyAzIxNyIeCgNDREcSCjIwMjYtMTAtMDYaA0FUTCoCQUYyAjMwIh8KA0FUTBIKMjAyNi0xMC0wNhoDTUVYKgJETDIDNTg1agcIARIDQk9NcgwIAxIIL20vMDRzcWpAAUgBcAGCAQsI____________AZgBAg&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -54,9 +49,8 @@
   },
   {
    "id": "c06",
-   "source": "reddit comment (r/airindia) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/airindia/comments/1wesr7n/why_doesnt_air_india_let_passengers_onoff_at_ccu/p9glgwg/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTEwLTEzIh8KA0RFTBIKMjAyNi0xMC0xMxoDU0ZPKgJBSTIDMTczagcIARIDREVMcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJUlRJeFdreEhTVnA0TkVWQlNHSmZUV2RDUnkwdExTMHRMUzB0TFhCbWEyMHhNVUZCUVVGQlIzRnNPV05qUzNSbFRHRkJFZ1ZCU1RFM014b0xDS1hxQXhBQ0dnTlZVMFE0SEhDbDZnTT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTEwLTEzIh8KA0RFTBIKMjAyNi0xMC0xMxoDU0ZPKgJBSTIDMTczagcIARIDREVMcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -64,9 +58,8 @@
   },
   {
    "id": "c07",
-   "source": "reddit comment (r/ibiza) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/ibiza/comments/1wdmmih/ibiza_is_officially_deadfeels_like_american/p97lgpm/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpMEgoyMDI3LTA2LTAzIh8KA0VXUhIKMjAyNy0wNi0wMxoDSUJaKgJVQTIDNTQ5KABqDQgCEgkvbS8wMl8yODZyDAgDEggvbS8waDJjMxpMEgoyMDI3LTA2LTA4Ih8KA0lCWhIKMjAyNy0wNi0wOBoDRVdSKgJVQTIDNTUwKABqDAgDEggvbS8waDJjM3INCAISCS9tLzAyXzI4NkABSAFwAYIBCwj___________8BmAEB&tfu=CmxDalJJUnkxMVYyZEZZaTFyYjNkQlJ6bHNWbEZDUnkwdExTMHRMUzB0TFMxNWJHOW9PRUZCUVVGQlIzRnJVamhyUlZjdGVrTkJFZ1ZWUVRVMU1Cb0xDTkd0Q0JBQ0dnTlZVMFE0SEhEUnJRZz0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpMEgoyMDI3LTA2LTAzIh8KA0VXUhIKMjAyNy0wNi0wMxoDSUJaKgJVQTIDNTQ5KABqDQgCEgkvbS8wMl8yODZyDAgDEggvbS8waDJjMxpMEgoyMDI3LTA2LTA4Ih8KA0lCWhIKMjAyNy0wNi0wOBoDRVdSKgJVQTIDNTUwKABqDAgDEggvbS8waDJjM3INCAISCS9tLzAyXzI4NkABSAFwAYIBCwj___________8BmAEB&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -74,9 +67,8 @@
   },
   {
    "id": "c08",
-   "source": "reddit comment (r/LinkedInLunatics) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/LinkedInLunatics/comments/1wdew1g/math_travel_whiz/p959yjp/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpdEgoyMDI3LTAxLTEyIiAKA0JDThIKMjAyNy0wMS0xMhoDSkZLKgJMTDIEMjYyN2oMCAMSCC9tLzA5NDdsagcIARIDRlJBagcIARIDQkNOcg0IAxIJL20vMDJfMjg2Gl0SCjIwMjctMDEtMTkiIAoDSkZLEgoyMDI3LTAxLTE5GgNCQ04qAkxMMgQyNjI4ag0IAxIJL20vMDJfMjg2cgwIAxIIL20vMDk0N2xyBwgBEgNGUkFyBwgBEgNCQ05AAUgBcAGCAQsI____________AZgBAQ&tfu=CmxDalJJYWpKZlpHRXhUbE5pUVZsQlJtZE9OM2RDUnkwdExTMHRMUzB0TFhkaWRtd3hNMEZCUVVGQlIzRnFPVFpaUVZJeU9HTkJFZ1pNVERJMk1qZ2FDd2lTZ1FJUUFob0RSVlZTT0J4d2lxb0MSBggAIAIoASIA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpdEgoyMDI3LTAxLTEyIiAKA0JDThIKMjAyNy0wMS0xMhoDSkZLKgJMTDIEMjYyN2oMCAMSCC9tLzA5NDdsagcIARIDRlJBagcIARIDQkNOcg0IAxIJL20vMDJfMjg2Gl0SCjIwMjctMDEtMTkiIAoDSkZLEgoyMDI3LTAxLTE5GgNCQ04qAkxMMgQyNjI4ag0IAxIJL20vMDJfMjg2cgwIAxIIL20vMDk0N2xyBwgBEgNGUkFyBwgBEgNCQ05AAUgBcAGCAQsI____________AZgBAQ&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -84,27 +76,24 @@
   },
   {
    "id": "c09",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1v45wu5/help_with_flight_biomucsfo_sanmuc/ozbj9fk/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTA4LTI3Ih8KA0JJTxIKMjAyNi0wOC0yNxoDTUFEKgJJQjIDNDMwIh8KA01BRBIKMjAyNi0wOC0yNxoDU0ZPKgJJQjIDMzU1agcIARIDQklPcgcIARIDU0ZPGmYSCjIwMjYtMDktMTEiIAoDU0FOEgoyMDI2LTA5LTExGgNDTFQqAkFBMgQxNjUxIh8KA0NMVBIKMjAyNi0wOS0xMRoDTVVDKgJBQTIDNzg0agwIAhIIL20vMDcxdnJyBwgBEgNNVUNAAUgBcAGCAQsI____________AZgBAw&tfu=CnhDalJJVUMxbmJIcE1SbU5ET1RCQlF6Z3hjRkZDUnkwdExTMHRMUzB0Y0daaWJHOHhNa0ZCUVVGQlIzQnBWRVYzU1dsVFExVkJFZzVCUVRFMk5URjhRVUUzT0RRak1Sb0xDTUdGQkJBQ0dnTlZVMFE0SEhEQmhRUT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTA4LTI3Ih8KA0JJTxIKMjAyNi0wOC0yNxoDTUFEKgJJQjIDNDMwIh8KA01BRBIKMjAyNi0wOC0yNxoDU0ZPKgJJQjIDMzU1agcIARIDQklPcgcIARIDU0ZPGmYSCjIwMjYtMDktMTEiIAoDU0FOEgoyMDI2LTA5LTExGgNDTFQqAkFBMgQxNjUxIh8KA0NMVBIKMjAyNi0wOS0xMRoDTVVDKgJBQTIDNzg0agwIAhIIL20vMDcxdnJyBwgBEgNNVUNAAUgBcAGCAQsI____________AZgBAw&tfu=X",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c10",
-   "source": "reddit comment (r/reisende) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/reisende/comments/1v4dwi7/chinataiwan_hongkong/oza54ud/",
-   "url": "https://www.google.de/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTEwLTAxIh8KA0ZSQRIKMjAyNi0xMC0wMRoDUFZHKgJNVTIDMjU4IiAKA1BWRxIKMjAyNi0xMC0wMhoDVFBFKgJNVTIENTAwNWoHCAESA0ZSQXIHCAESA0tISHIHCAESA1RQRUABSAFwAYIBCwj___________8BmAEC&tfu=CnRDalJJZW14TFVHOTNSME5TWlRoQlNqWjBMWGRDUnkwdExTMHRMV1ZtZDJneE5DMXVNVUZCUVVGQlIzQnBSMk5aVFd0WllVZEJFZ3hOVlRJMU9IeE5WVFV3TURVYUN3akQ5QUVRQWhvRFJWVlNPQnh3aTVZQxIGCAAgAigBIgMSATA",
+   "source": "Reddit",
+   "url": "https://www.google.de/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTEwLTAxIh8KA0ZSQRIKMjAyNi0xMC0wMRoDUFZHKgJNVTIDMjU4IiAKA1BWRxIKMjAyNi0xMC0wMhoDVFBFKgJNVTIENTAwNWoHCAESA0ZSQXIHCAESA0tISHIHCAESA1RQRUABSAFwAYIBCwj___________8BmAEC&tfu=X",
    "expected": {
-    "refused": "country"
+    "refused": "country_unstated"
    }
   },
   {
    "id": "c11",
-   "source": "reddit comment (r/cheapflights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/cheapflights/comments/1t4e6e7/budapest_to_sydney_in_the_end_of_august/ok3rptk/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqFARIKMjAyNi0wOC0yNCIfCgNCVUQSCjIwMjYtMDgtMjQaA05HQioCRk0yAzg5OCIgCgNOR0ISCjIwMjYtMDgtMjUaA1BWRyoCRk0yBDkyNzYiHwoDUFZHEgoyMDI2LTA4LTI1GgNTWUQqAk1VMgM1NjFgiA5qBwgBEgNCVURyBwgBEgNTWUQahQESCjIwMjYtMDktMDQiHwoDU1lEEgoyMDI2LTA5LTA0GgNQVkcqAk1VMgM3MzYiIAoDUFZHEgoyMDI2LTA5LTA1GgNYSVkqAkZNMgQ5MjAxIh8KA1hJWRIKMjAyNi0wOS0wNRoDQlVEKgJGTTIDODkxYIgOagcIARIDU1lEcgcIARIDQlVEQAFIAXABggELCP___________wGYAQE&tfu=CnxDalJJYUU5elZWTnFTbTlyWlhkQlJrOU1hMEZDUnkwdExTMHRMUzB0TFdWcWMzUXhOa0ZCUVVGQlIyNDJUVFF3UkUxeVNIZEJFaEpOVlRjek5ueEdUVGt5TURGOFJrMDRPVEVhQ3dqVm5nWVFBaG9EUlZWU09CeHdxYVlIEgIIACIDCgEx&hl=de&gl=DE",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqFARIKMjAyNi0wOC0yNCIfCgNCVUQSCjIwMjYtMDgtMjQaA05HQioCRk0yAzg5OCIgCgNOR0ISCjIwMjYtMDgtMjUaA1BWRyoCRk0yBDkyNzYiHwoDUFZHEgoyMDI2LTA4LTI1GgNTWUQqAk1VMgM1NjFgiA5qBwgBEgNCVURyBwgBEgNTWUQahQESCjIwMjYtMDktMDQiHwoDU1lEEgoyMDI2LTA5LTA0GgNQVkcqAk1VMgM3MzYiIAoDUFZHEgoyMDI2LTA5LTA1GgNYSVkqAkZNMgQ5MjAxIh8KA1hJWRIKMjAyNi0wOS0wNRoDQlVEKgJGTTIDODkxYIgOagcIARIDU1lEcgcIARIDQlVEQAFIAXABggELCP___________wGYAQE&tfu=X&hl=de&gl=DE",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -112,9 +101,8 @@
   },
   {
    "id": "c12",
-   "source": "reddit comment (r/awardtravel) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/awardtravel/comments/1v3oopj/dumb_to_spend_220k_ur_points_for_one_way_business/oz4qmt5/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpDEgoyMDI2LTExLTE5Ih4KA0lBSBIKMjAyNi0xMS0xORoDTlJUKgJaRzICMTVqBwgBEgNJQUhyDAgDEggvbS8wN2RmaxpDEgoyMDI2LTEyLTA1Ih4KA05SVBIKMjAyNi0xMi0wNRoDSUFIKgJaRzICMTZqDAgDEggvbS8wN2Rma3IHCAESA0lBSEABSANwAYIBCwj___________8BmAEB&tfu=CmxDalJJWkU5VE5sUlJZazQxU2tGQlFVOHpNVUZDUnkwdExTMHRMUzB0YjJ0aVltWXlNMEZCUVVGQlIzQm9SSG93UkVwTldqSkJFZ1JhUnpFMkdnc0l3YlFXRUFJYUExVlRSRGdjY01HMEZnPT0SAggAIgA&hl=en-US&gl=US",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpDEgoyMDI2LTExLTE5Ih4KA0lBSBIKMjAyNi0xMS0xORoDTlJUKgJaRzICMTVqBwgBEgNJQUhyDAgDEggvbS8wN2RmaxpDEgoyMDI2LTEyLTA1Ih4KA05SVBIKMjAyNi0xMi0wNRoDSUFIKgJaRzICMTZqDAgDEggvbS8wN2Rma3IHCAESA0lBSEABSANwAYIBCwj___________8BmAEB&tfu=X&hl=en-US&gl=US",
    "expected": {
     "kind": "itinerary",
     "collector": "cabin"
@@ -122,9 +110,8 @@
   },
   {
    "id": "c13",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1ujnm5y/what_is_the_most_expensive_flight_route_per_mile/ouptqkm/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTA3LTE1Ih8KA1lQShIKMjAyNi0wNy0xNRoDWVRRKgIzSDIDODE1agcIARIDWVBKcgcIARIDWVRRQAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJYW5OVmVrMUpUWEp6YWxsQlJrWlFPSGRDUnkwdExTMHRMUzB0TFc5NVkyczBNVUZCUVVGQlIzQkVNVjluU0dSNWVTMUJFZ1V6U0RneE5Sb0xDTlNUQVJBQ0dnTlZVMFE0SEhEVWt3RT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTA3LTE1Ih8KA1lQShIKMjAyNi0wNy0xNRoDWVRRKgIzSDIDODE1agcIARIDWVBKcgcIARIDWVRRQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -132,18 +119,16 @@
   },
   {
    "id": "c14",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1v7kzjq/trip_advice/ozztpmy/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhp0EgoyMDI3LTAxLTAzIh4KA0pGSxIKMjAyNy0wMS0wMxoDVFBFKgJCUjICMzEiHwoDVFBFEgoyMDI3LTAxLTA0GgNIQU4qAkJSMgMzOTcyDVNUQVJfQUxMSUFOQ0VqDQgDEgkvbS8wMl8yODZyBwgBEgNIQU4adBIKMjAyNy0wMS0xNCIfCgNDTlgSCjIwMjctMDEtMTQaA1RQRSoCQlIyAzI1OCIeCgNUUEUSCjIwMjctMDEtMTQaA0pGSyoCQlIyAjMyMg1TVEFSX0FMTElBTkNFagcIARIDQ05Ycg0IAxIJL20vMDJfMjg2QAFIAXABggELCP___________wGYAQM&tfu=CnRDalJJVDI1eFlVVkNTWFpOZEVWQlVsTllWR2RDUnkwdExTMHRMVzk1WjJveU55MXVNVUZCUVVGQlIzQnRNV2x2UmtoNlptZEJFZ3BDVWpJMU9IeENVak15R2dzSWtQSU5FQUlhQTFWVFJEZ2NjSkR5RFE9PRICCAAiAA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhp0EgoyMDI3LTAxLTAzIh4KA0pGSxIKMjAyNy0wMS0wMxoDVFBFKgJCUjICMzEiHwoDVFBFEgoyMDI3LTAxLTA0GgNIQU4qAkJSMgMzOTcyDVNUQVJfQUxMSUFOQ0VqDQgDEgkvbS8wMl8yODZyBwgBEgNIQU4adBIKMjAyNy0wMS0xNCIfCgNDTlgSCjIwMjctMDEtMTQaA1RQRSoCQlIyAzI1OCIeCgNUUEUSCjIwMjctMDEtMTQaA0pGSyoCQlIyAjMyMg1TVEFSX0FMTElBTkNFagcIARIDQ05Ycg0IAxIJL20vMDJfMjg2QAFIAXABggELCP___________wGYAQM&tfu=X",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c15",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1udcul0/flydubai_cancelled_flight_refusing_to_respect/otdhanw/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI2LTA2LTMwIiAKA0xKVRIKMjAyNi0wNi0zMBoDSVNUKgJUSzIEMTA2NCIfCgNJU1QSCjIwMjYtMDctMDEaA0RYQioCVEsyAzc2MmoHCAESA0xKVXIHCAESA0RYQkABSAFwAYIBCwj___________8BmAEC&tfu=CnRDalJJYVVnMVUyWmhZazh0VGpSQlFVRk5ZVkZDUnkwdExTMHRMUzB0TFhkbVoyRXhOMEZCUVVGQlIyODJlVEZaUmxVdFkzVkJFZ3hVU3pFd05qUjhWRXMzTmpJYUN3aXpsZ01RQWhvRFJWVlNPQnh3dTg0RBICCAUiAwoBMA&gl=GB&curr=EUR",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI2LTA2LTMwIiAKA0xKVRIKMjAyNi0wNi0zMBoDSVNUKgJUSzIEMTA2NCIfCgNJU1QSCjIwMjYtMDctMDEaA0RYQioCVEsyAzc2MmoHCAESA0xKVXIHCAESA0RYQkABSAFwAYIBCwj___________8BmAEC&tfu=X&gl=GB&curr=EUR",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -151,9 +136,8 @@
   },
   {
    "id": "c16",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tz3skf/ukamsterdam_how_much_extra_would_you_pay_for/oq88dr2/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpGEgoyMDI2LTA2LTE3IiAKA0xUThIKMjAyNi0wNi0xNxoDQU1TKgJVMjIEMjUxNygAagcIARIDTFROcgsIAhIHL20vMGszcBpGEgoyMDI2LTA2LTE4IiAKA0FNUxIKMjAyNi0wNi0xOBoDTFROKgJVMjIENzgzMSgAagsIAhIHL20vMGszcHIHCAESA0xUTkABSAFwAYIBCwj___________8BmAEB&tfu=CmxDalJJWVdST05qTk5iRk5JTVdOQlRrWlNabmRDUnkwdExTMHRMUzFsWm1Oc05pMXVNVUZCUVVGQlIyOXNTR1puUVZSM2RHRkJFZ1pWTWpjNE16RWFDd2pmaUFFUUFob0RSVlZTT0J4d3hwMEISAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpGEgoyMDI2LTA2LTE3IiAKA0xUThIKMjAyNi0wNi0xNxoDQU1TKgJVMjIEMjUxNygAagcIARIDTFROcgsIAhIHL20vMGszcBpGEgoyMDI2LTA2LTE4IiAKA0FNUxIKMjAyNi0wNi0xOBoDTFROKgJVMjIENzgzMSgAagsIAhIHL20vMGszcHIHCAESA0xUTkABSAFwAYIBCwj___________8BmAEB&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -161,18 +145,16 @@
   },
   {
    "id": "c17",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tmvmvz/736_flying_basic_economy_open_jaw_texas_london/onpros2/",
-   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTEwLTA2agcIARIDSUFIcgwIAxIIL20vMDRqcGwaIxIKMjAyNi0xMC0yMWoMCAMSCC9tLzA0anBscgcIARIDSUFIQAFIAXABggELCP___________wGYAQE&tfu=EgYIABAAGAA&curr=usd",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTEwLTA2agcIARIDSUFIcgwIAxIIL20vMDRqcGwaIxIKMjAyNi0xMC0yMWoMCAMSCC9tLzA0anBscgcIARIDSUFIQAFIAXABggELCP___________wGYAQE&tfu=X&curr=usd",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c18",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tmvmvz/736_flying_basic_economy_open_jaw_texas_london/onpros2/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI2LTEwLTA2IiAKA0lBSBIKMjAyNi0xMC0wNhoDT1JEKgJVQTIEMTUwMyIfCgNPUkQSCjIwMjYtMTAtMDYaA0JDTioCVUEyAzc2OWoHCAESA0lBSHIHCAESA0JDThpgEgoyMDI2LTEwLTIxIh8KA0JDThIKMjAyNi0xMC0yMRoDWVVMKgJBQzIDODIzIh8KA1lVTBIKMjAyNi0xMC0yMRoDSUFIKgJBQzIDNTgxagcIARIDQkNOcgcIARIDSUFIQAFIAXABggELCP___________wGYAQE&tfu=CnRDalJJWmpWbGR6TlhhemcyTm10QlQwcDVVMUZDUnkwdExTMHRMUzB0TFhCcVluQjNNVUZCUVVGQlIyOVVkRU4zUkRGV1V6QkJFZ3RCUXpneU0zeEJRelU0TVJvTENKM1pCQkFDR2dOVlUwUTRISENkMlFRPRICCAAiAxIBMA&curr=usd",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI2LTEwLTA2IiAKA0lBSBIKMjAyNi0xMC0wNhoDT1JEKgJVQTIEMTUwMyIfCgNPUkQSCjIwMjYtMTAtMDYaA0JDTioCVUEyAzc2OWoHCAESA0lBSHIHCAESA0JDThpgEgoyMDI2LTEwLTIxIh8KA0JDThIKMjAyNi0xMC0yMRoDWVVMKgJBQzIDODIzIh8KA1lVTBIKMjAyNi0xMC0yMRoDSUFIKgJBQzIDNTgxagcIARIDQkNOcgcIARIDSUFIQAFIAXABggELCP___________wGYAQE&tfu=X&curr=usd",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -180,36 +162,32 @@
   },
   {
    "id": "c19",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tmvmvz/736_flying_basic_economy_open_jaw_texas_london/onpros2/",
-   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTEwLTA2agcIARIDSUFIcgwIAxIIL20vMDRqcGwaHhIKMjAyNi0xMC0yMWoHCAESA0JDTnIHCAESA0lBSEABSAFwAYIBCwj___________8BmAED&tfu=EgYIABAAGAA&curr=usd",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTEwLTA2agcIARIDSUFIcgwIAxIIL20vMDRqcGwaHhIKMjAyNi0xMC0yMWoHCAESA0JDTnIHCAESA0lBSEABSAFwAYIBCwj___________8BmAED&tfu=X&curr=usd",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c20",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tixigh/trying_to_book_multicity_sfo_edi_then_lhr_sfo_is/omy2p2s/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTA5LTEzIh4KA1NGTxIKMjAyNi0wOS0xMxoDQ0RHKgJBRjICODEiIAoDQ0RHEgoyMDI2LTA5LTE0GgNFREkqAkFGMgQxODg2agcIARIDU0ZPcgcIARIDRURJGj4SCjIwMjYtMDktMjQiHgoDTEhSEgoyMDI2LTA5LTI0GgNTRk8qAlZTMgIxOWoHCAESA0xIUnIHCAESA1NGT0ABQAFIAXABggELCP___________wGYAQM&tfu=EgIIACIA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI2LTA5LTEzIh4KA1NGTxIKMjAyNi0wOS0xMxoDQ0RHKgJBRjICODEiIAoDQ0RHEgoyMDI2LTA5LTE0GgNFREkqAkFGMgQxODg2agcIARIDU0ZPcgcIARIDRURJGj4SCjIwMjYtMDktMjQiHgoDTEhSEgoyMDI2LTA5LTI0GgNTRk8qAlZTMgIxOWoHCAESA0xIUnIHCAESA1NGT0ABQAFIAXABggELCP___________wGYAQM&tfu=X",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c21",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tixigh/trying_to_book_multicity_sfo_edi_then_lhr_sfo_is/omy2p2s/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpfEgoyMDI2LTA5LTEzIh4KA1NGTxIKMjAyNi0wOS0xMxoDWlJIKgJMWDICMzkiHwoDWlJIEgoyMDI2LTA5LTE0GgNFREkqAldLMgMyOTBqBwgBEgNTRk9yBwgBEgNFREkaPxIKMjAyNi0wOS0yNCIfCgNMSFISCjIwMjYtMDktMjQaA1NGTyoCVUEyAzk0OWoHCAESA0xIUnIHCAESA1NGT0ABQAFIAXABggELCP___________wGYAQM&tfu=EgIIACIA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpfEgoyMDI2LTA5LTEzIh4KA1NGTxIKMjAyNi0wOS0xMxoDWlJIKgJMWDICMzkiHwoDWlJIEgoyMDI2LTA5LTE0GgNFREkqAldLMgMyOTBqBwgBEgNTRk9yBwgBEgNFREkaPxIKMjAyNi0wOS0yNCIfCgNMSFISCjIwMjYtMDktMjQaA1NGTyoCVUEyAzk0OWoHCAESA0xIUnIHCAESA1NGT0ABQAFIAXABggELCP___________wGYAQM&tfu=X",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c22",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tita17/best_layover_for_norfolk_orf_austin_aus_roundtrip/omx0s73/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTA2LTE5IiAKA09SRhIKMjAyNi0wNi0xORoDQVRMKgJETDIEMTMzNiIgCgNBVEwSCjIwMjYtMDYtMTkaA0FVUyoCREwyBDEzOTdACkgOUABYF2oHCAESA09SRnIHCAESA0FVU0ABSAFwAYIBCwj___________8BmAECyAEB&tfu=CnhDalJJU1RKVGRFUnZlblZHYkUxQlJuSkxTR2RDUnkwdExTMHRMUzB0TFc5NVkybGpORUZCUVVGQlIyOVBRWGN3U1ZZM1kzRkJFZzFFVERFek16WjhSRXd4TXprM0dnc0l4TkVCRUFJYUExVlRSRGdjY01UUkFRPT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTA2LTE5IiAKA09SRhIKMjAyNi0wNi0xORoDQVRMKgJETDIEMTMzNiIgCgNBVEwSCjIwMjYtMDYtMTkaA0FVUyoCREwyBDEzOTdACkgOUABYF2oHCAESA09SRnIHCAESA0FVU0ABSAFwAYIBCwj___________8BmAECyAEB&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -217,9 +195,8 @@
   },
   {
    "id": "c23",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1tiac5k/new_here_new_to_all_of_this_how_do_i_search_for_a/omsxl0h/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqBARIKMjAyNi0wOC0xMiIfCgNCVUYSCjIwMjYtMDgtMTIaA09SRCoCVUEyAzU0MyIgCgNPUkQSCjIwMjYtMDgtMTIaA0NPUyoCVUEyBDEwODJqBwgBEgNZWVpqBwgBEgNZVFpqBwgBEgNZT1dqBwgBEgNCVUZyDAgDEggvbS8wMXZzbBqCARIKMjAyNi0wOC0xOSIgCgNDT1MSCjIwMjYtMDgtMTkaA09SRCoCVUEyBDEzOTgiIAoDT1JEEgoyMDI2LTA4LTE5GgNCVUYqAlVBMgQxMzM1agwIAxIIL20vMDF2c2xyBwgBEgNZWVpyBwgBEgNZVFpyBwgBEgNZT1dyBwgBEgNCVUZAAUgBcAGCAQsI____________AZgBAQ&tfu=CnhDalJJV0d0dVgwcExkR3BMVDJ0QlJGbHdURkZDUnkwdExTMHRMUzB0YjNsamFHWXhOa0ZCUVVGQlIyOU9UVFZqUkVGVVpuTkJFZzFWUVRFek9UaDhWVUV4TXpNMUdnc0k3OGtCRUFJYUExVlRSRGdjY08vSkFRPT0SBggAIAIoASIDEgEw",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqBARIKMjAyNi0wOC0xMiIfCgNCVUYSCjIwMjYtMDgtMTIaA09SRCoCVUEyAzU0MyIgCgNPUkQSCjIwMjYtMDgtMTIaA0NPUyoCVUEyBDEwODJqBwgBEgNZWVpqBwgBEgNZVFpqBwgBEgNZT1dqBwgBEgNCVUZyDAgDEggvbS8wMXZzbBqCARIKMjAyNi0wOC0xOSIgCgNDT1MSCjIwMjYtMDgtMTkaA09SRCoCVUEyBDEzOTgiIAoDT1JEEgoyMDI2LTA4LTE5GgNCVUYqAlVBMgQxMzM1agwIAxIIL20vMDF2c2xyBwgBEgNZWVpyBwgBEgNZVFpyBwgBEgNZT1dyBwgBEgNCVUZAAUgBcAGCAQsI____________AZgBAQ&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -227,9 +204,8 @@
   },
   {
    "id": "c24",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1uwubny/using_tripcom_or_kiwicom_for_significantly/oxm2v25/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpAEgoyMDI2LTA4LTA0IiAKA1NGTxIKMjAyNi0wOC0wNBoDWVlDKgJXUzIEMTUwMWoHCAESA1NGT3IHCAESA1lZQ0ABSAFwAYIBCwj___________8BmAECyAEA&tfu=CmxDalJJYUdKT2FsUkVVR3Q0TlVsQlEzUkdhMmRDUnkwdExTMHRMUzB0TFc5NVkybHlORUZCUVVGQlIzQllRVWhWUVhsalNtdEJFZ1pYVXpFMU1ERWFDZ2ljWkJBQ0dnTlZVMFE0SEhDY1pBPT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpAEgoyMDI2LTA4LTA0IiAKA1NGTxIKMjAyNi0wOC0wNBoDWVlDKgJXUzIEMTUwMWoHCAESA1NGT3IHCAESA1lZQ0ABSAFwAYIBCwj___________8BmAECyAEA&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -237,9 +213,8 @@
   },
   {
    "id": "c25",
-   "source": "reddit comment (r/Flights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/Flights/comments/1uwubny/using_tripcom_or_kiwicom_for_significantly/oxm2v25/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpCEgoyMDI2LTA4LTEzIiAKA1lZQxIKMjAyNi0wOC0xMxoDU0ZPKgJXUzIEMTUwMCgAagcIARIDWVlDcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQLIAQA&tfu=CmxDalJJYTBscFpqTm5XbmRpZVZsQlFqWlBjbmRDUnkwdExTMHRMUzB0TFc5NWFtbzNNRUZCUVVGQlIzQllRVXQzVEhwTVZFbEJFZ3BYVXpFMU1EQWFDd2kvdmdFUUFob0RWVk5FT0J4d3Y3NEISAggAIgMKATA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpCEgoyMDI2LTA4LTEzIiAKA1lZQxIKMjAyNi0wOC0xMxoDU0ZPKgJXUzIEMTUwMCgAagcIARIDWVlDcgcIARIDU0ZPQAFIAXABggELCP___________wGYAQLIAQA&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -247,9 +222,8 @@
   },
   {
    "id": "c26",
-   "source": "reddit comment (r/unitedairlines) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/unitedairlines/comments/1w5w6ld/something_really_weird_just_happened_on_ua926/p7iekxi/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpvEgoyMDI2LTA5LTAzIh8KA0ZSQRIKMjAyNi0wOS0wMxoDRkNPKgJBWjIDNDA3Ih8KA0ZDTxIKMjAyNi0wOS0wMxoDTkNFKgJBWjIDMzQwMg1TVEFSX0FMTElBTkNFagcIARIDRlJBcgcIARIDTkNFQAFIAXABggELCP___________wGYAQI&tfu=CnRDalJJWWw5eVNpMVVlV2xVUVZGQlF6QnBWSGRDUnkwdExTMHRMUzB0TFMxdmEzVnhOVUZCUVVGQlIzRlpOMGxWVHpKMFRuZEJFZ3RCV2pRd04zeEJXak0wTUJvTENJUFFBUkFDR2dOVlUwUTRISENEMEFFPRICCAAiAA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpvEgoyMDI2LTA5LTAzIh8KA0ZSQRIKMjAyNi0wOS0wMxoDRkNPKgJBWjIDNDA3Ih8KA0ZDTxIKMjAyNi0wOS0wMxoDTkNFKgJBWjIDMzQwMg1TVEFSX0FMTElBTkNFagcIARIDRlJBcgcIARIDTkNFQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -257,8 +231,7 @@
   },
   {
    "id": "c27",
-   "source": "reddit comment (r/nederlands) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/nederlands/comments/1vxcnpy/tickets_naar_japan/p5nvinr/",
+   "source": "Reddit",
    "url": "https://www.google.com/travel/flights/booking?tfs=CAIQAhplEgoyMDI3LTAyLTIyIh8KA0JSVRIKMjAyNy0wMi0yMhoDUEVLKgJIVTIDNDkyIh8KA1BFSxIKMjAyNy0wMi0yMxoDTlJUKgJIVTIDNDM5agcIARIDQlJVcgwIAxIIL20vMDdkZmsaZRIKMjAyNy0wMy0wNCIfCgNOUlQSCjIwMjctMDMtMDQaA1BFSyoCSFUyAzQ0MCIfCgNQRUsSCjIwMjctMDMtMDUaA0JSVSoCSFUyAzQ5MWoMCAMSCC9tLzA3ZGZrcgcIARIDQlJVQAFIAXABggELCP___________wGYAQE&source=flre_fli_share&utm_campaign=sharing",
    "expected": {
     "kind": "itinerary",
@@ -267,9 +240,8 @@
   },
   {
    "id": "c28",
-   "source": "reddit comment (r/nederlands) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/nederlands/comments/1vxcnpy/tickets_naar_japan/p5nvccz/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhppEgoyMDI3LTA1LTExIh8KA0FNUxIKMjAyNy0wNS0xMRoDQ1BIKgJTSzIDNTUwIh8KA0NQSBIKMjAyNy0wNS0xMRoDSE5EKgJTSzIDOTgzagsIAhIHL20vMGszcHIMCAISCC9tLzA3ZGZrGmkSCjIwMjctMDUtMjEiHwoDSE5EEgoyMDI3LTA1LTIxGgNDUEgqAlNLMgM5ODQiHwoDQ1BIEgoyMDI3LTA1LTIxGgNBTVMqAlNLMgM1NTNqDAgCEggvbS8wN2Rma3ILCAISBy9tLzBrM3BAAUgBcAGCAQsI____________AZgBAbIBAhgB&tfu=CnRDalJJTm5kellsUnRWa0ppWVZsQlFWQjVhMUZDUnkwdExTMHRMUzB0TFMxbFptSnNORUZCUVVGQlIzRk5ibFJ2VFZweWRIbEJFZ3RUU3prNE5IeFRTelUxTXhvTENONytCQkFDR2dORlZWSTRISEQyNkFVPRIGCAAgAigBIgMSATA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhppEgoyMDI3LTA1LTExIh8KA0FNUxIKMjAyNy0wNS0xMRoDQ1BIKgJTSzIDNTUwIh8KA0NQSBIKMjAyNy0wNS0xMRoDSE5EKgJTSzIDOTgzagsIAhIHL20vMGszcHIMCAISCC9tLzA3ZGZrGmkSCjIwMjctMDUtMjEiHwoDSE5EEgoyMDI3LTA1LTIxGgNDUEgqAlNLMgM5ODQiHwoDQ1BIEgoyMDI3LTA1LTIxGgNBTVMqAlNLMgM1NTNqDAgCEggvbS8wN2Rma3ILCAISBy9tLzBrM3BAAUgBcAGCAQsI____________AZgBAbIBAhgB&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -277,9 +249,8 @@
   },
   {
    "id": "c29",
-   "source": "reddit comment (r/awardtravel) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/awardtravel/comments/1vsuizt/wondering_worth_for_economy_award_travel/p4oasix/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI3LTA0LTA4Ih8KA0xBWBIKMjAyNy0wNC0wOBoDTU5MKgJQUjIDMTAzIh8KA01OTBIKMjAyNy0wNC0xMBoDU0dOKgJQUjIDNTkxagcIARIDTEFYcgcIARIDU0dOQAFIAXABggELCP___________wGYAQI&tfu=CnRDalJJZFZCVk1YazJiRTVzYzJkQlF6bDRVMEZDUnkwdExTMHRMUzB0TFMxd1ptSm5PVUZCUVVGQlIzRkdMWGRyU3pjeFltTkJFZ3RRVWpFd00zeFFValU1TVJvTENQTFdBaEFDR2dOVlUwUTRISER5MWdJPRICCAAiAA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI3LTA0LTA4Ih8KA0xBWBIKMjAyNy0wNC0wOBoDTU5MKgJQUjIDMTAzIh8KA01OTBIKMjAyNy0wNC0xMBoDU0dOKgJQUjIDNTkxagcIARIDTEFYcgcIARIDU0dOQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -287,18 +258,16 @@
   },
   {
    "id": "c30",
-   "source": "reddit comment (r/QantasAirways) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/QantasAirways/comments/1vg6ihk/really_qantas/p1uixny/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpkEgoyMDI3LTAzLTAzIh8KA0FETBIKMjAyNy0wMy0wMxoDTUVMKgJKUTIDNzczIh8KA01FTBIKMjAyNy0wMy0wMxoDWlFOKgJKUTIDMjE5agsIAhIHL20vMG1ncHIHCAESA1pRThpkEgoyMDI3LTAzLTE3Ih8KA0NIQxIKMjAyNy0wMy0xNxoDTUVMKgJRRjIDMTcwIh8KA01FTBIKMjAyNy0wMy0xNxoDQURMKgJRRjIDNjk3agcIARIDQ0hDcgsIAhIHL20vMG1ncEABQAFIAXABggELCP___________wGYAQM&tfu=CnRDalJJTkU5TWFrMVNkbkJhYjJOQlJETTVkbWRDUnkwdExTMHRMUzB0TFhOdFoya3hNMEZCUVVGQlIzQjZUWGcwUW1oVVNFdEJFZ3RSUmpFM01IeFJSalk1TnhvTENNVEdDQkFDR2dOQlZVUTRISERUZ3dZPRICCAAiAwoBMA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpkEgoyMDI3LTAzLTAzIh8KA0FETBIKMjAyNy0wMy0wMxoDTUVMKgJKUTIDNzczIh8KA01FTBIKMjAyNy0wMy0wMxoDWlFOKgJKUTIDMjE5agsIAhIHL20vMG1ncHIHCAESA1pRThpkEgoyMDI3LTAzLTE3Ih8KA0NIQxIKMjAyNy0wMy0xNxoDTUVMKgJRRjIDMTcwIh8KA01FTBIKMjAyNy0wMy0xNxoDQURMKgJRRjIDNjk3agcIARIDQ0hDcgsIAhIHL20vMG1ncEABQAFIAXABggELCP___________wGYAQM&tfu=X",
    "expected": {
     "refused": "multi_city"
    }
   },
   {
    "id": "c31",
-   "source": "reddit comment (r/cheapflights) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/cheapflights/comments/1v8mwby/last_minute_sea_or_japan_tickets_help/p077fsc/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTA3LTI5Ih8KA0JVRBIKMjAyNi0wNy0yORoDRE9IKgJRUjIDMjAyIh8KA0RPSBIKMjAyNi0wNy0zMBoDSUNOKgJRUjIDODU4agwIAxIIL20vMDk1d19yDAgDEggvbS8waHNxZhpqEgoyMDI2LTA4LTI4Ih8KA0lDThIKMjAyNi0wOC0yOBoDRE9IKgJRUjIDODU5Ih8KA0RPSBIKMjAyNi0wOC0yOBoDQlVEKgJRUjIDMTk5agwIAxIIL20vMGhzcWZyDAgDEggvbS8wOTV3X0ABSAFwAYIBCwj___________8BmAEB&tfu=CnRDalJJUkY5dE1uaEVha0ZMUzJ0QlEwWlJSMEZDUnkwdExTMHRMUzB0TFMxdmVXRjBOa0ZCUVVGQlIzQnZTMnBSVDNGb1ZITkJFZ3RSVWpnMU9YeFJVakU1T1JvTENLYUlCUkFDR2dORlZWSTRISEM5NFFVPRICCAAiAwoBMQ&curr=EUR",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpqEgoyMDI2LTA3LTI5Ih8KA0JVRBIKMjAyNi0wNy0yORoDRE9IKgJRUjIDMjAyIh8KA0RPSBIKMjAyNi0wNy0zMBoDSUNOKgJRUjIDODU4agwIAxIIL20vMDk1d19yDAgDEggvbS8waHNxZhpqEgoyMDI2LTA4LTI4Ih8KA0lDThIKMjAyNi0wOC0yOBoDRE9IKgJRUjIDODU5Ih8KA0RPSBIKMjAyNi0wOC0yOBoDQlVEKgJRUjIDMTk5agwIAxIIL20vMGhzcWZyDAgDEggvbS8wOTV3X0ABSAFwAYIBCwj___________8BmAEB&tfu=X&curr=EUR",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -306,8 +275,7 @@
   },
   {
    "id": "c32",
-   "source": "reddit comment (r/usatravel) via api.pullpush.io",
-   "page": "https://www.reddit.com/r/usatravel/comments/1iiztij/looking_to_travel_from_los_angeles_to_seattle/mbho1lt/",
+   "source": "Reddit",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhonEgoyMDI1LTAzLTA1agcIARIDQlVScgcIARIDU0ZPcgcIARIDT0FLQAFIAXABggELCP___________wGYAQI&hl=en",
    "expected": {
     "refused": "search_stops"
@@ -315,8 +283,7 @@
   },
   {
    "id": "c33",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=49085806",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA4LTA3agcIARIDTUVMcgcIARIDTEhSQAFIAXABggELCP___________wGYAQI",
    "expected": {
     "refused": "search_stops"
@@ -324,9 +291,8 @@
   },
   {
    "id": "c34",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=48503010",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFEgoyMDI2LTA2LTIwIiAKA0JXSRIKMjAyNi0wNi0yMBoDTUlBKgJGOTIEMTY2NWoMCAMSCC9tLzByaDZrcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJTW5kVGIxUllaMjEwYmxsQlJGUk9PRkZDUnkwdExTMHRMUzB0TFhkbWFYTXhNRUZCUVVGQlIyOXlPVWd3VDFoV01VZEJFZ1pHT1RFMk5qVWFDZ2pQSUJBQ0dnTkhRbEE0SEhEZkt3PT0SAggAIgMKATA",
+   "source": "Hacker News",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFEgoyMDI2LTA2LTIwIiAKA0JXSRIKMjAyNi0wNi0yMBoDTUlBKgJGOTIEMTY2NWoMCAMSCC9tLzByaDZrcgcIARIDTUlBQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -334,8 +300,7 @@
   },
   {
    "id": "c35",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=47636131",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/s/fewZVhBFrtMTn7WQ6",
    "expected": {
     "refused": "shared_link"
@@ -343,8 +308,7 @@
   },
   {
    "id": "c36",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=47635769",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/s/64QhvwAzsAGp8NUA7",
    "expected": {
     "refused": "shared_link"
@@ -352,8 +316,7 @@
   },
   {
    "id": "c37",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=44965018",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/deals",
    "expected": {
     "refused": "flights_page"
@@ -361,8 +324,7 @@
   },
   {
    "id": "c38",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=44371195",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI1LTExLTIxagcIARIDRFBTcgcIARIDS1VMQAFIAXABggELCP___________wGYAQI",
    "expected": {
     "refused": "search_stops"
@@ -370,8 +332,7 @@
   },
   {
    "id": "c39",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=38895484",
+   "source": "Hacker News",
    "url": "https://google.com/flights",
    "expected": {
     "refused": "no_flights"
@@ -379,17 +340,15 @@
   },
   {
    "id": "c40",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=38895484",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI0LTAyLTAzagcIARIDU1lScgcIARIDU0ZPGh4SCjIwMjQtMDItMTBqBwgBEgNTRk9yBwgBEgNTWVJAAUgBcAGCAQsI____________AZgBAQ",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c41",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=38353311",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/s/yYPhNC6aXX4VP5cj8",
    "expected": {
     "refused": "shared_link"
@@ -397,8 +356,7 @@
   },
   {
    "id": "c42",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=35585702",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/s/KLAA2UnyrkmuH8Kv7",
    "expected": {
     "refused": "shared_link"
@@ -406,9 +364,8 @@
   },
   {
    "id": "c43",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=34819026",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpHagwIAhIIL20vMGYydzASCjIwMjMtMDMtMzByBwgBEgNCV0kiIAoDU0FUEgoyMDIzLTAzLTMwGgNCV0kqAk5LMgQxNzM5KAAaR2oHCAESA0JXSRIKMjAyMy0wNC0wM3IMCAISCC9tLzBmMncwIiAKA0JXSRIKMjAyMy0wNC0wMxoDU0FUKgJOSzIEMTc0NygAcAGCAQsI____________AUABSAGYAQE&tfu=EgIIAQ&client=safari",
+   "source": "Hacker News",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpHagwIAhIIL20vMGYydzASCjIwMjMtMDMtMzByBwgBEgNCV0kiIAoDU0FUEgoyMDIzLTAzLTMwGgNCV0kqAk5LMgQxNzM5KAAaR2oHCAESA0JXSRIKMjAyMy0wNC0wM3IMCAISCC9tLzBmMncwIiAKA0JXSRIKMjAyMy0wNC0wMxoDU0FUKgJOSzIEMTc0NygAcAGCAQsI____________AUABSAGYAQE&tfu=X&client=safari",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -416,9 +373,8 @@
   },
   {
    "id": "c44",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=29143987",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpfagcIARIDQUtMEgoyMDIyLTA1LTMxcgcIARIDRFBTIh8KA0FLTBIKMjAyMi0wNS0zMRoDU1lEKgJRRjIDMTQyIh4KA1NZRBIKMjAyMi0wNS0zMRoDRFBTKgJRRjICNDNwAYIBCwj___________8BQAFIA5gBAg&tfu=CnRDalJJVEZCRlpEQllNM0Z1ZDBWQlVVZDJXRUZDUnkwdExTMHRMUzB0ZEdodWJqRXpOVUZCUVVGQlIwZEpWR1ZWUzFWbE5VRkJFZ3BSUmpFME1ueFJSalF6R2dzSXlQRUhFQUlhQTA1YVJEZ2NjS2JPQlE9PRIGCAEQABgA",
+   "source": "Hacker News",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpfagcIARIDQUtMEgoyMDIyLTA1LTMxcgcIARIDRFBTIh8KA0FLTBIKMjAyMi0wNS0zMRoDU1lEKgJRRjIDMTQyIh4KA1NZRBIKMjAyMi0wNS0zMRoDRFBTKgJRRjICNDNwAYIBCwj___________8BQAFIA5gBAg&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -426,17 +382,15 @@
   },
   {
    "id": "c45",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=29143987",
-   "url": "https://www.google.com/flights?tfs=CBoQAho-EgoyMDIyLTAzLTI5Ih4KA0FLTBIKMjAyMi0wMy0yORoDTlJUKgJOWjICOTlqBwgBEgNBS0xyBwgBEgNOUlQaYBIKMjAyMi0wNC0yMCIeCgNOUlQSCjIwMjItMDQtMjAaA0hFTCoCQVkyAjc0IiAKA0hFTBIKMjAyMi0wNC0yMBoDUklYKgJBWTIEMTA3NWoHCAESA05SVHIHCAESA1JJWEADQAJAAUABSAFSA05aRHpoQ2pSSWRHNU5YM1Z1UjNKcE1ITkJVVlZpTmxGQ1J5MHRMUzB0TFMwdGRHaGtZekUwTlVGQlFVRkJSMGRKVkdjMFEzSTNaRUZCRWdJeE1Cb0xDSUw2SHhBQ0dnTk9Xa1E0RjNDRDNoWT0&hl=en-GB&gl=NZ&curr=NZD&gsas=1&sa=X&ved=0CBAQ2I8EahcKEwig0-7HoYf0AhUAAAAAHQAAAAAQEQ",
+   "source": "Hacker News",
+   "url": "https://www.google.com/flights?tfs=CBoQAho-EgoyMDIyLTAzLTI5Ih4KA0FLTBIKMjAyMi0wMy0yORoDTlJUKgJOWjICOTlqBwgBEgNBS0xyBwgBEgNOUlQaYBIKMjAyMi0wNC0yMCIeCgNOUlQSCjIwMjItMDQtMjAaA0hFTCoCQVkyAjc0IiAKA0hFTBIKMjAyMi0wNC0yMBoDUklYKgJBWTIEMTA3NWoHCAESA05SVHIHCAESA1JJWEADQAJAAUABSAFSA05aRHpoQ2pSSWRHNU5YM1Z1UjNKcE1ITkJVVlZpTmxGQ1J5MHRMUzB0TFMwdGRHaGtZekUwTlVGQlFVRkJSMGRKVkdjMFEzSTNaRUZCRWdJeE1Cb0xDSUw2SHhBQ0dnTk9Xa1E0RjNDRDNoWT0&hl=en-GB&gl=NZ&curr=NZD&gsas=1&sa=X&ved=X",
    "expected": {
     "refused": "children"
    }
   },
   {
    "id": "c46",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=26771202",
+   "source": "Hacker News",
    "url": "https://www.google.com/travel/flights/s/a5Ea",
    "expected": {
     "refused": "shared_link"
@@ -444,8 +398,7 @@
   },
   {
    "id": "c47",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=20393115",
+   "source": "Hacker News",
    "url": "https://www.google.com/flights?hl=en#flt=/m/0156q./m/0jwz5.2019-08-19.TXLPMI0FR280*/m/0jwz5./m/0156q.2019-08-28.PMITXL0FR277;c:EUR;e:1;p:5000.2.EUR;sd:1;t:b;sp:2.EUR.1998*2.EUR.1998",
    "expected": {
     "refused": "old_format"
@@ -453,17 +406,15 @@
   },
   {
    "id": "c48",
-   "source": "Hacker News comment (via hn.algolia.com API)",
-   "page": "https://news.ycombinator.com/item?id=5322199",
+   "source": "Hacker News",
    "url": "https://www.google.com/flights/#search;f=YVR;t=POX,ORY,XCR,BVA,CDG;d=2013-03-20;r=2013-03-24;mc=m",
    "expected": {
-    "refused": "flights_page"
+    "refused": "old_format"
    }
   },
   {
    "id": "c49",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/ACMaster03/asia-nomad-trip-planner/blob/5b98714943442061a04b3169b85d18bbb8f861f1/js/data.js",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJEgoyMDI2LTA5LTAzIh8KA0JVRBIKMjAyNi0wOS0wMxoDUFZHKgJGTTIDODcwagwIAhIIL20vMDk1d19yDAgCEggvbS8wNndqZkABQAFIAXABggELCP___________wGYAQI",
    "expected": {
     "kind": "itinerary",
@@ -472,17 +423,15 @@
   },
   {
    "id": "c50",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/AWeirdDev/flights/blob/5fd011e34da59c7fef4cf7ad9a5571622b70432d/README.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI0LTA1LTI4agcIARIDVFBFcgcIARIDTVlKGh4SCjIwMjQtMDUtMzBqBwgBEgNNWUpyBwgBEgNUUEVAAUgBcAGCAQsI____________AZgBAQ&hl=en",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c51",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/EphraimHaber/sabaton-tour-2027/blob/bc08ee0d5b623fd820a2c872bfcd8fc75e446d0b/lisbon/sources.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=GlwSCjIwMjctMDQtMTNqBRIDVExWcgUSA0xJUyIfCgNUTFYSCjIwMjctMDQtMTMaA0FUSCoCQTMyAzkyNSIfCgNBVEgSCjIwMjctMDQtMTMaA0xJUyoCQTMyAzcyMhoaEgoyMDI3LTA0LTE4agUSA0xJU3IFEgNUTFZCAwEBAUgBmAEB&hl=en&curr=ILS",
    "expected": {
     "refused": "return_missing"
@@ -490,9 +439,8 @@
   },
   {
    "id": "c52",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/Faheem798/GFlightScraper/blob/a3c0d55356d0789c62d5c5092332e97396f609a1/utils/data.js",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI0LTAyLTEyIh4KA0pGSxIKMjAyNC0wMi0xMhoDR1ZBKgJMWDICMjMiIAoDR1ZBEgoyMDI0LTAyLTEzGgNBVEgqAkxYMgQxODIyagcIARIDSkZLcgcIARIDQVRIGl4SCjIwMjQtMDItMTQiHwoDQVRIEgoyMDI0LTAyLTE0GgNUTFYqAkxZMgM1NDQiHQoDVExWEgoyMDI0LTAyLTE1GgNKRksqAkxZMgE5agcIARIDQVRIcgcIARIDSkZLQAFIAXABggELCP___________wGYAQE&tfu=CnBDalJJZDFORGVHOTNaa05rTFRoQlF6UnNaWGRDUnkwdExTMHRMUzB0TFMxM1pXSXhOVUZCUVVGQlIxZG1ZbEJ2UjJSVmMzRkJFZ2xNV1RVME5IeE1XVGthQ3dpaXExY1FBQm9EVUV0U09CeHd5cE1mEgIIASIA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpgEgoyMDI0LTAyLTEyIh4KA0pGSxIKMjAyNC0wMi0xMhoDR1ZBKgJMWDICMjMiIAoDR1ZBEgoyMDI0LTAyLTEzGgNBVEgqAkxYMgQxODIyagcIARIDSkZLcgcIARIDQVRIGl4SCjIwMjQtMDItMTQiHwoDQVRIEgoyMDI0LTAyLTE0GgNUTFYqAkxZMgM1NDQiHQoDVExWEgoyMDI0LTAyLTE1GgNKRksqAkxZMgE5agcIARIDQVRIcgcIARIDSkZLQAFIAXABggELCP___________wGYAQE&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -500,8 +448,7 @@
   },
   {
    "id": "c53",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/Faheem798/GFlightScraper/blob/a3c0d55356d0789c62d5c5092332e97396f609a1/utils/data.js",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/s/w2HucPV64nFtGyqcA",
    "expected": {
     "refused": "shared_link"
@@ -509,9 +456,8 @@
   },
   {
    "id": "c54",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/IdkwhatImD0ing/travel/blob/f97429f209b567aa256e6b06c0a3cce540e3abf1/data/trips.ts",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI2LTExLTI2Ih8KA1NGTxIKMjAyNi0xMS0yNhoDSE5MKgJBUzIDODExKABqDAgCEggvbS8wZDZscHIMCAMSCC9tLzBkZmNuGksSCjIwMjYtMTEtMzAiHwoDSE5MEgoyMDI2LTExLTMwGgNTRk8qAkFTMgM4NTUoAGoMCAMSCC9tLzBkZmNucgwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAQ&tfu=CmxDalJJVWpWc1kzcDFVMlp5VmpSQlJYUktaV2RDUnkwdExTMHRMUzB0TFMxd1ptNXlPVUZCUVVGQlIzSlRabk5aVFVsVldYbEJFZ1ZCVXpnMU5Sb0xDTERCQXhBQ0dnTlZVMFE0SEhDd3dRTT0SAggAIgA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI2LTExLTI2Ih8KA1NGTxIKMjAyNi0xMS0yNhoDSE5MKgJBUzIDODExKABqDAgCEggvbS8wZDZscHIMCAMSCC9tLzBkZmNuGksSCjIwMjYtMTEtMzAiHwoDSE5MEgoyMDI2LTExLTMwGgNTRk8qAkFTMgM4NTUoAGoMCAMSCC9tLzBkZmNucgwIAhIIL20vMGQ2bHBAAUgBcAGCAQsI____________AZgBAQ&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -519,9 +465,8 @@
   },
   {
    "id": "c55",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/LetsFG/LetsFG/blob/f8836c842c0560e1695a1467ec17250911c908a2/sdk/python/google_checkout_live_sweep_longhaul_london_us.json",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTA2LTI0Ih8KA0xIUhIKMjAyNi0wNi0yNBoDTEFYKgJWUzIDMTQxagcIARIDTEhScgcIARIDTEFYGj4SCjIwMjYtMDYtMjgiHgoDTEFYEgoyMDI2LTA2LTI4GgNMSFIqAlZTMgIyNGoHCAESA0xBWHIHCAESA0xIUkABSAFwAYIBCwj___________8BmAEB&tfu=CmxDalJJUTNjM2VqTmxaVkJCVVZGQlFWTnlZMEZDUnkwdExTMHRMUzB0YkcxaVozSXhPRUZCUVVGQlIyOU1aRzV6U1ZsZlVEWkJFZ1JXVXpJMEdnc0l3WXdGRUFJYUEwVlZVamdjY01uNEJRPT0SAggAIgMSATA&hl=en&curr=EUR",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI2LTA2LTI0Ih8KA0xIUhIKMjAyNi0wNi0yNBoDTEFYKgJWUzIDMTQxagcIARIDTEhScgcIARIDTEFYGj4SCjIwMjYtMDYtMjgiHgoDTEFYEgoyMDI2LTA2LTI4GgNMSFIqAlZTMgIyNGoHCAESA0xBWHIHCAESA0xIUkABSAFwAYIBCwj___________8BmAEB&tfu=X&hl=en&curr=EUR",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -529,8 +474,7 @@
   },
   {
    "id": "c56",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/Tuchsanai/Teaching_CWN2026/blob/5c2d5feb0c4b4f4055f1701c4f398ed4a1fd8b5c/00_week01/03_petshop-testplan-from-exploration/02_lab/02_google-flights/_solution/CHARTERS-B.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhooEgoyMDI2LTEyLTE1agwIAhIIL20vMGZuMmdyDAgDEggvbS8wN2Rma0ABSAFwAYIBCwj___________8BmAEC&hl=th&gl=TH&curr=THB",
    "expected": {
     "refused": "search_currency"
@@ -538,8 +482,7 @@
   },
   {
    "id": "c57",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/Tuchsanai/Teaching_CWN2026/blob/5c2d5feb0c4b4f4055f1701c4f398ed4a1fd8b5c/00_week01/03_petshop-testplan-from-exploration/02_lab/02_google-flights/_solution/exploration/C5.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/s/3qmu1kdBuQ2cWK7h8",
    "expected": {
     "refused": "shared_link"
@@ -547,8 +490,7 @@
   },
   {
    "id": "c58",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/Tuchsanai/Teaching_CWN2026/blob/5c2d5feb0c4b4f4055f1701c4f398ed4a1fd8b5c/04_week04/04_REA/06_REA_Two_Stage_Loop_Scratch/_solution/spec/EXPLORATION.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights?q=Flights%20from%20Bangkok%20to%20Tokyo%20on%202026-11-15%20one%20way&hl=th&gl=TH&curr=THB",
    "expected": {
     "refused": "no_flights"
@@ -556,8 +498,7 @@
   },
   {
    "id": "c59",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/UAce/WebsiteWatcher/blob/c0ad9d7dce3e357a3e7ac9186443e220daad92b9/examples/price_watcher_example.sh",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJEgoyMDIzLTA5LTI0Ih8KA1lVTBIKMjAyMy0wOS0yNBoDQkNOKgJBQzIDODIyagwIAxIIL20vMDUycDdyDAgCEggvbS8wMWY2MhpJEgoyMDIzLTEwLTA4Ih8KA0JDThIKMjAyMy0xMC0wOBoDWVVMKgJBQzIDODIzagwIAhIIL20vMDFmNjJyDAgDEggvbS8wNTJwN0ABQAFIAXABggELCP___________wGYAQE&curr=CAD",
    "expected": {
     "kind": "itinerary",
@@ -566,9 +507,8 @@
   },
   {
    "id": "c60",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/aahmad94/thailand-honeymoon/blob/a706b2e8057429b0af8d2eb99f82aaf41587c91f/index.html",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI3LTAxLTA5Ih8KA0xIRRIKMjAyNy0wMS0wORoDQktLKgJURzIDMzQ2agcIARIDTEhFcgcIARIDQktLQAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJTWpkbU0xUnBWV2x0UzI5QlJteHRXRkZDUnkwdExTMHRMUzE1Ykdab01pMXVNVUZCUVVGQlIzSkJXRFpqVHpKa05WTkJFZ1ZVUnpNME5ob0xDUHI3QWhBQ0dnTlZVMFE0SEhENit3ST0SAggAIgA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI3LTAxLTA5Ih8KA0xIRRIKMjAyNy0wMS0wORoDQktLKgJURzIDMzQ2agcIARIDTEhFcgcIARIDQktLQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -576,9 +516,8 @@
   },
   {
    "id": "c61",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/aahmad94/thailand-honeymoon/blob/a706b2e8057429b0af8d2eb99f82aaf41587c91f/index.html",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpGEgoyMDI3LTAxLTE1IiAKA0NOWBIKMjAyNy0wMS0xNRoDS0JWKgJGRDIEMzA3NmoHCAESA0NOWHINCAMSCS9tLzAxZzltZkABSAFwAYIBCwj___________8BmAEC&tfu=CmxDalJJVm5Sb2RGODFjekI1Y2pCQlJrMXdjR2RDUnkwdExTMHRMUzEyZEd0MU5TMXVNVUZCUVVGQlIzSkJVMUpGUkcxQ1lqUkJFZ1pHUkRNd056WWFDZ2lFZGhBQ0dnTlZVMFE0SEhDRWRnPT0SAggAIgMKATA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpGEgoyMDI3LTAxLTE1IiAKA0NOWBIKMjAyNy0wMS0xNRoDS0JWKgJGRDIEMzA3NmoHCAESA0NOWHINCAMSCS9tLzAxZzltZkABSAFwAYIBCwj___________8BmAEC&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -586,9 +525,8 @@
   },
   {
    "id": "c62",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/aahmad94/thailand-honeymoon/blob/a706b2e8057429b0af8d2eb99f82aaf41587c91f/index.html",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpmEgoyMDI3LTAxLTIzIh8KA0hLVBIKMjAyNy0wMS0yMxoDQktLKgJURzIDMjEyIh8KA0JLSxIKMjAyNy0wMS0yMxoDTEhFKgJURzIDMzQ1ag0IAxIJL20vMGZfcjFfcgcIARIDTEhFQAFIAXABggELCP___________wGYAQI&tfu=CnRDalJJWDJkWU1scGxNSGRIWkdOQlIweHJVbmRDUnkwdExTMHRMUzB0TFhaMGVuSXhOMEZCUVVGQlIzSkJXREJSU1RNdFpITkJFZ3RVUnpJeE1ueFVSek0wTlJvTENQeTRBeEFDR2dOVlUwUTRISEQ4dUFNPRICCAAiAwoBMA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpmEgoyMDI3LTAxLTIzIh8KA0hLVBIKMjAyNy0wMS0yMxoDQktLKgJURzIDMjEyIh8KA0JLSxIKMjAyNy0wMS0yMxoDTEhFKgJURzIDMzQ1ag0IAxIJL20vMGZfcjFfcgcIARIDTEhFQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -596,9 +534,8 @@
   },
   {
    "id": "c63",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/breadchris/notes/blob/cb98cbd3798962848b4a14ca7aa78d26adf9f5c0/journals/2024_04_15.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI0LTA1LTA4Ih8KA0RVQhIKMjAyNC0wNS0wOBoDSUFEKgJFSTIDMTE5agcIARIDRFVCcgcIARIDSUFEQAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJTFdaNWFYRnhXRVpRZEVGQlJtaHdiMEZDUnkwdExTMHRMUzB0TFhCcWNXNHlNRUZCUVVGQlIxbGpUa1JyVDNkRWFtdEJFZ1ZGU1RFeE9Sb0xDTmZSQXhBQ0dnTlZVMFE0SEhEWDBRTT0SAggAIgA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho_EgoyMDI0LTA1LTA4Ih8KA0RVQhIKMjAyNC0wNS0wOBoDSUFEKgJFSTIDMTE5agcIARIDRFVCcgcIARIDSUFEQAFIAXABggELCP___________wGYAQI&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -606,18 +543,16 @@
   },
   {
    "id": "c64",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/breadchris/notes/blob/cb98cbd3798962848b4a14ca7aa78d26adf9f5c0/journals/2024_04_15.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI0LTA0LTIzagwIAhIIL20vMGQ5anJyBwgBEgNEVUIaIxIKMjAyNC0wNS0wOGoHCAESA0RVQnIMCAISCC9tLzBkOWpyQAFIAXABggELCP___________wGYAQE",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c65",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--11/tabs.txt",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpMEgoyMDI3LTA3LTEwIh8KA0pGSxIKMjAyNy0wNy0xMBoDSE5EKgJBQTIDMTY3KABqDQgDEgkvbS8wMl8yODZyDAgDEggvbS8wN2RmaxpMEgoyMDI3LTA3LTI0Ih8KA0hORBIKMjAyNy0wNy0yNBoDSkZLKgJBQTIDMTY4KABqDAgDEggvbS8wN2Rma3INCAMSCS9tLzAyXzI4NkABSAFwAYIBCwj___________8BmAEB&tfu=CnBDalJJZEZoTFlVdHRUVWR5TFdOQlFWOXJUMEZDUnkwdExTMHRMV1ZxWkd4ME1TMXVNa0ZCUVVGQlIzSm9SakJSUTBoS05YZEJFZ2RCUVRFMk9DTXhHZ3NJaDl3SkVBSWFBMVZUUkRnY2NJZmNDUT09EgIIAiIDCgEx&curr=USD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpMEgoyMDI3LTA3LTEwIh8KA0pGSxIKMjAyNy0wNy0xMBoDSE5EKgJBQTIDMTY3KABqDQgDEgkvbS8wMl8yODZyDAgDEggvbS8wN2RmaxpMEgoyMDI3LTA3LTI0Ih8KA0hORBIKMjAyNy0wNy0yNBoDSkZLKgJBQTIDMTY4KABqDAgDEggvbS8wN2Rma3INCAMSCS9tLzAyXzI4NkABSAFwAYIBCwj___________8BmAEB&tfu=X&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -625,8 +560,7 @@
   },
   {
    "id": "c66",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--15/ANSWER.txt",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpGEgoyMDI3LTA3LTEyIh4KA0VXUhIKMjAyNy0wNy0xMhoDTlJUKgJVQTICNzkoAGoNCAMSCS9tLzAyXzI4NnIHCAESA05SVBpGEgoyMDI3LTA3LTI2Ih4KA05SVBIKMjAyNy0wNy0yNhoDRVdSKgJVQTICNzgoAGoHCAESA05SVHINCAMSCS9tLzAyXzI4NkABSAFwAYIBCwj___________8BmAEB&hl=en&curr=USD",
    "expected": {
     "kind": "itinerary",
@@ -635,9 +569,8 @@
   },
   {
    "id": "c67",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--22/ANSWER.txt",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqNARIKMjAyNy0wNi0xNSIgCgNTRFUSCjIwMjctMDYtMTUaA0NHSCoCRzMyBDE0MjciHgoDR1JVEgoyMDI3LTA2LTE1GgNJQUgqAlVBMgI2MyIfCgNJQUgSCjIwMjctMDYtMTYaA0xBWCoCVUEyAzY1MWoMCAMSCC9tLzA2Z21ycg4IAxIKL20vMDMwcWIzdBqOARIKMjAyNy0wNi0yMiIgCgNMQVgSCjIwMjctMDYtMjIaA0lBSCoCVUEyBDIxNTciHgoDSUFIEgoyMDI3LTA2LTIyGgNHUlUqAlVBMgI2MiIgCgNHUlUSCjIwMjctMDYtMjMaA1NEVSoCQUQyBDUwODZqDggDEgovbS8wMzBxYjN0cgwIAxIIL20vMDZnbXJAAUgBcAGCAQsI____________AZgBAQ&tfu=CnxDalJJTjNOWlpFMTNka1U1VG5OQlFrdzJVWGRDUnkwdExTMHRMUzB0TFdWcVpHY3hORUZCUVVGQlIzSm9SMjA0UW05UFlWRkJFaEpWUVRJeE5UZDhWVUUyTW54QlJEVXdPRFlhQ3dpaXB3NFFBQm9EVWxORU9CeHcvTVVOEgIIBiIDCgEw",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqNARIKMjAyNy0wNi0xNSIgCgNTRFUSCjIwMjctMDYtMTUaA0NHSCoCRzMyBDE0MjciHgoDR1JVEgoyMDI3LTA2LTE1GgNJQUgqAlVBMgI2MyIfCgNJQUgSCjIwMjctMDYtMTYaA0xBWCoCVUEyAzY1MWoMCAMSCC9tLzA2Z21ycg4IAxIKL20vMDMwcWIzdBqOARIKMjAyNy0wNi0yMiIgCgNMQVgSCjIwMjctMDYtMjIaA0lBSCoCVUEyBDIxNTciHgoDSUFIEgoyMDI3LTA2LTIyGgNHUlUqAlVBMgI2MiIgCgNHUlUSCjIwMjctMDYtMjMaA1NEVSoCQUQyBDUwODZqDggDEgovbS8wMzBxYjN0cgwIAxIIL20vMDZnbXJAAUgBcAGCAQsI____________AZgBAQ&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -645,9 +578,8 @@
   },
   {
    "id": "c68",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--24/ANSWER.txt",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFEgoyMDI3LTA3LTAxIh4KA0RYQhIKMjAyNy0wNy0wMRoDRkNPKgJFSzICOTkoAGoHCAESA0RYQnIMCAMSCC9tLzA2YzYyGkYSCjIwMjctMDctMDgiHwoDRkNPEgoyMDI3LTA3LTA4GgNEWEIqAkVLMgMxMDAoAGoMCAMSCC9tLzA2YzYycgcIARIDRFhCQAFIAXABggELCP___________wGYAQE&tfu=CmxDalJJV0ZOU2NFbFdVSGhXWmpoQlFrMXhSbEZDUnkwdExTMHRMUzB0TFdWcVpXd3hNa0ZCUVVGQlIzSm9SM3ByVDNaYVkxRkJFZ2RGU3pFd01DTXlHZ29JbkIwUUFCb0RRVVZFT0J4d3dKc0cSAggAIgYKATAKATE&curr=AED",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFEgoyMDI3LTA3LTAxIh4KA0RYQhIKMjAyNy0wNy0wMRoDRkNPKgJFSzICOTkoAGoHCAESA0RYQnIMCAMSCC9tLzA2YzYyGkYSCjIwMjctMDctMDgiHwoDRkNPEgoyMDI3LTA3LTA4GgNEWEIqAkVLMgMxMDAoAGoMCAMSCC9tLzA2YzYycgcIARIDRFhCQAFIAXABggELCP___________wGYAQE&tfu=X&curr=AED",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -655,9 +587,8 @@
   },
   {
    "id": "c69",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--34/tabs.txt",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI3LTA3LTE1IiAKA0xJUxIKMjAyNy0wNy0xNRoDSEVMKgJBWTIEMTc0MCIfCgNIRUwSCjIwMjctMDctMTYaA1NJTioCQVkyAzEzMWoHCAESA0xJU3IHCAESA1NJTkABSANwAYIBCwj___________8BmAEC&tfu=CnRDalJJTlRsS2EySmxiV0pUY2poQlFrbGtObWRDUnkwdExTMHRMUzB0TFdWcWJYVXlNVUZCUVVGQlIzSm9TRmhqVGpCYVJYZEJFZ3hCV1RFM05EQjhRVmt4TXpFYUN3aVJ1ZzBRQWhvRFJWVlNPQnh3bVB3TxIGCAIgAigBIgA&curr=EUR",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhphEgoyMDI3LTA3LTE1IiAKA0xJUxIKMjAyNy0wNy0xNRoDSEVMKgJBWTIEMTc0MCIfCgNIRUwSCjIwMjctMDctMTYaA1NJTioCQVkyAzEzMWoHCAESA0xJU3IHCAESA1NJTkABSANwAYIBCwj___________8BmAEC&tfu=X&curr=EUR",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -665,9 +596,8 @@
   },
   {
    "id": "c70",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/elmyx-labs/browser-cmd-webvoyager/blob/239a643810bfa1eb73b14d96b4df547aa46b2d69/results/runs/codex-gpt-6.1-sol/tasks/Google Flights--7/ANSWER.txt",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpiEgoyMDI3LTA3LTA3IiAKA1BIWBIKMjAyNy0wNy0wNxoDREVOKgJVQTIEMTM5NSIgCgNERU4SCjIwMjctMDctMDcaA01JQSoCVUEyBDE0MThqBwgBEgNQSFhyBwgBEgNNSUEaYRIKMjAyNy0wNy0xMCIgCgNNSUESCjIwMjctMDctMTAaA09SRCoCVUEyBDIxMDYiHwoDT1JEEgoyMDI3LTA3LTEwGgNQSFgqAlVBMgM2MDJqBwgBEgNNSUFyBwgBEgNQSFhAAUgEYNAPcAGCAQsI____________AZgBAQ&tfu=CnRDalJJTlc5cWFWWmpaMmQyTlRSQlFVaFZUbWRDUnkwdExTMHRMUzB0TFdWbVltc3lPVUZCUVVGQlIzSm9SbXByUWs5b1JtVkJFZ3hWUVRJeE1EWjhWVUUyTURJYUN3allvd2dRQWhvRFZWTkVPQnh3MktNSRICCAAiAA&curr=USD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpiEgoyMDI3LTA3LTA3IiAKA1BIWBIKMjAyNy0wNy0wNxoDREVOKgJVQTIEMTM5NSIgCgNERU4SCjIwMjctMDctMDcaA01JQSoCVUEyBDE0MThqBwgBEgNQSFhyBwgBEgNNSUEaYRIKMjAyNy0wNy0xMCIgCgNNSUESCjIwMjctMDctMTAaA09SRCoCVUEyBDIxMDYiHwoDT1JEEgoyMDI3LTA3LTEwGgNQSFgqAlVBMgM2MDJqBwgBEgNNSUFyBwgBEgNQSFhAAUgEYNAPcAGCAQsI____________AZgBAQ&tfu=X&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -675,17 +605,15 @@
   },
   {
    "id": "c71",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/harrisiva/travel-agent/blob/745e457606853211b9d0259cddb5749c7cf02201/google-flights/NOTES.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoeEgoyMDI2LTA5LTI1agcIARIDWVlacgcIARIDWUhaGh4SCjIwMjYtMDktMjdqBwgBEgNZSFpyBwgBEgNZWVpAAUgBcAGCAQsI____________AZgBAQ&hl=en&gl=CA",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c72",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/jselbaz/Flight-Price-Checker/blob/4f1effd523615fa16cd910a267b0054c92c0608b/price_check_script_local/PriceChecker.py",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpKEgoyMDI0LTEyLTMxIh8KA0VMUBIKMjAyNC0xMi0zMRoDSE9VKgJXTjIDODAxag0IAxIJL20vMDEwMG10cgwIAxIIL20vMDNsMm5AAUgBcAGCAQsI____________AZgBAg",
    "expected": {
     "kind": "itinerary",
@@ -694,17 +622,15 @@
   },
   {
    "id": "c73",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/krisukox/google-flights-api/blob/733976a7234f4fe68c72e218cb22431bbae72d53/README.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhpAEgoyMDIzLTA4LTMxagwIAxIIL20vMDcxdnJqBwgBEgNMQVhyDQgDEgkvbS8wMl8yODZyDAgDEggvbS8wZGNsZxpAEgoyMDIzLTA5LTA3ag0IAxIJL20vMDJfMjg2agwIAxIIL20vMGRjbGdyDAgDEggvbS8wNzF2cnIHCAESA0xBWEABSAFwAYIBCwj___________8BmAEB&curr=USD&hl=en",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c74",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/luminati-io/google-flights-api/blob/a4790ed730c71d68a30c07c8b272ab62e10d9aba/README.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI1LTA0LTAxagcIARIDQ0RHcgwIAxIIL20vMDRqcGxAAUgBcAGCAQsI____________AZgBAg&hl=fr&gl=fr",
    "expected": {
     "refused": "search_country"
@@ -712,9 +638,8 @@
   },
   {
    "id": "c75",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/metagov/extitute/blob/01c705e57283b0a79056d677bb80f21923b606ed/exocortex/Log/2022-09-25 - Sound Resources.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpOag0IAxIJL20vMDJfMjg2EgoyMDIyLTA5LTI4cg0IAhIJL20vMDF4XzZzIiAKA0pGSxIKMjAyMi0wOS0yOBoDTURFKgJBQTIEMjE2NSgAcAGCAQsI____________AUABSAGYAQKyAQsSCS9tLzAxeF82cw&tfu=CmxDalJJZFRkMlJUUTFXVXhxTUdkQmQxWkdSR2RDUnkwdExTMHRMUzB0ZDNOallXRXlNVUZCUVVGQlIwMTRjMVJuU2xKeVMwRkJFZ1pCUVRJeE5qVWFDd2lUb2dnUUFob0RSMEpRT0J4d21JQUoSAggB&hl=en-US&gl=US&curr=USD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpOag0IAxIJL20vMDJfMjg2EgoyMDIyLTA5LTI4cg0IAhIJL20vMDF4XzZzIiAKA0pGSxIKMjAyMi0wOS0yOBoDTURFKgJBQTIEMjE2NSgAcAGCAQsI____________AUABSAGYAQKyAQsSCS9tLzAxeF82cw&tfu=X&hl=en-US&gl=US&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -722,9 +647,8 @@
   },
   {
    "id": "c76",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/metagov/extitute/blob/01c705e57283b0a79056d677bb80f21923b606ed/exocortex/Log/2022-09-25 - Sound Resources.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqKAWoHCAESA01ERRIKMjAyMi0xMC0wM3IOCAMSCi9tLzAyZnJoYmMiIAoDTURFEgoyMDIyLTEwLTAzGgNNSUEqAkFBMgQxMTQxIh8KA01JQRIKMjAyMi0xMC0wMxoDREZXKgJBQTIDODY3IiAKA0RGVxIKMjAyMi0xMC0wMxoDUERYKgJBQTIEMjQ5NnABggELCP___________wFAAUgBmAEC&tfu=CoABQ2pSSVNXSmtNMkkzWTBoWVRqaEJlRXBaTlhkQ1J5MHRMUzB0TFMwdExYZHpZbVIzTTBGQlFVRkJSMDE0ZFhOalRFeEZYMEZCRWhOQlFURXhOREY4UVVFNE5qZDhRVUV5TkRrMkdnc0l4b29ERUFJYUEwZENVRGdjY0pXc0F3PT0SAggB&curr=USD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhqKAWoHCAESA01ERRIKMjAyMi0xMC0wM3IOCAMSCi9tLzAyZnJoYmMiIAoDTURFEgoyMDIyLTEwLTAzGgNNSUEqAkFBMgQxMTQxIh8KA01JQRIKMjAyMi0xMC0wMxoDREZXKgJBQTIDODY3IiAKA0RGVxIKMjAyMi0xMC0wMxoDUERYKgJBQTIEMjQ5NnABggELCP___________wFAAUgBmAEC&tfu=X&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -732,18 +656,16 @@
   },
   {
    "id": "c77",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/oxylabs/how-to-scrape-google-flights/blob/3628232d60079d4385fad1a03954a0cfcca1b672/README.md",
-   "url": "https://www.google.com/travel/flights?tfs=CBsQAhooEgoyMDI0LTA3LTI4agwIAxIIL20vMDE1NnFyDAgCEggvbS8wNGpwbBooEgoyMDI0LTA4LTAxagwIAhIIL20vMDRqcGxyDAgDEggvbS8wMTU2cUABSAFSA0VVUnABemxDalJJTkRCNVRGbDBOMU5UVEdOQlJ6aG5lRUZDUnkwdExTMHRMUzB0TFMxM1pXc3lOMEZCUVVGQlIxZ3dhRWxSUVRoaWFtTkJFZ1pWTWpnMk1qSWFDZ2lRYnhBQ0dnTkZWVkk0SEhEN2VBPT2YAQGyARIYASABKgwIAxIIL20vMDRqcGw&hl=en-US&curr=EUR&sa=X&ved=0CAoQtY0DahgKEwiAz9bF5PaEAxUAAAAAHQAAAAAQngM",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?tfs=CBsQAhooEgoyMDI0LTA3LTI4agwIAxIIL20vMDE1NnFyDAgCEggvbS8wNGpwbBooEgoyMDI0LTA4LTAxagwIAhIIL20vMDRqcGxyDAgDEggvbS8wMTU2cUABSAFSA0VVUnABemxDalJJTkRCNVRGbDBOMU5UVEdOQlJ6aG5lRUZDUnkwdExTMHRMUzB0TFMxM1pXc3lOMEZCUVVGQlIxZ3dhRWxSUVRoaWFtTkJFZ1pWTWpnMk1qSWFDZ2lRYnhBQ0dnTkZWVkk0SEhEN2VBPT2YAQGyARIYASABKgwIAxIIL20vMDRqcGw&hl=en-US&curr=EUR&sa=X&ved=X",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c78",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/saheelwagh/second-brain-of-a-front-end-engineer/blob/8e665d1adcbda038da431554e4d89de2025c6a65/journals/2023_01_04.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFag0IAhIJL20vMDFjMW5tEgoyMDIzLTAxLTExcgcIARIDQkxSIh8KA0dPSRIKMjAyMy0wMS0xMRoDQkxSKgJJNTIDODE5cAGCAQsI____________AUABSAGYAQI&tfu=CmhDalJJU200d1JsOVRlWGczZDAxQlIzQlhkMUZDUnkwdExTMHRMUzB0TFhSaVluQmpNa0ZCUVVGQlIwOHhhV2hKU0hoa2FVRkJFZ1ZKTlRneE9Sb0tDTWtWRUFBYUEwbE9VamdjY0lVYRICCAE&hl=en&gl=in&curr=INR",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpFag0IAhIJL20vMDFjMW5tEgoyMDIzLTAxLTExcgcIARIDQkxSIh8KA0dPSRIKMjAyMy0wMS0xMRoDQkxSKgJJNTIDODE5cAGCAQsI____________AUABSAGYAQI&tfu=X&hl=en&gl=in&curr=INR",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -751,9 +673,8 @@
   },
   {
    "id": "c79",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/saheelwagh/second-brain-of-a-front-end-engineer/blob/8e665d1adcbda038da431554e4d89de2025c6a65/pages/4 hour workweek.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJagcIARIDQkxSEgoyMDIyLTEyLTA0cg0IAhIJL20vMDFjMW5tIh8KA0JMUhIKMjAyMi0xMi0wNBoDR09JKgI2RTIDMzA5MgI2RXABggELCP___________wFAAUgBmAEC&tfu=CmhDalJJTjE5a1ZVRm5aMWxST1hOQlZ6azVWRUZDUnkwdExTMHRMUzB0TFhSb1lYVXhNMEZCUVVGQlIwNUVkVkJqUjA0elUwRkJFZ1UyUlRNd09Sb0tDUDhpRUFBYUEwbE9VamdjY0x3cRICCAE&hl=en&gl=in&curr=INR",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJagcIARIDQkxSEgoyMDIyLTEyLTA0cg0IAhIJL20vMDFjMW5tIh8KA0JMUhIKMjAyMi0xMi0wNBoDR09JKgI2RTIDMzA5MgI2RXABggELCP___________wFAAUgBmAEC&tfu=X&hl=en&gl=in&curr=INR",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -761,9 +682,8 @@
   },
   {
    "id": "c80",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/samuelliu805/trip-planner/blob/714b374c0ea750522735dfe9ff689965fc20d30d/scripts/lib/idea-provider-samples.mjs",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJEgoyMDI2LTExLTIwIh8KA1BWRxIKMjAyNi0xMS0yMBoDSE5EKgJOSDIDOTcyagwIAhIIL20vMDZ3amZyDAgCEggvbS8wN2RmaxpJEgoyMDI2LTExLTI1Ih8KA0hORBIKMjAyNi0xMS0yNRoDUFZHKgJOSDIDOTY3agwIAhIIL20vMDdkZmtyDAgCEggvbS8wNndqZkABSAFwAYIBCwj___________8BmAEB&tfu=CmxDalJJUzJoMU1GazFaVGRZVVhkQlExaGFaMEZDUnkwdExTMHRMUzB0TFhCbVlteDFNMEZCUVVGQlIzRjVWSEpWUVd0WVVsVkJFZ1ZPU0RrMk54b0xDSW5PQWhBQ0dnTlZVMFE0SEhDSnpnST0SAggAIgMKATE",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpJEgoyMDI2LTExLTIwIh8KA1BWRxIKMjAyNi0xMS0yMBoDSE5EKgJOSDIDOTcyagwIAhIIL20vMDZ3amZyDAgCEggvbS8wN2RmaxpJEgoyMDI2LTExLTI1Ih8KA0hORBIKMjAyNi0xMS0yNRoDUFZHKgJOSDIDOTY3agwIAhIIL20vMDdkZmtyDAgCEggvbS8wNndqZkABSAFwAYIBCwj___________8BmAEB&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -771,9 +691,8 @@
   },
   {
    "id": "c81",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/taylormitchell/public-home/blob/ad671f3c832ba1eac359cff58066b6d6c6d35071/notes/2024-12-14_11-41-56_-0500.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI1LTAxLTAxIiAKA01DTxIKMjAyNS0wMS0wMRoDRVdSKgJCNjIEMTExNGoMCAISCC9tLzBwbHkwcg0IAhIJL20vMDJfMjg2QAFIAXABggELCP___________wGYAQI&tfu=CmxDalJJZUhCV01WcGhTR0ZZY0c5QlNYUmFjSGRDUnkwdExTMHRMUzB0YjJ0aVltWXlNRUZCUVVGQlIyUmtkRXgzUVVaemVuRkJFZ1pDTmpFeE1UUWFDd2kyamdJUUFob0RRMEZFT0J4dzlyMEISAggAIgA&hl=en&gl=ca&curr=CAD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI1LTAxLTAxIiAKA01DTxIKMjAyNS0wMS0wMRoDRVdSKgJCNjIEMTExNGoMCAISCC9tLzBwbHkwcg0IAhIJL20vMDJfMjg2QAFIAXABggELCP___________wGYAQI&tfu=X&hl=en&gl=ca&curr=CAD",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -781,9 +700,8 @@
   },
   {
    "id": "c82",
-   "source": "GitHub file (via GitHub code search)",
-   "page": "https://github.com/taylormitchell/public-home/blob/ad671f3c832ba1eac359cff58066b6d6c6d35071/notes/2024-12-14_11-41-56_-0500.md",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI1LTAxLTAxIiAKA0VXUhIKMjAyNS0wMS0wMRoDWVRaKgJQRDIEMjEzOGoNCAMSCS9tLzAyXzI4NnIMCAMSCC9tLzBoN2g2QAFAAUgBcAGCAQsI____________AZgBAg&tfu=CmxDalJJZUhCV01WcGhTR0ZZY0c5QlNYVnNlbWRDUnkwdExTMHRMUzB0YjJ0aVltWXlNRUZCUVVGQlIyUmtkR1ZaUzBoWWN6WkJFZ1pRUkRJeE16Z2FDd2oyNEFFUUFob0RRMEZFT0J4dy9KMEISAggAIgMKATA&hl=en&gl=ca&curr=CAD",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpLEgoyMDI1LTAxLTAxIiAKA0VXUhIKMjAyNS0wMS0wMRoDWVRaKgJQRDIEMjEzOGoNCAMSCS9tLzAyXzI4NnIMCAMSCC9tLzBoN2g2QAFAAUgBcAGCAQsI____________AZgBAg&tfu=X&hl=en&gl=ca&curr=CAD",
    "expected": {
     "kind": "itinerary",
     "collector": "currency"
@@ -791,8 +709,7 @@
   },
   {
    "id": "c83",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/AlaskaAirlines/auro-flight/issues/51",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CAIQAhpEagwIAxIIL20vMDM0dGwSCjIwMjMtMDEtMDFyBwgBEgNITkwiHwoDR1VNEgoyMDIzLTAxLTAxGgNITkwqAlVBMgMyMDBwAYIBCwj___________8BQAFIAZgBAg&source=flre_fli_share&utm_campaign=sharing",
    "expected": {
     "kind": "itinerary",
@@ -801,17 +718,15 @@
   },
   {
    "id": "c84",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ceojoe1/chacon-claude-plugins/blob/main/debugging/flights/google_flights.md",
-   "url": "https://www.google.com/travel/flights?sa=X&sca_esv=149386f24b38c522&biw=1920&bih=911&sxsrf=ANbL-n4S1w71cmCIvAzMf5AFYeh3YMahMw:1777593601627&source=flun&uitype=cuA_&hl=en&gl=us&curr=USD&tfs=CAEQAhooEgoyMDI2LTA2LTE0agwIAhIIL20vMGRqZDNyDAgCEggvbS8wZDZscBooEgoyMDI2LTA2LTE4agwIAhIIL20vMGQ2bHByDAgCEggvbS8wZGpkMw&ved=1t:3293&ictx=111",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?sa=X&sca_esv=X&biw=X&bih=X&sxsrf=X&source=flun&uitype=X&hl=en&gl=us&curr=USD&tfs=CAEQAhooEgoyMDI2LTA2LTE0agwIAhIIL20vMGRqZDNyDAgCEggvbS8wZDZscBooEgoyMDI2LTA2LTE4agwIAhIIL20vMGQ2bHByDAgCEggvbS8wZGpkMw&ved=X&ictx=X",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c85",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/stormasm/mexico/blob/main/airports/Readme.md",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/saves?hl=en&gl=mx&curr=MXN",
    "expected": {
     "refused": "flights_page"
@@ -819,17 +734,15 @@
   },
   {
    "id": "c86",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/stormasm/mexico/blob/main/airports/Readme.md",
-   "url": "https://www.google.com/travel/flights?sca_esv=3ef60f3b3aecdda5&rlz=1C5OZZY_enUS1141US1141&sxsrf=AHTn8zpAIPuxFHL3qhAx_hrp0rOjck8eGg:1741660121090&source=flun&uitype=cuAR&hl=en&gl=mx&curr=MXN&tfs=CAEQAholEgoyMDI1LTAzLTI2KABqBwgBEgNRUk9yDAgCEggvbS8wM2wybholEgoyMDI1LTAzLTMwKABqDAgCEggvbS8wM2wybnIHCAESA1FST3pkQ2pSSVIxWlJjMjB0U0RCaWR6UkJRa2hxYjJkQ1J5MHRMUzB0TFMwdGIzbGphbTB4TWtGQlFVRkJSMlpRYmpsclJHTlJjbWRCRWdFeEdnb0l6aThRQUJvRFRWaE9PREJ3Nk9rQrIBBBgBIAE&ved=1t:3293&ictx=111",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?sca_esv=X&rlz=X&sxsrf=X&source=flun&uitype=X&hl=en&gl=mx&curr=MXN&tfs=CAEQAholEgoyMDI1LTAzLTI2KABqBwgBEgNRUk9yDAgCEggvbS8wM2wybholEgoyMDI1LTAzLTMwKABqDAgCEggvbS8wM2wybnIHCAESA1FST3pkQ2pSSVIxWlJjMjB0U0RCaWR6UkJRa2hxYjJkQ1J5MHRMUzB0TFMwdGIzbGphbTB4TWtGQlFVRkJSMlpRYmpsclJHTlJjbWRCRWdFeEdnb0l6aThRQUJvRFRWaE9PREJ3Nk9rQrIBBBgBIAE&ved=X&ictx=X",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c87",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/booking?tfs=CAIQAhprEgoyMDI0LTA0LTI0Ih8KA0NMShIKMjAyNC0wNC0yNBoDV0FXKgJMTzIDNjU0Ih8KA1dBVxIKMjAyNC0wNC0yNBoDSVNUKgJMTzIDMTM3agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg&source=flre_fli_share&utm_campaign=sharing",
    "expected": {
     "kind": "itinerary",
@@ -838,9 +751,8 @@
   },
   {
    "id": "c88",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhprEgoyMDI0LTA0LTI0Ih8KA0NMShIKMjAyNC0wNC0yNBoDV0FXKgJMTzIDNjU0Ih8KA1dBVxIKMjAyNC0wNC0yNBoDSVNUKgJMTzIDMTM3agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg&tfu=CnRDalJJVVUwd01rWXdSbU0wZVVsQlJYSTRVVUZDUnkwdExTMHRMUzB0ZDJaaWFXWXlNa0ZCUVVGQlIxbGxWVGx6UlRkcVZVRkJFZ3RNVHpZMU5IeE1UekV6TnhvTENPU0tCUkFDR2dOU1QwNDRISENGaXdFPRICCAAiAA",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhprEgoyMDI0LTA0LTI0Ih8KA0NMShIKMjAyNC0wNC0yNBoDV0FXKgJMTzIDNjU0Ih8KA1dBVxIKMjAyNC0wNC0yNBoDSVNUKgJMTzIDMTM3agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg&tfu=X",
    "expected": {
     "kind": "itinerary",
     "collector": "connections"
@@ -848,8 +760,7 @@
   },
   {
    "id": "c89",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI0LTA1LTA1agcIARIDSVNUcgwIAxIIL20vMHAyZ3FAAUgBcAGCAQsI____________AZgBAg",
    "expected": {
     "refused": "search_stops"
@@ -857,8 +768,7 @@
   },
   {
    "id": "c90",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
+   "source": "GitHub",
    "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhopEgoyMDI0LTA0LTI0agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg",
    "expected": {
     "refused": "search_stops"
@@ -866,63 +776,56 @@
   },
   {
    "id": "c91",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
-   "url": "https://www.google.com/travel/flights?tfs=CBwQARoOagwIAxIIL20vMDk2Z20aDnIMCAMSCC9tLzA5NmdtQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?tfs=CBwQARoOagwIAxIIL20vMDk2Z20aDnIMCAMSCC9tLzA5NmdtQAFIAXABggELCP___________wGYAQE&tfu=X",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c92",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
-   "url": "https://www.google.com/travel/flights?tfs=CBwQARodagwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW0aHWoNCAMSCS9tLzA5OTQ5bXIMCAISCC9tLzBwMmdxQAFIAXABggELCP___________wGYAQE&tfu=KgIIAw",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?tfs=CBwQARodagwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW0aHWoNCAMSCS9tLzA5OTQ5bXIMCAISCC9tLzBwMmdxQAFIAXABggELCP___________wGYAQE&tfu=X",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c93",
-   "source": "GitHub file or issue (exact, via GitHub API)",
-   "page": "https://github.com/ralucaioanaianos/RPA-Vacation-Planner/blob/77fe60b8edeaf3f648918b53dc1247477b2e6132/Main.xaml",
-   "url": "https://www.google.com/travel/flights?tfs=CBwQARopEgoyMDI0LTA0LTI0agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg&tfu=KgIIAw",
+   "source": "GitHub",
+   "url": "https://www.google.com/travel/flights?tfs=CBwQARopEgoyMDI0LTA0LTI0agwIAhIIL20vMHAyZ3FyDQgDEgkvbS8wOTk0OW1AAUgBcAGCAQsI____________AZgBAg&tfu=X",
    "expected": {
     "refused": "search_stops"
    }
   },
   {
    "id": "c94",
-   "source": "scraping-API documentation (bookingLink sample from Google Flights deals)",
-   "page": "https://hasdata.com/apis/google-flights-api",
+   "source": "Documentation",
    "url": "https://www.google.com/travel/flights?tfs=CCoQAhojEgoyMDI2LTEyLTA3agcIARIDTEFYcgwIAhIIL20vMGc0ZzcaIxIKMjAyNi0xMi0xM2oMCAISCC9tLzBnNGc3cgcIARIDTEFYUgNVU0R6fENqUkliVmhVTWxwdGIwWmFha1ZCUTBKdVgzZENSeTB0TFMwdExTMHRMWEJtYW1jeE9VRkJRVUZCUjNGeWJ6Wm5UMngxV0V0QkVoSkVaV0ZzUTI5dWMzUnlZV2x1ZEhNd0xUQWFDd2laNEFVUUFob0RWVk5FT0Rod21lQUY&curr=USD&hl=en-US&gl=US&gsas=1",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c95",
-   "source": "scraping-API documentation (bookingLink sample from Google Flights deals)",
-   "page": "https://hasdata.com/apis/google-flights-api",
+   "source": "Documentation",
    "url": "https://www.google.com/travel/flights?tfs=CCoQAholEgoyMDI2LTEwLTA1agcIARIDTEFYcg4IAhIKL20vMDJocmgwXxolEgoyMDI2LTEwLTEzag4IAhIKL20vMDJocmgwX3IHCAESA0xBWFIDVVNEenxDalJJYlZoVU1scHRiMFphYWtWQlEwSnVYM2RDUnkwdExTMHRMUzB0TFhCbWFtY3hPVUZCUVVGQlIzRnlielpuVDJ4MVdFdEJFaEpFWldGc1EyOXVjM1J5WVdsdWRITXdMVEVhQ3dpanNnRVFBaG9EVlZORU9EaHdvN0lC&curr=USD&hl=en-US&gl=US&gsas=1",
    "expected": {
-    "refused": "search_shape"
+    "refused": "search_trip"
    }
   },
   {
    "id": "c96",
-   "source": "scraping-API documentation (a filtered search: bags, stops, airline, price)",
-   "page": "https://docs.brightdata.com/api-reference/serp/google-flights/complex-search",
-   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoxEgoyMDI2LTAzLTEwKAAyAkJBagsIAhIHL20vMGszcHIMCAISCC9tLzA0anBsmgEBAUABSAFg-ApqBBABGABwAYIBCwj___________8BmAEC&tfu=EgYIABAAGAA",
+   "source": "Documentation",
+   "url": "https://www.google.com/travel/flights/search?tfs=CBwQAhoxEgoyMDI2LTAzLTEwKAAyAkJBagsIAhIHL20vMGszcHIMCAISCC9tLzA0anBsmgEBAUABSAFg-ApqBBABGABwAYIBCwj___________8BmAEC&tfu=X",
    "expected": {
     "refused": "search_places"
    }
   },
   {
    "id": "c97",
-   "source": "the real user's link from the 2026-11-25 incident (reference)",
-   "page": "repository fixture tests/fixtures/selected_city_safari.json",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpQEgoyMDI3LTAxLTEwIh8KA0RFThIKMjAyNy0wMS0xMBoDREZXKgJVQTIDNDE0MgJBQTICVUEyAldOagcIARIDREVOcgwIAhIIL20vMGYycnFAAUgBcAGCAQsI____________AZgBAsgBAQ&tfu=CmxDalJJYW5Ca01XSklTMkUxUzBWQlFUaDBOMmRDUnkwdExTMHRMVzk1WjJNeE5DMXVNVUZCUVVGQllzTklXR3AzVEZkclVHOUJFZ1ZWUVRReE5Cb0xDSXlYQVJBQ0dnTlZUMFE0SEhDTWx3RT0SAggDIgA&hl=en&gl=us&client=safari&curr=USD",
+   "source": "Fareflare",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAhpQEgoyMDI3LTAxLTEwIh8KA0RFThIKMjAyNy0wMS0xMBoDREZXKgJVQTIDNDE0MgJBQTICVUEyAldOagcIARIDREVOcgwIAhIIL20vMGYycnFAAUgBcAGCAQsI____________AZgBAsgBAQ&tfu=X&hl=en&gl=us&client=safari&curr=USD",
    "expected": {
     "kind": "itinerary",
     "collector": null
@@ -930,9 +833,8 @@
   },
   {
    "id": "c98",
-   "source": "the same Reddit comment's markdown source, with escaped underscores (one transcription showed it escaped)",
-   "page": "https://www.reddit.com/r/airindia/comments/1wesr7n/why_doesnt_air_india_let_passengers_onoff_at_ccu/p9glgwg/",
-   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho\\_EgoyMDI2LTEwLTEzIh8KA0RFTBIKMjAyNi0xMC0xMxoDU0ZPKgJBSTIDMTczagcIARIDREVMcgcIARIDU0ZPQAFIAXABggELCP\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_wGYAQI&tfu=CmxDalJJUlRJeFdreEhTVnA0TkVWQlNHSmZUV2RDUnkwdExTMHRMUzB0TFhCbWEyMHhNVUZCUVVGQlIzRnNPV05qUzNSbFRHRkJFZ1ZCU1RFM014b0xDS1hxQXhBQ0dnTlZVMFE0SEhDbDZnTT0SAggAIgA",
+   "source": "Reddit",
+   "url": "https://www.google.com/travel/flights/booking?tfs=CBwQAho\\_EgoyMDI2LTEwLTEzIh8KA0RFTBIKMjAyNi0xMC0xMxoDU0ZPKgJBSTIDMTczagcIARIDREVMcgcIARIDU0ZPQAFIAXABggELCP\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_wGYAQI&tfu=X",
    "expected": {
     "refused": "characters"
    }
