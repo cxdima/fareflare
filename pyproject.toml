@@ -57,6 +57,7 @@ ignore = [
 "src/fareflare/product_cli.py" = ["T201"]
 "src/fareflare/admin_cli.py" = ["T201"]
 "src/fareflare/publish_web.py" = ["T201"]
+"src/fareflare/reidentify.py" = ["T201"]
 "src/fareflare/runtime.py" = ["T201"]  # One structured metrics line per invocation.
 "scripts/*" = ["T201"]
 # Release tools run git, terraform and docker and fetch the site they release.
