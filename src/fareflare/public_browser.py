@@ -19,6 +19,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
+from fareflare.contracts import CollectionFailure
 from fareflare.links import LANGUAGE, import_link
 from fareflare.public_quotes import (
     PageEvidence,
@@ -297,12 +298,16 @@ def _opened[Shown](
 
 
 def _reimport(
-    url: str, *, page: str, failure: str = "itinerary_changed", allow_search: bool = False
+    url: str,
+    *,
+    page: str,
+    failure: str = CollectionFailure.UNREADABLE,
+    allow_search: bool = False,
 ) -> dict:
     """What an address imports to now, or ``failure`` if it is refused. A stored
-    address that no longer imports means the itinerary changed; a page Google opened
-    that does not is an unexpected page. Which page and the refusal's check are
-    logged, never the address."""
+    address the current rules refuse cannot be checked, and retrying cannot change
+    that, so it stops its checks; a page Google opened that does not import is an
+    unexpected page. Which page and the refusal's check are logged, never the address."""
     try:
         return import_link(url, allow_search=allow_search)
     except LinkRefused as refusal:

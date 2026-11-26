@@ -520,6 +520,43 @@ class MonitoringService:
         )
         return True
 
+    def failed(
+        self,
+        target: Document,
+        subscribers: list[Document],
+        failure: CollectionFailure,
+        run_id: str,
+        due: int,
+    ) -> list[Document]:
+        """What a failed check writes: the target, retried at ``due`` or stopped when
+        retrying cannot change the answer, and notices for watchers who asked for them.
+
+        The collector and a release that re-reads stored links both use it, so a flight
+        is stopped, and its watchers told, one way.
+        """
+        failures = target.data.get("failures", 0) + 1
+        # Do not persist exception text: provider errors can contain cookies/URLs.
+        data = {
+            **target.data,
+            "failures": failures,
+            "last_error": failure.code,
+            "lease_token": None,
+            "lease_until": 0,
+        }
+        notices = []
+        if not failure.retryable or failures == FAILURE_NOTICE_THRESHOLD:
+            notices = self._collection_notices(
+                subscribers,
+                "collection_failing" if failure.retryable else "collection_blocked",
+                failure.code,
+                failures,
+                run_id,
+            )
+        if notices:
+            data["failure_noticed"] = True
+        partition = COLLECTING if failure.retryable else BLOCKED
+        return [target.update(data, partition=partition, due=due), *notices]
+
     def _collection_notices(
         self, monitors: list[Document], kind: str, code: str | None, failures: int, run_id: str
     ) -> list[Document]:
@@ -661,8 +698,9 @@ class MonitoringService:
             raise ValueError("An observed offer requires verified price evidence")
         try:
             selected = import_link(offer.url)
-        except LinkRefused:
-            raise ValueError("Observed offer has an address Fareflare cannot read") from None
+        except LinkRefused as refusal:
+            log.warning("Observed offer address refused check=%s", refusal.check)
+            raise CollectionFailure("unexpected_page") from None
         serialized = json.loads(json.dumps(asdict(offer)))
         if (
             selected["id"] != offer.target_id
@@ -788,37 +826,12 @@ class MonitoringService:
                     failure = CollectionFailure("collection_failed")
                 current = self.store.get(target.key)
                 if current and current.data.get("lease_token") == token:
-                    failures = current.data.get("failures", 0) + 1
-                    # Do not persist exception text: provider errors can contain cookies/URLs.
-                    data = {
-                        **current.data,
-                        "failures": failures,
-                        "last_error": failure.code,
-                        "lease_token": None,
-                        "lease_until": 0,
-                    }
-                    notices = []
-                    if not failure.retryable or failures == FAILURE_NOTICE_THRESHOLD:
-                        notices = self._collection_notices(
-                            subscribers,
-                            "collection_failing" if failure.retryable else "collection_blocked",
-                            failure.code,
-                            failures,
-                            token,
-                        )
-                    if notices:
-                        data["failure_noticed"] = True
                     # A conflict means another worker already settled this lease.
                     with suppress(Conflict):
                         self.store.commit(
-                            [
-                                current.update(
-                                    data,
-                                    partition=COLLECTING if failure.retryable else BLOCKED,
-                                    due=started + RETRY_SECONDS,
-                                ),
-                                *notices,
-                            ]
+                            self.failed(
+                                current, subscribers, failure, token, started + RETRY_SECONDS
+                            )
                         )
                 counts["failed"] += 1
                 codes[failure.code] = codes.get(failure.code, 0) + 1

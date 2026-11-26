@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from fareflare.api import create_app
+from fareflare.contracts import CollectionFailure
 from fareflare.link_resolver import GoogleLinkResolver
 from fareflare.links import import_link
 from fareflare.public_quotes import PageEvidence
@@ -87,6 +88,12 @@ def test_search_requires_verified_offer_and_checks_itinerary_binding(store, cloc
     ):
         with pytest.raises(ValueError):
             service.record(invalid, "invalid-search")
+    # An offer whose address Fareflare cannot read is an unexpected page, not a price.
+    unreadable = replace(
+        reading, observed_offer=replace(reading.observed_offer, url="https://example.com/")
+    )
+    with pytest.raises(CollectionFailure, match="unexpected_page"):
+        service.record(unreadable, "unreadable-offer")
 
 
 def test_search_is_disabled_by_default(store, clock):
