@@ -77,13 +77,9 @@ def _move_history(store: Store, old: str, new: str, apply: bool) -> int:
     return moved
 
 
-def _busy(store: Store, target: Document, now: int) -> bool:
-    """A check holds the target, or an alert from it has not been delivered yet."""
-    identifier = target.data["spec"]["id"]
-    return target.data.get("lease_until", 0) > now or any(
-        event.data["observation"]["target_id"] == identifier
-        for event in _documents(store, "events_pending")
-    )
+def _alerting(store: Store) -> set[str]:
+    """Targets with an alert that has not been delivered yet."""
+    return {event.data["observation"]["target_id"] for event in _documents(store, "events_pending")}
 
 
 def _merged(current: Document, existing: Document | None, spec: dict) -> Document:
@@ -147,7 +143,9 @@ def _move(store: Store, current: Document, spec: dict, now: int, apply: bool) ->
     )
 
 
-def _update(store: Store, listed: Document, now: int, apply: bool) -> Change | None:
+def _update(
+    store: Store, listed: Document, now: int, apply: bool, alerting: set[str]
+) -> Change | None:
     # Read it again: the partition index can lag behind the document.
     current = store.get(listed.key)
     if current is None or current.partition != listed.partition:
@@ -159,7 +157,8 @@ def _update(store: Store, listed: Document, now: int, apply: bool) -> Change | N
         return Change(spec["id"], "unreadable")
     if fresh == spec:
         return Change(spec["id"], "unchanged")
-    if _busy(store, current, now):
+    # A check holds it, or an alert from it is still waiting to be sent.
+    if current.data.get("lease_until", 0) > now or spec["id"] in alerting:
         return Change(spec["id"], "busy", fresh["id"])
     if fresh["id"] != spec["id"]:
         return _move(store, current, fresh, now, apply)
@@ -177,9 +176,10 @@ def reidentify(store: Store, *, apply: bool = False, now: int | None = None) -> 
         old, new = moved.key.removeprefix("target:"), moved.data["moved_to"]
         if store.page("history:" + old, limit=1).items:
             changes.append(Change(old, "moved", new, history=_move_history(store, old, new, apply)))
+    alerting = _alerting(store)
     for partition in TARGET_PARTITIONS:
         for listed in _documents(store, partition):
-            change = _update(store, listed, now, apply)
+            change = _update(store, listed, now, apply, alerting)
             if change is not None:
                 changes.append(change)
     return changes
