@@ -31,9 +31,10 @@ Notable changes to Fareflare. The format follows
 
 - **A flight has one identity however its link was found.** What never changes a
   price no longer splits a flight in two or follows it into the link it is
-  checked at: the places searched for, the page language (every page is read in
-  US English), Google's view and session state (`tfu`), the browser and click
-  tracking. Unknown parameters and fields still count, so two links are never
+  checked at: the places searched for, where the link was made (the Flights site,
+  a share link, Search or Deals), the page language (every page is read in US
+  English), Google's view and session state (`tfu`), the browser and click
+  tracking. Every stored flight moves to its new identity with `reidentify`. Unknown parameters and fields still count, so two links are never
   merged on a guess.
 
 ### Fixed
@@ -47,11 +48,12 @@ Notable changes to Fareflare. The format follows
   include the flight's airport.
 - **Links shared from Safari are accepted.** Safari writes the country in lower case
   (`gl=us`), which was refused. Route searches read it the same way.
-- **More real links are accepted**, from 98 that people shared in public: places
-  Google marks as areas (kind 3), Google's country domains with a stated location,
+- **More real links are accepted**, from 98 that people shared in public: searched
+  places of any kind, Google's country domains with a stated location,
   a lower-case currency, links that leave out the default passenger and cabin, and
-  connections that change airports within a city. Route-search links no longer
-  need `gsas` or a particular result order.
+  connections that change airports within a city, and the old `/flights` path. Old
+  `#flt=` links get their own reason. Route-search links no longer need `gsas` or a
+  particular result order, and now check that Basic fares are excluded.
 
 ## 2.1.0 — 2026-11-23
 
