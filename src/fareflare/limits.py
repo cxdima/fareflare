@@ -18,6 +18,8 @@ CABINS = {
     FIRST: "First",
 }
 ROUND_TRIP, ONE_WAY, MULTI_CITY = 1, 2, 3
+# How many directions each trip type has.
+DIRECTIONS = {ONE_WAY: 1, ROUND_TRIP: 2}
 ADULT = 1
 
 CURRENCIES = {"USD": "US dollars", "JPY": "Japanese yen"}
@@ -34,9 +36,15 @@ class Limits:
     currencies: tuple[str, ...]
     cabin: int = ECONOMY
     country: str = "US"
+    nonstop: bool = True
     # Route searches name two airports and compare the fares that leave Basic out.
     exact_airports: bool = False
     exclude_basic: bool = False
+
+    @property
+    def directions(self) -> frozenset[int]:
+        """How many directions a link of this kind may have."""
+        return frozenset(DIRECTIONS[trip] for trip in self.trips)
 
 
 FLIGHTS = Limits("Chosen flights", (ONE_WAY, ROUND_TRIP), adults=2, currencies=("USD", "JPY"))
@@ -74,6 +82,10 @@ def cabin(limits: Limits) -> str:
     return CABINS[limits.cabin] + (" (exclude Basic)" if limits.exclude_basic else "")
 
 
+def stops(limits: Limits) -> str:
+    return "nonstop" if limits.nonstop else "with any number of stops"
+
+
 def trips(limits: Limits) -> str:
     return " and ".join(
         {ONE_WAY: "one-way", ROUND_TRIP: "round"}[trip] for trip in limits.trips
@@ -81,9 +93,14 @@ def trips(limits: Limits) -> str:
 
 
 def supported(limits: Limits) -> str:
-    """The one sentence the guide, the dashboard and the docs use for each kind."""
+    """The one description the guide, the dashboard and the docs use for each kind."""
     airports = " between two airports on one date" if limits.exact_airports else ""
-    return (
-        f"{limits.name}: nonstop {trips(limits)}{airports}, in {cabin(limits)}, for "
+    sentence = (
+        f"{limits.name}: {stops(limits)} {trips(limits)}{airports}, in {cabin(limits)}, for "
         f"{adults(limits)}, with prices for {country(limits)} in {currencies(limits)}."
     )
+    if not limits.exact_airports:
+        sentence += " Search by airport, city or several airports, in any language."
+    if ROUND_TRIP in limits.trips:
+        sentence += " For a round trip, choose both flights before copying the link."
+    return sentence

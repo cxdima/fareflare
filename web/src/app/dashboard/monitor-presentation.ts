@@ -18,7 +18,7 @@ interface MonitorPresentationStrategy {
 class SelectedItineraryPresentation implements MonitorPresentationStrategy {
   present(monitor: Monitor): MonitorPresentation {
     return {
-      description: flightNumbers(monitor.target.segments) || 'Selected itinerary',
+      description: flightNumbers(monitor.target.segments) || 'Chosen flights',
       match: '',
       airlines: [
         ...new Set(

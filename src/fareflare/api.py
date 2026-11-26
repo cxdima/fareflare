@@ -296,10 +296,6 @@ def create_app(
     async def conflict(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=409)
 
-    @app.exception_handler(LinkRefused)
-    async def refused(request, exc):
-        return _refused(exc, diagnostics=False)
-
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=422)

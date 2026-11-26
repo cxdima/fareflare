@@ -20,12 +20,13 @@ from fareflare.limits import (
     cabin,
     country,
     currencies,
+    stops,
     trips,
 )
 from fareflare.store import Conflict, Document, Store
 
 log = logging.getLogger(__name__)
-_AGAIN = "then send the link again."
+_CHANGE = "Change the {} and send the link again."
 
 # One sentence per reason: what Fareflare cannot do, and what to do instead.
 REASONS: dict[str, str] = {
@@ -38,35 +39,34 @@ REASONS: dict[str, str] = {
     "short_link": "This short link didn't open. Open it, then send the full Google Flights link.",
     "no_flight_chosen": "This link doesn't name a flight. Choose your flights in Google "
     "Flights, then send the link.",
-    "return_not_chosen": "Choose your return flight too, " + _AGAIN,
+    "return_not_chosen": "Choose your return flight too, then send the link again.",
     "trip_type": f"Fareflare watches {trips(FLIGHTS)} only. Search a one-way or round trip, "
     "then send its link.",
     "open_jaw": "Fareflare watches round trips that fly back between the same two airports. "
-    "Choose a return between them, " + _AGAIN,
-    "connections": "Fareflare watches nonstop flights only. Choose a nonstop flight, then "
-    "send its link.",
-    "cabin": f"Fareflare watches {cabin(FLIGHTS)} fares only. Choose {cabin(FLIGHTS)} in "
-    "Google Flights, " + _AGAIN,
-    "passengers": f"Fareflare watches trips for {adults(FLIGHTS)} only. Set the passengers "
-    f"to {adults(FLIGHTS)}, " + _AGAIN,
-    "currency": f"Fareflare checks prices in {currencies(FLIGHTS)} only. Choose "
-    f"{currencies(FLIGHTS)} in Google Flights, " + _AGAIN,
-    "country": f"Fareflare checks prices for {country(FLIGHTS)} only. Set the location to "
-    f"{country(FLIGHTS)} in Google Flights, " + _AGAIN,
-    "country_unstated": "This link doesn't say which country its prices are for. Set the "
-    f"location to {country(FLIGHTS)} in Google Flights, " + _AGAIN,
-    "search_trip": f"Fareflare watches route searches for {trips(ROUTE_SEARCHES)} only. "
-    "Search one way, " + _AGAIN,
-    "search_passengers": f"Fareflare watches route searches for {adults(ROUTE_SEARCHES)} "
-    f"only. Set the passengers to {adults(ROUTE_SEARCHES)}, " + _AGAIN,
-    "search_stops": "Fareflare watches nonstop route searches only. Set Stops to Nonstop in "
-    "Google Flights, " + _AGAIN,
-    "search_cabin": f"Fareflare watches route searches in {cabin(ROUTE_SEARCHES)} only. "
-    f"Choose {cabin(ROUTE_SEARCHES)} in Google Flights, " + _AGAIN,
-    "search_currency": f"Fareflare watches route searches in {currencies(ROUTE_SEARCHES)} "
-    f"only. Choose {currencies(ROUTE_SEARCHES)} in Google Flights, " + _AGAIN,
-    "search_places": "Fareflare watches route searches between two airports only. Search "
-    "from one airport to another, " + _AGAIN,
+    "Choose a return between them, then send the link again.",
+    "connections": f"Fareflare watches {stops(FLIGHTS)} flights only. Choose a "
+    f"{stops(FLIGHTS)} flight, then send its link.",
+    "cabin": f"Fareflare watches {cabin(FLIGHTS)} fares only. " + _CHANGE.format("cabin"),
+    "passengers": f"Fareflare watches trips for {adults(FLIGHTS)} only. "
+    + _CHANGE.format("passengers"),
+    "currency": f"Fareflare checks prices in {currencies(FLIGHTS)} only. "
+    + _CHANGE.format("currency"),
+    "country": f"Fareflare checks prices for {country(FLIGHTS)} only. "
+    + _CHANGE.format("location"),
+    "country_unstated": "This link doesn't say its country. Set the location to "
+    f"{country(FLIGHTS)} and send the link again.",
+    "search_trip": f"Route searches need {trips(ROUTE_SEARCHES)}. Search one way, or choose "
+    "your flights and send that link.",
+    "search_passengers": f"Route searches need {adults(ROUTE_SEARCHES)}. "
+    + _CHANGE.format("passengers"),
+    "search_stops": f"Route searches need {stops(ROUTE_SEARCHES)} flights. Set Stops to "
+    "Nonstop in Google Flights and send the link again.",
+    "search_cabin": f"Route searches need {cabin(ROUTE_SEARCHES)}. Choose it in Google "
+    "Flights and send the link again.",
+    "search_currency": f"Route searches need prices in {currencies(ROUTE_SEARCHES)}. "
+    + _CHANGE.format("currency"),
+    "search_places": "Route searches go from one airport to another. Search between two "
+    "airports and send the link again.",
     "departed": "This flight has already left. Choose a future flight and send its link.",
 }
 
@@ -145,6 +145,9 @@ class LinkRefused(ValueError):
 
 
 DAY = 86400
+# Where the admin report lists checks this release no longer makes.
+RETIRED = "retired"
+_RETIRED_SENTENCE = "Checks an earlier release made, which this one no longer does."
 # Refusals are kept long enough to show the admin panel's thirty days.
 RETAINED_DAYS = 40
 _ATTEMPTS = 3
@@ -177,7 +180,11 @@ class RefusalLog:
 
 
 def refusal_report(store: Store, now: int, days: int = 30) -> dict:
-    """Refusals of the last ``days`` days by reason, each with its checks."""
+    """Refusals of the last ``days`` days by reason, each with its checks.
+
+    Counts outlive the code that made them: a check a later release no longer makes
+    is listed under its own name as retired, never dropped.
+    """
     today = now - now % DAY
     totals: dict[str, int] = {}
     for index in range(days):
@@ -186,14 +193,14 @@ def refusal_report(store: Store, now: int, days: int = 30) -> dict:
             totals[check] = totals.get(check, 0) + count
     reasons: dict[str, dict] = {}
     for check, count in sorted(totals.items(), key=lambda item: (-item[1], item[0])):
-        entry = reasons.setdefault(CHECKS[check], {"count": 0, "checks": {}})
+        entry = reasons.setdefault(CHECKS.get(check, RETIRED), {"count": 0, "checks": {}})
         entry["count"] += count
         entry["checks"][check] = count
     return {
         "days": days,
         "total": sum(totals.values()),
         "reasons": [
-            {"reason": reason, "sentence": REASONS[reason], **entry}
+            {"reason": reason, "sentence": REASONS.get(reason, _RETIRED_SENTENCE), **entry}
             for reason, entry in sorted(reasons.items(), key=lambda item: -item[1]["count"])
         ],
     }

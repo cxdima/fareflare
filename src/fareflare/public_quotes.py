@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 
 from fareflare.contracts import CollectionFailure, QuoteEvidence, Reading, SliceTimes
-from fareflare.limits import FLIGHTS
+from fareflare.limits import CURRENCIES, FLIGHTS
 from fareflare.links import import_link
 from fareflare.refusals import LinkRefused
 
@@ -38,8 +38,11 @@ def collection_refusal(target: dict) -> str | None:
     """
     limits = FLIGHTS
     for unsupported, check in (
-        (len(target["segments"]) not in (1, len(limits.trips)), "multi_city"),
-        (any(len(segment["legs"]) != 1 for segment in target["segments"]), "connections"),
+        (len(target["segments"]) not in limits.directions, "multi_city"),
+        (
+            limits.nonstop and any(len(segment["legs"]) != 1 for segment in target["segments"]),
+            "connections",
+        ),
         (target["cabin"] != limits.cabin, "cabin"),
         (not 1 <= target["adults"] <= limits.adults, "adults"),
         (target["currency"] not in limits.currencies, "currency"),
@@ -97,7 +100,7 @@ def slice_times(section: str, origin: str, destination: str) -> SliceTimes | Non
 
 def _money(label: str, currency: str) -> int:
     # Accessible labels identify the currency; a dollar sign alone is ambiguous.
-    name = {"USD": "US dollars", "JPY": "Japanese yen"}[currency]
+    name = CURRENCIES[currency]
     decimals = r"(\.\d{2})?" if currency == "USD" else r"()"
     match = re.fullmatch(r"([1-9]\d{0,7}|[1-9]\d{0,2}(?:,\d{3})+)" + decimals + " " + name, label)
     if not match:

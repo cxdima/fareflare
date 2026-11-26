@@ -4,7 +4,7 @@ export function routeName(monitor: Monitor): string {
   const legs = monitor.target.segments[0]?.legs ?? [];
   return legs.length
     ? `${legs[0].origin} → ${legs[legs.length - 1].destination}`
-    : 'Selected itinerary';
+    : 'Chosen flights';
 }
 export function flightNumbers(segments: Segment[]): string {
   return segments

@@ -68,9 +68,9 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
     retry = RETRY_SECONDS // 60
     access = "open" if config.registration_mode == "open" else "closed"
     route_status = (
-        "Route searches are enabled on this installation."
+        "Route searches are on here."
         if config.search_enabled
-        else "Route searches are not enabled on this installation; use a selected itinerary."
+        else "Route searches are off here; choose your flights instead."
     )
     return (
         Page(
@@ -84,7 +84,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "Start with your flight link",
                     (
-                        "Copy a supported Google Flights link and add it to your monitors. Track a selected itinerary or compare flights on a supported route search.",
+                        "Copy a supported Google Flights link and add it to your monitors. Watch chosen flights, or compare flights on a supported route search.",
                         "Fareflare checks public prices with its own browser. You do not need to share access to your Google account.",
                     ),
                 ),
@@ -120,7 +120,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "What Fareflare does",
                     (
-                        "Add a supported Google Flights link to monitor a selected itinerary or route search. Fareflare checks public prices, records successful observations, and sends alerts according to your preferences.",
+                        "Add a supported Google Flights link to watch chosen flights or a route search. Fareflare checks public prices, records successful observations, and sends alerts according to your preferences.",
                         "The website, API, and MCP use the same account and monitors. You can send alerts to Telegram or a verified webhook without giving Fareflare access to your Google account.",
                     ),
                 ),
@@ -177,7 +177,7 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "A new low has a starting point",
                     (
                         "An observed low means the lowest eligible price recorded since this monitor started. It does not describe all previous fares, every airline, or every booking source in the market.",
-                        "A selected-itinerary monitor compares the same supported itinerary over time. A route-search monitor can find a different matching flight as the cheapest result. Open the observed offer and check the flight number and times before deciding.",
+                        "Watching chosen flights compares the same flights over time. A route search can find a different flight as the cheapest. Open the observed offer and check the flight number and times before deciding.",
                     ),
                 ),
                 Section(
@@ -221,37 +221,35 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
         Page(
             "/guides/choosing-a-flight-link",
             "Choose a Google Flights link to watch — Fareflare",
-            "Learn when to use a selected itinerary or a supported route search, and which passenger, airport, currency, and fare settings Fareflare supports.",
+            "Learn when to watch chosen flights or a route search, and which passengers, airports, currencies and fares Fareflare supports.",
             "Getting started",
             "Choose a flight link to monitor",
-            "A selected flight and a route search answer different questions. Start with the one that matches your travel plans.",
+            "Chosen flights and a route search answer different questions. Start with the one that matches your plans.",
             (
                 Section(
-                    "Watch a selected itinerary when the flight matters",
+                    "Watch chosen flights when the flight matters",
                     (
-                        "Choose the flights you want in Google Flights, then copy the resulting link. A selected-itinerary monitor is useful when the departure time, airline, or return flight is part of your decision.",
-                        supported(FLIGHTS)
-                        + " Search however you like, by airport, city or several airports, in any language. For a round trip, choose both the outbound and the return flight before copying the link.",
+                        "Choose the flights you want in Google Flights, then copy the link. Watching chosen flights suits you when the departure time, airline or return flight is part of your decision.",
+                        supported(FLIGHTS),
                     ),
                 ),
                 Section(
                     "Watch a route when several flights would work",
                     (
-                        "A route-search monitor compares the eligible results for a supported search and keeps the actual matching flight with each observation. The cheapest matching result may be a different flight on the next successful check.",
-                        supported(ROUTE_SEARCHES)
-                        + " Flexible dates and searches by city are not supported.",
+                        "A route search compares the flights Google lists for your search and keeps the one that was cheapest at each check. The cheapest may be a different flight next time.",
+                        supported(ROUTE_SEARCHES),
                         route_status,
                     ),
                 ),
                 Section(
                     "Keep the link and the expectations together",
                     (
-                        "Paste the complete Google Flights link into Fareflare. The service checks the encoded selection and rejects unsupported inputs explicitly. Removing parts of the URL to make it shorter can remove the very constraints you meant to track.",
+                        "Paste the whole Google Flights link into Fareflare. It reads the flights and settings in the link, and says plainly if one is not supported and what to change. Shortening the link can remove the very settings you meant to watch.",
                         "No customer Google account access is required. Fareflare collects anonymous public prices. You should not paste Google cookies, passwords, authenticator codes, or any other account credentials into a monitor.",
                     ),
                     bullets=(
                         "Pick a supported cabin, number of passengers, currency and location.",
-                        "For a selected round trip, complete both flight selections.",
+                        "For a round trip, choose both flights.",
                         "Copy the full link and add it to your watchlist.",
                         "Check the monitor’s first verified observation before relying on its alerts.",
                     ),
@@ -259,8 +257,8 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                 Section(
                     "If the first check fails",
                     (
-                        f"Read the collection status. An unsupported itinerary needs a different supported selection. A temporary browser or page failure is tried again {retry} minutes later. Neither result should be replaced with a guessed price.",
-                        "You can pause or cancel a monitor from the dashboard. A cancelled monitor releases your account’s monitor capacity; shared collection can continue if another subscriber still watches the same target.",
+                        f"Read the collection status. Flights Fareflare cannot check need a different choice. A temporary browser or page failure is tried again {retry} minutes later. Neither result is ever replaced with a guessed price.",
+                        "You can pause or stop a flight from the dashboard. Stopping it frees a place on your account; its checks go on if someone else still watches the same flights.",
                     ),
                     links=(
                         Link("Understand the next alert", "/guides/reading-flight-price-alerts"),

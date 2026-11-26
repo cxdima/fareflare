@@ -249,7 +249,7 @@ def test_content_tracks_config_and_never_executes_brand_text():
     text = str(doc)
     assert "minimum requested interval of 5 minutes" in text
     assert "4 monitors" in text and "free and open" in text
-    assert "Route searches are not enabled" in text
+    assert "Route searches are off here" in text
     shell = "<html><head></head><body><app-root></app-root></body></html>"
     result = render_document(shell, public_pages(config)[0], config, "safe-nonce")
     assert "</script><img" not in result
