@@ -206,3 +206,35 @@ def test_mcp_network_errors_are_sanitized_and_identifiers_validated():
     assert "sensitive" not in str(exc.value)
     with pytest.raises(ToolError, match="Invalid monitor identifier"):
         asyncio.run(server.call_tool("get_monitor", {"monitor_id": "../../admin"}))
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "expected"),
+    [
+        # A refused link is explained in the service's own words, looked up by its code.
+        (422, {"detail": "anything the response says", "reason": "connections"}, "nonstop"),
+        # Anything else stays a plain HTTP error, never the response's text.
+        (422, {"detail": "Provide an 8–128 character idempotency key"}, "HTTP 422"),
+        (422, {"detail": "x", "reason": "not a reason"}, "HTTP 422"),
+        (422, {"detail": "x", "reason": ["connections"]}, "HTTP 422"),
+        (422, "not json", "HTTP 422"),
+        (409, {"detail": "x", "reason": "connections"}, "HTTP 409"),
+    ],
+)
+def test_mcp_explains_a_refused_link_and_nothing_else(status, body, expected):
+    def answer(request):
+        if body == "not json":
+            return httpx.Response(status, text="<html>")
+        return httpx.Response(status, json=body)
+
+    server = make_server("http://127.0.0.1:8001", "x" * 32, httpx.MockTransport(answer))
+    with pytest.raises(ToolError) as error:
+        asyncio.run(
+            server.call_tool(
+                "create_monitor", {"url": "https://example.com/", "idempotency_key": "key-12345"}
+            )
+        )
+    assert expected in str(error.value)
+    assert "anything the response says" not in str(error.value)
+    if expected == "nonstop":
+        assert str(error.value).endswith("(reason: connections)")

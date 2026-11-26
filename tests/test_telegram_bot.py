@@ -14,7 +14,7 @@ from fareflare.accounts import Accounts
 from fareflare.contracts import QuoteEvidence, Reading, SliceTimes
 from fareflare.links import ItineraryMessage
 from fareflare.product_config import ProductConfig
-from fareflare.refusals import REASONS, refusal_report
+from fareflare.refusals import REASONS, RefusalLog, refusal_report
 from fareflare.store import Document
 from fareflare.telegram_bot import TelegramBot
 from fareflare.telegram_rules import parse_amount
@@ -170,6 +170,7 @@ def test_inline_cancel_uses_a_revision_fence_when_a_new_draft_arrives(
 
 
 def test_a_refused_link_says_why_and_adds_nothing(native_bot, service, store, flight_url, clock):
+    service.refusals = RefusalLog(store, lambda: clock[0])  # As wired at startup.
     message = _call(native_bot, "https://example.com/?token=private")
     assert message.text.startswith("Fareflare can't watch this link")
     assert REASONS["not_flights"] in message.text and "Nothing has been added." in message.text
@@ -183,6 +184,20 @@ def test_a_refused_link_says_why_and_adds_nothing(native_bot, service, store, fl
     assert REASONS["departed"] in _call(native_bot, flight_url).text
     assert service.monitors_page(native_bot[1])["active_count"] == 0
     assert refusal_report(store, clock[0])["reasons"][0]["checks"] == {"departed": 1}
+
+
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_a_link_refused_when_confirmed_says_why_and_its_code_on_request(
+    native_bot, service, flight_url, diagnostics
+):
+    service.set_preferences(native_bot[1], diagnostics=diagnostics)
+    preview = _call(native_bot, flight_url)
+    # What Fareflare can price changed between the preview and the confirmation.
+    service.capability = lambda target: "cabin"
+    refused = _press(native_bot, preview, "Start watching").text
+    assert REASONS["cabin"] in refused and "Nothing has been added." in refused
+    assert ("Diagnostic code: cabin" in refused) is diagnostics
+    assert service.monitors_page(native_bot[1])["active_count"] == 0
 
 
 def test_a_link_shared_from_safari_after_a_city_search_is_offered(native_bot):

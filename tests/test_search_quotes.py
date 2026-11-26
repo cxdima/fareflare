@@ -9,10 +9,10 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import pytest
 
-from fareflare.links import import_link
+from fareflare.links import ItineraryMessage, import_link
 from fareflare.public_quotes import PageEvidence, QuoteUnavailable
 from fareflare.refusals import LinkRefused
-from fareflare.search_links import SearchMessage, offer_matches_search
+from fareflare.search_links import offer_matches_search
 from fareflare.search_quotes import (
     SearchPageEvidence,
     verified_search_minimum,
@@ -31,7 +31,7 @@ def evidence():
 
 def altered_url(url, mutate):
     params = dict(parse_qsl(urlsplit(url).query))
-    message = SearchMessage()
+    message = ItineraryMessage()
     message.ParseFromString(
         base64.urlsafe_b64decode(params["tfs"] + "=" * (-len(params["tfs"]) % 4))
     )
@@ -53,9 +53,15 @@ def test_search_requires_opt_in_and_preserves_a_distinct_identity(evidence):
     for view in ("EgYIABAAGAA", "EgQIABABIgA", "EgoIAhAAGAAgAigB"):
         changed = altered_url(search.url, lambda m, p, view=view: p.update(tfu=view))
         assert import_link(changed, allow_search=True) == target
-    # A parameter of unknown meaning is kept: the same search without it is another target.
+    # gsas only marks a link Google built itself: the same search without it is the same.
     without = altered_url(search.url, lambda m, p: p.pop("gsas"))
-    assert import_link(without, allow_search=True)["id"] != target["id"]
+    assert import_link(without, allow_search=True) == target
+    # A parameter of unknown meaning is kept: the same search with it is another target.
+    unknown = altered_url(search.url, lambda m, p: p.update(futureFareOption="1"))
+    assert import_link(unknown, allow_search=True)["id"] != target["id"]
+    # Where the link was made is not part of what was searched.
+    shared = altered_url(search.url, lambda m, p: setattr(m, "made_by", 2))
+    assert import_link(shared, allow_search=True)["id"] == target["id"]
 
 
 def test_a_search_reads_the_country_in_either_case(evidence):
@@ -77,6 +83,9 @@ def test_a_search_reads_the_country_in_either_case(evidence):
         (lambda m, p: setattr(m.segments[0], "date", "2027-02-30"), "date"),
         (lambda m, p: p.update(curr="JPY"), "search_currency"),
         (lambda m, p: p.update(gl="CA"), "search_country"),
+        # The reader verifies fares that leave Basic out; no real search link sets this.
+        (lambda m, p: m.ClearField("exclude_basic"), "search_basic"),
+        (lambda m, p: setattr(m, "exclude_basic", 0), "search_basic"),
     ],
 )
 def test_a_search_outside_route_search_limits_names_the_limit(evidence, mutate, check):

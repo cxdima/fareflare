@@ -28,7 +28,7 @@ from fareflare.failures import describe_failure
 from fareflare.links import import_link
 from fareflare.outbox import DeliveryOutbox
 from fareflare.preferences import merge_preferences, stored_preferences
-from fareflare.refusals import LinkRefused, record_refusal
+from fareflare.refusals import LinkRefused, RefusalLog
 from fareflare.store import Conflict, Document, Store
 from fareflare.webhooks import WebhookRegistry, WebhookTransport
 
@@ -45,6 +45,8 @@ LEASE_SECONDS = 120
 # watcher, blocked ones wait for Retry collection and expired ones have departed.
 COLLECTING, IDLE, BLOCKED, EXPIRED = "targets", "targets_idle", "targets_blocked", "targets_expired"
 TARGET_PARTITIONS = (COLLECTING, IDLE, BLOCKED, EXPIRED)
+# A monitor in one of these states is sent its flight's alerts.
+WATCHING = ("pending", "active", "degraded")
 
 
 class NotFound(LookupError):
@@ -61,6 +63,17 @@ class CapacityReached(ValueError):
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def request_hash(
+    target_id: str, policy: dict, interval_seconds: int, webhook_id: str | None
+) -> str:
+    """What a create request asked for, so a retry with its key can be recognized."""
+    # Preserve the v1 request fingerprint layout for retries across releases.
+    payload = [target_id, policy, interval_seconds, None, False]
+    if webhook_id is not None:
+        payload.append(webhook_id)
+    return _digest(json.dumps(payload, sort_keys=True))
 
 
 @dataclass(frozen=True)
@@ -85,6 +98,7 @@ class MonitoringService:
         link_importer: Callable[[str], dict] = import_link,
         capability: Callable[[dict], str | None] | None = None,
         *,
+        refusals: RefusalLog | None = None,
         webhook_transport: WebhookTransport | None = None,
         monitor_limit: int = 100,
         min_interval_seconds: int = 300,
@@ -94,9 +108,9 @@ class MonitoringService:
         self.outbox = DeliveryOutbox(self)
         self.webhooks = WebhookRegistry(self, webhook_transport)
         self.link_importer, self.capability = link_importer, capability
-        # Refusal counts are diagnostics outside any request's transaction, so they
-        # are written to this store even when a caller fences the service's own.
-        self.refusal_store = store
+        # Built at startup on the real store: a copy of this service whose store is
+        # fenced for one request still counts its refusals outside that request.
+        self.refusals = refusals
         if (
             not 1 <= monitor_limit <= 100
             or not 300 <= min_interval_seconds <= 86400
@@ -127,9 +141,18 @@ class MonitoringService:
             if check is not None:
                 raise LinkRefused(check)
         except LinkRefused as refusal:
-            record_refusal(self.refusal_store, self._now(), refusal.check)
+            self._count(refusal.check)
             raise
         return target
+
+    def _count(self, check: str) -> None:
+        """Counting a refusal is a diagnostic: it never changes the answer."""
+        if self.refusals is None:
+            return
+        try:
+            self.refusals.record(check)
+        except Exception as error:  # noqa: BLE001 - the person still gets their answer
+            log.warning("Refusal not counted check=%s failure=%s", check, describe_failure(error))
 
     def departure_day_elapsed(self, target: dict) -> bool:
         # The imported link has airport-local dates but no departure timezone.
@@ -165,11 +188,7 @@ class MonitoringService:
             raise ValueError(f"Check interval must be {self.min_interval_seconds}–86400 seconds")
         target = self.accept_link(url)
         policy = policy or AlertPolicy()
-        # Preserve the v1 request fingerprint layout for retries across releases.
-        request_payload = [target["id"], asdict(policy), interval_seconds, None, False]
-        if webhook_id is not None:
-            request_payload.append(webhook_id)
-        payload_hash = _digest(json.dumps(request_payload, sort_keys=True))
+        payload_hash = request_hash(target["id"], asdict(policy), interval_seconds, webhook_id)
         request_id = "request:" + _digest(tenant + ":" + request_key)
         for _ in range(5):
             existing = self.store.get(request_id)
@@ -324,7 +343,7 @@ class MonitoringService:
         if monitor.data["status"] == "cancelled" and status != "cancelled":
             raise ValueError("A cancelled monitor cannot be reactivated")
         if monitor.data["status"] == status or (
-            status == "active" and monitor.data["status"] in ("pending", "active", "degraded")
+            status == "active" and monitor.data["status"] in WATCHING
         ):
             return self.get_monitor(tenant, monitor_id)
         if monitor.data["status"] == "expired" and status not in ("expired", "cancelled"):
@@ -382,7 +401,7 @@ class MonitoringService:
         monitors = [self.store.get("monitor:" + mid) for mid in target.data.get("subscribers", [])]
         active = []
         for monitor in monitors:
-            if not monitor or monitor.data["status"] not in ("pending", "active", "degraded"):
+            if not monitor or monitor.data["status"] not in WATCHING:
                 continue
             if monitor.data["tenant"].startswith("acct_"):
                 account = self.store.get("account:" + monitor.data["tenant"])
@@ -552,7 +571,7 @@ class MonitoringService:
                 wanted = (
                     callable(notify)
                     and self.preferences(data["tenant"])["diagnostics"]
-                    and monitor["status"] in ("pending", "active", "degraded")
+                    and monitor["status"] in WATCHING
                     and not self.notifications_muted(monitor)
                 )
             except (NotFound, ValueError):

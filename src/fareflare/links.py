@@ -2,14 +2,17 @@
 
 Field mapping reference (independently implemented, not copied):
 https://github.com/punitarani/fli/blob/881aee5ff4321e81ea2157cb44be94ce6a21dc1b/fli/search/_proto.py
-The format is unofficial. A link is read as the facts that decide a price (the
-flights, passengers, cabin, currency and country) and the context it was found in.
-A target's identity is its facts plus every part of the context that might change a
-price: unknown protobuf fields and query parameters are kept, because a missed match
-is better than merging two differently priced products. Context that is known not to
-change a price (the places searched for, the page language and view, the browser and
-click tracking) is left out, so a flight has one identity however its link was found.
-Whether the collector can price a target is decided separately, after import.
+and the field notes from 98 links people shared in public. The format is unofficial.
+
+A link is read as the facts that decide a price (the flights, passengers, cabin,
+currency and country) and the context it was found in. A target's identity is its
+facts plus every part of the context that might change a price: unknown protobuf
+fields and query parameters are kept, because a missed match is better than merging
+two differently priced products. Context known not to change a price (where the
+link was made, the places searched for once flights are chosen, the page language
+and view, the browser and click tracking) is left out, so a flight or a search has
+one identity however its link was found. Whether the collector can price a target
+is decided separately, after import.
 """
 
 from __future__ import annotations
@@ -28,33 +31,48 @@ from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 from google.protobuf.message import DecodeError
 
 from fareflare.contracts import FlightLeg, JourneySlice, Offer
+from fareflare.google_domains import GOOGLE_DOMAINS
+from fareflare.limits import ADULT, CABINS, ECONOMY, MULTI_CITY, ONE_WAY, ROUND_TRIP
 from fareflare.refusals import LinkRefused
+
+_STRING, _BYTES, _MESSAGE, _UINT32, _UINT64 = 9, 12, 11, 13, 4
 
 
 def _message_class() -> Any:
+    # Every field the field notes document is named, so a token is written in one
+    # order whatever wrote it. Fields of unknown use are kept as they came.
     schema = descriptor_pb2.FileDescriptorProto(name="fareflare_itinerary.proto", syntax="proto2")
     definitions = {
-        "Location": [(1, "kind", 13, False, None), (2, "code", 9, False, None)],
+        "Location": [(1, "kind", _UINT32, False, None), (2, "code", _STRING, False, None)],
         "Leg": [
-            (1, "origin", 9, False, None),
-            (2, "date", 9, False, None),
-            (3, "destination", 9, False, None),
-            (5, "airline", 9, False, None),
-            (6, "number", 9, False, None),
+            (1, "origin", _STRING, False, None),
+            (2, "date", _STRING, False, None),
+            (3, "destination", _STRING, False, None),
+            (5, "airline", _STRING, False, None),
+            (6, "number", _STRING, False, None),
         ],
         "Segment": [
-            (2, "date", 9, False, None),
-            (4, "legs", 11, True, ".Leg"),
-            (13, "origins", 11, True, ".Location"),
-            (14, "destinations", 11, True, ".Location"),
+            (2, "date", _STRING, False, None),
+            (4, "legs", _MESSAGE, True, ".Leg"),
+            (5, "max_stops", _UINT32, False, None),
+            (13, "origins", _MESSAGE, True, ".Location"),
+            (14, "destinations", _MESSAGE, True, ".Location"),
         ],
         "Itinerary": [
-            (1, "made_by", 13, False, None),  # Where the link was made: never a price fact.
-            (3, "segments", 11, True, ".Segment"),
-            (8, "passengers", 13, True, None),
-            (9, "cabin", 13, False, None),
-            (10, "currency", 9, False, None),
-            (19, "trip", 13, False, None),
+            (1, "made_by", _UINT32, False, None),  # The Flights site, a share, Search, Deals.
+            (2, "page", _UINT32, False, None),  # The home page, or a search or booking page.
+            (3, "segments", _MESSAGE, True, ".Segment"),
+            (8, "passengers", _UINT32, True, None),
+            (9, "cabin", _UINT32, False, None),
+            (10, "currency", _STRING, False, None),
+            (12, "max_price", _UINT64, False, None),
+            (13, "bags", _BYTES, False, None),  # Google adds bag fees to the prices it shows.
+            (14, "constant", _UINT64, False, None),
+            (15, "selection", _BYTES, False, None),
+            (16, "pin", _BYTES, False, None),
+            (19, "trip", _UINT32, False, None),
+            (22, "hint", _BYTES, False, None),
+            (25, "exclude_basic", _UINT32, False, None),
         ],
     }
     for name, fields in definitions.items():
@@ -77,9 +95,7 @@ _AIRLINE = re.compile(r"[A-Z0-9]{2,3}\Z")
 _NUMBER = re.compile(r"[0-9]{1,5}[A-Z]?\Z")
 _DAY = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 _TOKEN = re.compile(r"[A-Za-z0-9_-]{1,6000}={0,2}\Z")
-# Google Flights answers on google.com and on Google's country domains. Only on
-# google.com is a link without a country (gl) one for the United States.
-_GOOGLE = re.compile(r"(?:www\.)?google\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})\Z")
+# Only on google.com is a link without a country (gl) one for the United States.
 _US_HOSTS = {"google.com", "www.google.com"}
 # The pages a flight's link opens: a search, a booking page, or the Flights page
 # itself, old or new. Other Flights pages (deals, saved flights) name none.
@@ -88,10 +104,12 @@ _FLIGHTS = re.compile(r"/(?:travel/)?flights(?:/.*)?\Z")
 # A searched place of kind 1 is an airport, by its code. Google marks cities and
 # wider areas with kinds 2 and 3, and the same place appears with either.
 AIRPORT_KIND = 1
-# Trip types as Google encodes them.
-ROUND_TRIP, ONE_WAY, MULTI_CITY = 1, 2, 3
 # The page language the collector reads. Every target is checked in it.
 LANGUAGE = "en-US"
+# Fields that never decide a price: where the link was made, which page it opens,
+# Google's constant, an embedded selection, a pin, the trip type the segments state,
+# a destination hint, and the currency the address states as curr.
+_NOT_PRICE_FIELDS = ("made_by", "page", "constant", "selection", "pin", "trip", "hint", "currency")
 
 # What each known query parameter of a Google Flights link is:
 #   fact      read into the target: the itinerary, its currency and its country
@@ -99,7 +117,7 @@ LANGUAGE = "en-US"
 #   view      how the page is shown: the order of results, or the session and price
 #             a booking page was opened from (a booking page opens from tfs alone)
 #   browser   which browser, or which signed-in account, opened the link
-#   tracking  where the click came from
+#   tracking  where the click came from, including gsas on links Google builds itself
 # Facts and unknown parameters stay in a target and in the address it is checked at;
 # the rest never changes a price.
 PARAMETERS: dict[str, str] = {
@@ -119,6 +137,7 @@ PARAMETERS: dict[str, str] = {
     "ictx": "tracking",
     "sxsrf": "tracking",
     "sca_esv": "tracking",
+    "gsas": "tracking",
 }
 _TRACKING_PREFIX = "utm_"
 
@@ -152,8 +171,45 @@ def _token(message: Any) -> str:
     return base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode()
 
 
+def parse_token(token: str) -> Any:
+    """A tfs token as a message; the importer has already validated it."""
+    message = ItineraryMessage()
+    message.ParseFromString(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+    return message
+
+
+def identity_token(message: Any, chosen: list[dict] | None = None) -> str:
+    """The itinerary as far as it can decide a price, written one way.
+
+    For chosen flights each searched place becomes the flight's own airport: what
+    was searched for cannot change the price of flights already chosen. For a
+    search, the places are the search.
+    """
+    identity = ItineraryMessage()
+    identity.CopyFrom(message)
+    for field in _NOT_PRICE_FIELDS:
+        identity.ClearField(field)
+    if chosen is not None:
+        for entry, segment in zip(identity.segments, chosen, strict=True):
+            for field, airport in (
+                ("origins", segment["legs"][0]["origin"]),
+                ("destinations", segment["legs"][-1]["destination"]),
+            ):
+                entry.ClearField(field)
+                getattr(entry, field).add(kind=AIRPORT_KIND, code=airport)
+    return _token(identity)
+
+
+def constraint_hash(message: Any, query: dict[str, str], chosen: list[dict] | None = None) -> str:
+    """Everything beyond the named facts that may decide a price, as one hash: the
+    parameters of unknown meaning, the page language and the identity token."""
+    constraints = {name: value for name, value in query.items() if parameter_kind(name) != "fact"}
+    constraints["opaque_token"] = identity_token(message, chosen)
+    return hashlib.sha256(json.dumps(constraints, sort_keys=True).encode()).hexdigest()
+
+
 def itinerary_link(
-    segments: list[dict], *, adults: int = 1, cabin: int = 1, currency: str = "USD"
+    segments: list[dict], *, adults: int = 1, cabin: int = ECONOMY, currency: str = "USD"
 ) -> str:
     """A Google Flights link that selects exactly these flights.
 
@@ -161,7 +217,9 @@ def itinerary_link(
     or out and back. A leg without a date of its own flies on its segment's date.
     """
     message = ItineraryMessage(
-        passengers=[1] * adults, cabin=cabin, trip=ROUND_TRIP if len(segments) == 2 else ONE_WAY
+        passengers=[ADULT] * adults,
+        cabin=cabin,
+        trip=ROUND_TRIP if len(segments) == 2 else ONE_WAY,
     )
     for segment in segments:
         legs = segment["legs"]
@@ -181,11 +239,19 @@ def itinerary_link(
     )
 
 
+def _google(host: str) -> bool:
+    return host in GOOGLE_DOMAINS or (host.startswith("www.") and host[4:] in GOOGLE_DOMAINS)
+
+
 def _address(url: str) -> SplitResult:
     if not isinstance(url, str) or not url:
         raise LinkRefused("empty")
     if len(url) > 8192:
         raise LinkRefused("too_long")
+    try:
+        url.encode("utf-8")  # A lone surrogate, as a raw byte in a command line becomes.
+    except UnicodeEncodeError:
+        raise LinkRefused("characters") from None
     if any(ord(ch) <= 32 or ord(ch) == 127 for ch in url) or "\\" in url:
         raise LinkRefused("characters")
     try:
@@ -195,18 +261,20 @@ def _address(url: str) -> SplitResult:
         raise LinkRefused("malformed") from None
     if parts.scheme != "https":
         raise LinkRefused("not_https")
-    if not _GOOGLE.fullmatch(host or "") or port not in (None, 443):
+    # Case folding maps some non-ASCII letters to ASCII ones (the Kelvin sign to k).
+    if not parts.netloc.isascii() or not _google(host or "") or port not in (None, 443):
         raise LinkRefused("not_google")
     if parts.username or parts.password:
         raise LinkRefused("credentials")
-    if parts.path.startswith("/travel/flights/s/"):
-        raise LinkRefused("shared_link")
-    if not _FLIGHTS.fullmatch(parts.path):
-        raise LinkRefused("not_flights_page")
-    if parts.path not in _FLIGHT_PAGES:
-        raise LinkRefused("flights_page")
     if parts.fragment.startswith(("flt=", "search;")):
         raise LinkRefused("old_format")  # Google Flights links from before 2020.
+    path = parts.path.rstrip("/") or "/"
+    if path.startswith("/travel/flights/s/"):
+        raise LinkRefused("shared_link")
+    if not _FLIGHTS.fullmatch(path):
+        raise LinkRefused("not_flights_page")
+    if path not in _FLIGHT_PAGES:
+        raise LinkRefused("flights_page")
     if parts.fragment:
         raise LinkRefused("fragment")
     return parts
@@ -323,9 +391,9 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
     message = _itinerary(params)
     # Search and Deals links leave out Google's defaults: one adult, in economy.
     if not message.passengers:
-        message.passengers.append(1)
+        message.passengers.append(ADULT)
     if not message.HasField("cabin"):
-        message.cabin = 1
+        message.cabin = ECONOMY
     trip = (
         message.trip
         if message.HasField("trip")
@@ -337,14 +405,14 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
         2 if trip == ROUND_TRIP else 1
     ):
         raise LinkRefused("segments")
-    if any(passenger != 1 for passenger in message.passengers):
-        raise LinkRefused("children")  # Only adults are encoded as 1.
+    if any(passenger != ADULT for passenger in message.passengers):
+        raise LinkRefused("children")
     if len(message.passengers) > 9:
         raise LinkRefused("adults")
-    if message.cabin not in (1, 2, 3, 4):
+    if message.cabin not in CABINS:
         raise LinkRefused("cabin_missing")
     if "gl" not in params and parts.hostname not in _US_HOSTS:
-        raise LinkRefused("country")  # Another country's Google, with no location stated.
+        raise LinkRefused("country_unstated")  # Another country's Google, no location.
     currency, country = params.get("curr", message.currency or "USD"), params.get("gl", "US")
     if not re.fullmatch(r"[A-Za-z]{3}", currency) or not re.fullmatch(r"[A-Za-z]{2}", country):
         raise LinkRefused("codes")
@@ -358,7 +426,7 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
             from fareflare.search_links import import_search_target
 
             return import_search_target(message, query)
-        raise LinkRefused("search_shape" if allow_search else "no_flights")
+        raise LinkRefused("search_trip" if allow_search else "no_flights")
     if not all(segment.legs for segment in message.segments):
         raise LinkRefused("return_missing")
     segments = [_selected_segment(segment) for segment in message.segments]
@@ -374,24 +442,6 @@ def import_link(url: str, *, allow_search: bool = False) -> dict:
 
 
 def _selected_target(message: Any, segments: list[dict], query: dict) -> dict:
-    # The identity token is the itinerary without its navigation defaults and with
-    # each searched place replaced by the selected flight's airport: what was
-    # searched for does not change the price of the flights that were chosen.
-    identity = ItineraryMessage()
-    identity.CopyFrom(message)
-    identity.ClearField("trip")
-    identity.ClearField("currency")
-    identity.ClearField("made_by")
-    for entry, segment in zip(identity.segments, segments, strict=True):
-        for field, airport in (
-            ("origins", segment["legs"][0]["origin"]),
-            ("destinations", segment["legs"][-1]["destination"]),
-        ):
-            entry.ClearField(field)
-            getattr(entry, field).add(kind=AIRPORT_KIND, code=airport)
-    constraints = {name: value for name, value in query.items() if parameter_kind(name) != "fact"}
-    constraints["opaque_token"] = _token(identity)
-    constraint_hash = hashlib.sha256(json.dumps(constraints, sort_keys=True).encode()).hexdigest()
     currency, country = query["curr"], query["gl"]
     offer = Offer(
         tuple(
@@ -401,7 +451,7 @@ def _selected_target(message: Any, segments: list[dict], query: dict) -> dict:
         message.cabin,
         currency,
         country,
-        constraint_hash,
+        constraint_hash(message, query, segments),
     )
     return {
         "schema_version": 2,

@@ -57,6 +57,42 @@ def test_share_redirect_cannot_escape_allowlist(destination):
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize(
+    ("answer", "check"),
+    [
+        # An expired or mistyped short link: Google answers, but not with a redirect.
+        (lambda request: httpx.Response(404), "short_link_dead"),
+        # The network failed on the way: the same sentence, a different check.
+        (
+            lambda request: (_ for _ in ()).throw(httpx.ConnectError("boom", request=request)),
+            "short_link_network",
+        ),
+        # A redirect address that cannot be read at all.
+        (
+            lambda request: httpx.Response(302, headers={"Location": "https://[::1"}),
+            "short_link_redirect",
+        ),
+    ],
+)
+def test_a_short_link_that_does_not_lead_to_a_flight_names_why(answer, check):
+    with pytest.raises(LinkRefused) as refused:
+        GoogleLinkResolver(httpx.MockTransport(answer))(SHARE)
+    assert (refused.value.check, refused.value.reason) == (check, "short_link")
+
+
+def test_a_redirect_address_python_cannot_join_is_a_bad_redirect(monkeypatch):
+    def unjoinable(base, location):
+        raise ValueError("Invalid IPv6 URL")
+
+    monkeypatch.setattr("fareflare.link_resolver.urljoin", unjoinable)
+    answer = httpx.MockTransport(
+        lambda request: httpx.Response(302, headers={"Location": "/travel/flights"})
+    )
+    with pytest.raises(LinkRefused) as refused:
+        GoogleLinkResolver(answer)(SHARE)
+    assert refused.value.check == "short_link_redirect"
+
+
 def test_share_redirect_loop_is_bounded():
     calls = []
 

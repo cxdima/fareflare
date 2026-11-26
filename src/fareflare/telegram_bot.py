@@ -27,7 +27,13 @@ from fareflare.preferences import (
     short_price,
 )
 from fareflare.refusals import LinkRefused
-from fareflare.service import CapacityReached, MonitoringService, NotFound, QuotaReached
+from fareflare.service import (
+    WATCHING,
+    CapacityReached,
+    MonitoringService,
+    NotFound,
+    QuotaReached,
+)
 from fareflare.store import Conflict, Document, Store
 from fareflare.telegram_messages import (
     STATUS_LABELS,
@@ -55,7 +61,6 @@ from fareflare.telegram_templates import PRESETS, STYLES, SWITCHES, style_switch
 _TOKEN = re.compile(r"ff:([A-Za-z0-9_-]{24})\Z")
 _MENU_SECONDS = 15 * 60
 _STATUS = STATUS_LABELS
-_LIVE = ("pending", "active", "degraded")
 # Telegram allows 4096 characters. A view keeps to 4000, and its flight list to
 # less, which leaves room for the title, a notice and the line under the list.
 _VIEW_LIMIT = 4000
@@ -306,7 +311,7 @@ class TelegramBot:
             )
         except LinkRefused as refusal:
             # Confirmed after its preview, the link was refused: say why.
-            return self._plain(str(refusal))
+            return self._plain("\n".join(self._refusal_lines(tenant, refusal)))
         except ValueError:
             # Provider and storage diagnostics must not become bot messages.
             return self._plain(
@@ -592,12 +597,12 @@ class TelegramBot:
         else:
             lines.append("Waiting for the first price check.")
         status = _STATUS.get(monitor["status"], "Unknown")
-        if monitor["status"] in _LIVE:
+        if monitor["status"] in WATCHING:
             status += f" · checked every {monitor['interval_seconds'] // 60} min"
         lines += ["", status]
-        if monitor.get("stale") and latest and monitor["status"] in _LIVE:
+        if monitor.get("stale") and latest and monitor["status"] in WATCHING:
             lines.append("This price needs a fresh check.")
-        if monitor.get("last_error") and monitor["status"] in _LIVE:
+        if monitor.get("last_error") and monitor["status"] in WATCHING:
             # Plain language for everyone; codes only for accounts that asked for them.
             if monitor.get("collection_status") == "blocked":
                 lines.append("Price checks have stopped. Choose Retry collection to try again.")
@@ -623,7 +628,7 @@ class TelegramBot:
                     )
                 ]
             )
-        elif monitor["status"] in _LIVE:
+        elif monitor["status"] in WATCHING:
             rows.append(
                 [self._button(ctx, "Pause watching", "status", {**params, "status": "paused"})]
             )
@@ -789,17 +794,21 @@ class TelegramBot:
             return self._flights(ctx, notice="Flight list order saved.")
         return self._settings(ctx, "Alert settings saved.")
 
+    def _refusal_lines(self, tenant: str, refusal: LinkRefused) -> list[str]:
+        """Why a link was refused, and its check for accounts that asked for detail."""
+        lines = [str(refusal), "Nothing has been added."]
+        if self._preferences(tenant).diagnostics:
+            lines.append(f"Diagnostic code: {refusal.check}")
+        return lines
+
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
         try:
             target = self.service.accept_link(url)
         except LinkRefused as refusal:
-            lines: list[Line] = [str(refusal), "Nothing has been added."]
-            if self._preferences(ctx.tenant).diagnostics:
-                lines.append(f"Diagnostic code: {refusal.check}")
             return self._message(
                 ctx,
                 "Fareflare can't watch this link",
-                lines,
+                self._refusal_lines(ctx.tenant, refusal),
                 [
                     [
                         {

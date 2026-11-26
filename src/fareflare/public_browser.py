@@ -26,6 +26,7 @@ from fareflare.public_quotes import (
     supported_target,
     verified_reading,
 )
+from fareflare.refusals import LinkRefused
 from fareflare.service import Reading
 
 log = logging.getLogger(__name__)
@@ -295,6 +296,16 @@ def _opened[Shown](
     return result
 
 
+def _reimport(url: str, *, allow_search: bool = False) -> dict:
+    """What an address imports to now. A refused one means the itinerary changed;
+    the refusal's check is logged, never the address."""
+    try:
+        return import_link(url, allow_search=allow_search)
+    except LinkRefused as refusal:
+        log.warning("Public browser address refused check=%s", refusal.check)
+        raise QuoteUnavailable("itinerary_changed") from None
+
+
 # These can occur while an otherwise correct booking page is being updated.
 # Identity, currency parsing and eligibility rules still run on every snapshot.
 _PENDING_QUOTE_CODES = frozenset(
@@ -332,7 +343,7 @@ class PublicGoogleFlightsProvider:
         supported_target(target)  # Unsupported targets never launch Chrome.
         # Revalidate the navigation URL before a browser sees it, even if callers
         # constructed a target themselves instead of using the importer.
-        checked = import_link(target["url"])
+        checked = _reimport(target["url"])
         if checked != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
@@ -428,7 +439,7 @@ class PublicGoogleFlightsProvider:
             verified_search_reading,
         )
 
-        if import_link(target["url"], allow_search=True) != target:
+        if _reimport(target["url"], allow_search=True) != target:
             raise QuoteUnavailable("itinerary_changed")
         deadline = _CollectionDeadline()
 
@@ -545,7 +556,7 @@ class PublicGoogleFlightsProvider:
                 )
 
             wait_for(booking_ready)
-            selected = import_link(driver.current_url)
+            selected = _reimport(driver.current_url)
             details = [
                 button
                 for button in driver.find_elements(

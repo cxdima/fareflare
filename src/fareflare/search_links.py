@@ -1,17 +1,20 @@
-"""Narrow, explicit fixed-date route searches; selected-itinerary IDs are unchanged."""
+"""Narrow, explicit fixed-date route searches, read by the common importer.
+
+A route search has the same identity rules as chosen flights (``links``): its facts
+and whatever else might decide a price. Its searched places are part of what is
+asked, so they stay in its identity.
+"""
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 from dataclasses import asdict, dataclass
 from typing import Any
 from urllib.parse import urlencode
 
-from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
-
-from fareflare.links import AIRPORT, AIRPORT_KIND, ItineraryMessage, parse_day
+from fareflare.limits import ROUTE_SEARCHES
+from fareflare.links import AIRPORT, AIRPORT_KIND, constraint_hash, parse_day, parse_token
 from fareflare.refusals import LinkRefused
 
 
@@ -24,52 +27,27 @@ class SearchTarget:
     constraints_digest: str
 
 
-def _search_message_class() -> Any:
-    # Do not change the selected-itinerary descriptor: recognizing formerly
-    # opaque fields there could reorder old tokens and change persisted IDs.
-    schema = descriptor_pb2.FileDescriptorProto.FromString(
-        ItineraryMessage.DESCRIPTOR.file.serialized_pb
-    )
-    schema.name = "fareflare_search.proto"
-    segment = next(item for item in schema.message_type if item.name == "Segment")
-    segment.field.add(name="max_stops", number=5, type=13, label=1)
-    itinerary = next(item for item in schema.message_type if item.name == "Itinerary")
-    itinerary.field.add(name="exclude_basic", number=25, type=13, label=1)
-    pool = descriptor_pool.DescriptorPool()
-    pool.Add(schema)
-    return message_factory.GetMessageClass(pool.FindMessageTypeByName("Itinerary"))
-
-
-SearchMessage = _search_message_class()
-
-
-def _search_token(message: Any) -> str:
-    """A search's token, written by the search schema so its fields have one order."""
-    return (
-        base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode().rstrip("=")
-    )
-
-
-def _without_selection(token: str) -> str:
-    message = SearchMessage()
-    message.ParseFromString(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
-    for segment in message.segments:
-        segment.ClearField("legs")
-    return _search_token(message)
+def _search_identity(message: Any, query: dict[str, str]) -> str:
+    """The search's facts and constraints as one hash."""
+    facts = {"currency": query["curr"], "country": query["gl"]}
+    return hashlib.sha256(
+        json.dumps(
+            {**facts, "constraints": constraint_hash(message, query)}, sort_keys=True
+        ).encode()
+    ).hexdigest()
 
 
 def import_search_target(message: Any, query: dict[str, str]) -> dict:
     """A route search. Called only by the common importer, after it has read the
     link's facts and built the parameters the search is checked with."""
-    decoded = SearchMessage()
-    decoded.ParseFromString(message.SerializeToString())
-    segment = decoded.segments[0]
+    limits = ROUTE_SEARCHES
+    segment = message.segments[0]
     places = (*segment.origins, *segment.destinations)
     for unsupported, check in (
-        (len(message.passengers) != 1, "search_passengers"),
-        (message.cabin != 1, "search_cabin"),
-        (query["curr"] != "USD", "search_currency"),
-        (query["gl"] != "US", "search_country"),
+        (len(message.passengers) > limits.adults, "search_passengers"),
+        (message.cabin != limits.cabin, "search_cabin"),
+        (query["curr"] not in limits.currencies, "search_currency"),
+        (query["gl"] != limits.country, "search_country"),
         (not segment.HasField("max_stops") or segment.max_stops != 0, "search_stops"),
         (
             len(segment.origins) != 1
@@ -80,14 +58,13 @@ def import_search_target(message: Any, query: dict[str, str]) -> dict:
             or segment.origins[0].code == segment.destinations[0].code,
             "search_places",
         ),
-        # Economy excluding Basic is the fare the route-search reader verifies.
-        (decoded.exclude_basic != 1, "search_cabin"),
+        # The route-search reader verifies the fares that leave Basic out.
+        (limits.exclude_basic and message.exclude_basic != 1, "search_basic"),
     ):
         if unsupported:
             raise LinkRefused(check)
     parse_day(segment.date, "date")
-    query = {**query, "tfs": _search_token(decoded)}
-    digest = hashlib.sha256(json.dumps(query, sort_keys=True).encode()).hexdigest()
+    digest = _search_identity(message, query)
     criteria = SearchTarget(
         segment.origins[0].code, segment.destinations[0].code, segment.date, 0, digest
     )
@@ -111,8 +88,8 @@ def import_search_target(message: Any, query: dict[str, str]) -> dict:
                 ],
             }
         ],
-        "adults": 1,
-        "cabin": 1,
+        "adults": len(message.passengers),
+        "cabin": message.cabin,
         "currency": query["curr"],
         "market": query["gl"],
         "provider_query": query,
@@ -122,7 +99,6 @@ def import_search_target(message: Any, query: dict[str, str]) -> dict:
 
 def offer_matches_search(target: dict, selected: dict) -> bool:
     """Verify the selection preserves every encoded search pricing constraint."""
-    expected, actual = target["provider_query"], selected["provider_query"]
     if any(target[key] != selected[key] for key in ("adults", "cabin", "currency", "market")):
         return False
     if len(selected["segments"]) != 1 or len(selected["segments"][0]["legs"]) != 1:
@@ -131,6 +107,8 @@ def offer_matches_search(target: dict, selected: dict) -> bool:
     criteria = target["search"]
     if any(leg[key] != criteria[key] for key in ("origin", "destination", "date")):
         return False
-    return _without_selection(actual["tfs"]) == _without_selection(expected["tfs"]) and {
-        k: v for k, v in actual.items() if k != "tfs"
-    } == {k: v for k, v in expected.items() if k != "tfs"}
+    # The chosen flight's page, without its choice, is the same search.
+    chosen = parse_token(selected["provider_query"]["tfs"])
+    for segment in chosen.segments:
+        segment.ClearField("legs")
+    return _search_identity(chosen, selected["provider_query"]) == criteria["constraints_digest"]

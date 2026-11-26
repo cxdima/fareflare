@@ -15,6 +15,7 @@ from fareflare.portal import create_portal
 from fareflare.product_config import ProductConfig
 from fareflare.product_telegram import build_telegram
 from fareflare.public_quotes import collection_refusal
+from fareflare.refusals import RefusalLog
 from fareflare.service import MonitoringService
 from fareflare.store import DynamoStore
 
@@ -30,6 +31,7 @@ def build_application():
         store,
         link_importer=GoogleLinkResolver(allow_search=config.search_enabled),
         capability=collection_refusal,
+        refusals=RefusalLog(store),
         monitor_limit=config.monitor_limit,
         min_interval_seconds=config.min_interval_seconds,
         global_target_limit=config.global_target_limit,

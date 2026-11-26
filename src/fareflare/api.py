@@ -208,6 +208,15 @@ class AlertList(BaseModel):
     next_cursor: str | None = None
 
 
+def _refused(refusal: LinkRefused, *, diagnostics: bool) -> JSONResponse:
+    """A refused link: the sentence for people and the reason for programs. The exact
+    check is technical detail, so only accounts with diagnostics on receive it."""
+    body = {"detail": str(refusal), "reason": refusal.reason}
+    if diagnostics:
+        body["check"] = refusal.check
+    return JSONResponse(body, status_code=422)
+
+
 def create_app(
     service: MonitoringService,
     api_keys: dict[str, str] | None = None,
@@ -289,10 +298,7 @@ def create_app(
 
     @app.exception_handler(LinkRefused)
     async def refused(request, exc):
-        # The sentence for people, and the codes for programs and diagnostics.
-        return JSONResponse(
-            {"detail": str(exc), "reason": exc.reason, "check": exc.check}, status_code=422
-        )
+        return _refused(exc, diagnostics=False)
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
@@ -319,14 +325,17 @@ def create_app(
         tenant: Annotated[str, Depends(authenticate)],
         idempotency_key: Annotated[str, Header(min_length=8, max_length=128)],
     ):
-        return service.create_monitor(
-            tenant,
-            body.url,
-            idempotency_key,
-            AlertPolicy(**body.policy.model_dump()),
-            body.interval_seconds,
-            webhook_id=body.webhook_id,
-        )
+        try:
+            return service.create_monitor(
+                tenant,
+                body.url,
+                idempotency_key,
+                AlertPolicy(**body.policy.model_dump()),
+                body.interval_seconds,
+                webhook_id=body.webhook_id,
+            )
+        except LinkRefused as refusal:
+            return _refused(refusal, diagnostics=service.preferences(tenant)["diagnostics"])
 
     @app.post("/v1/webhooks", status_code=201, response_model=WebhookRegistrationView)
     def register_webhook(

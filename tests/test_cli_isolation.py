@@ -114,6 +114,11 @@ def test_quote_cli_reports_sanitized_failure(monkeypatch, flight_url, capsys):
         "check": "not_google",
         "detail": REASONS["not_flights"],
     }
+    # A raw byte in the command line arrives as a lone surrogate: a refusal, not a crash.
+    with pytest.raises(SystemExit) as caught:
+        main(["quote", "https://www.google.com/travel/flights?tfs=\udcff"])
+    assert caught.value.code == 2
+    assert json.loads(capsys.readouterr().out)["check"] == "characters"
     # A link the collector cannot price is refused before a browser would open.
     business = itinerary_link(import_link(flight_url)["segments"], cabin=3)
     with pytest.raises(SystemExit):

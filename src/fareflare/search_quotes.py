@@ -15,6 +15,7 @@ from fareflare.public_quotes import (
     _normal,
     verified_reading,
 )
+from fareflare.refusals import LinkRefused
 from fareflare.search_links import offer_matches_search
 
 
@@ -32,7 +33,7 @@ class SearchPageEvidence:
 def verified_search_minimum(target: dict, page: SearchPageEvidence) -> int:
     try:
         actual = import_link(page.url, allow_search=True)
-    except ValueError:
+    except LinkRefused:
         raise QuoteUnavailable("unexpected_page") from None
     if actual["id"] != target["id"] or actual.get("kind") != "search":
         raise QuoteUnavailable("itinerary_changed")

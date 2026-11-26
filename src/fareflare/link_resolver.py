@@ -37,14 +37,20 @@ class GoogleLinkResolver:
                         },
                     ) as response:
                         if response.status_code not in (301, 302, 303, 307, 308):
-                            raise LinkRefused("short_link_unreachable")
+                            raise LinkRefused("short_link_dead")  # Expired or never valid.
                         location = response.headers.get("location", "")
                         if not location or len(location) > 8192:
                             raise LinkRefused("short_link_redirect")
-                        resolved = urljoin(url, location)
+                        try:
+                            resolved = urljoin(url, location)
+                        except ValueError:
+                            raise LinkRefused("short_link_redirect") from None
                         if not _SHARED.fullmatch(resolved):
                             return import_link(resolved, allow_search=self.allow_search)
                         url = resolved
+                except httpx.ProtocolError:
+                    # Google answered, but not readably: a bad redirect, not the network.
+                    raise LinkRefused("short_link_redirect") from None
                 except httpx.HTTPError:
-                    raise LinkRefused("short_link_unreachable") from None
+                    raise LinkRefused("short_link_network") from None
         raise LinkRefused("short_link_redirects")

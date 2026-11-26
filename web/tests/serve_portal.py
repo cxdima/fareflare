@@ -15,6 +15,7 @@ from fareflare.mailer import FileMailer  # noqa: E402
 from fareflare.portal import create_portal  # noqa: E402
 from fareflare.product_config import ProductConfig  # noqa: E402
 from fareflare.public_quotes import collection_refusal  # noqa: E402
+from fareflare.refusals import RefusalLog  # noqa: E402
 from fareflare.service import MonitoringService  # noqa: E402
 from fareflare.store import SQLiteStore  # noqa: E402
 
@@ -25,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix="fareflare-browser-") as directory:
     outbox = ROOT / "web" / "artifacts" / "outbox"
     shutil.rmtree(outbox, ignore_errors=True)
     accounts = Accounts(store, config, mailer=FileMailer(outbox))
-    service = MonitoringService(store, capability=collection_refusal)
+    service = MonitoringService(store, capability=collection_refusal, refusals=RefusalLog(store))
     app = create_portal(
         service,
         config,

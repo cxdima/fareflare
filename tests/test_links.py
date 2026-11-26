@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
+from fareflare.google_domains import GOOGLE_DOMAINS
 from fareflare.links import ItineraryMessage, import_link, itinerary_link, parameter_kind
 from fareflare.public_quotes import collection_refusal
 from fareflare.refusals import LinkRefused
@@ -112,7 +113,8 @@ def test_unknown_query_and_protobuf_fields_are_preserved_conservatively(flight_u
 
 def test_a_repeated_parameter_is_refused_only_when_it_is_kept(flight_url):
     assert import_link(flight_url + "&sa=X&sa=Y&hl=fr") == import_link(flight_url)
-    assert refused(flight_url + "&gsas=2") == "repeated_parameter"
+    assert import_link(flight_url + "&gsas=2") == import_link(flight_url)  # Tracking.
+    assert refused(flight_url + "&future=1&future=2") == "repeated_parameter"
     assert refused(flight_url + "&curr=USD") == "repeated_parameter"
 
 
@@ -141,8 +143,16 @@ def test_google_on_another_country_domain_needs_a_stated_location(flight_url):
         flight_url
     )
     # Without gl the page is for Germany, not the United States.
-    assert refused(german.replace("&gl=US", "")) == "country"
+    assert refused(german.replace("&gl=US", "")) == "country_unstated"
     assert import_link(flight_url.replace("&gl=US", ""))["market"] == "US"
+
+
+def test_a_trailing_slash_is_the_same_page(flight_url):
+    assert "/travel/flights?" in flight_url
+    slashed = flight_url.replace("/travel/flights?", "/travel/flights/?")
+    assert import_link(slashed) == import_link(flight_url)
+    booking = flight_url.replace("/travel/flights?", "/travel/flights/booking/?")
+    assert import_link(booking) == import_link(flight_url)
 
 
 def _searched(origins, destinations):
@@ -245,6 +255,16 @@ def test_query_order_and_path_do_not_change_target(flight_url):
         ("https://www.google.com/url?q=https://evil.example", "not_flights_page"),
         ("https://www.google.com/travel/explore?tfs=AA", "not_flights_page"),
         ("https://www.google.evil/travel/flights?tfs=AA", "not_google"),
+        # Only Google's published domains, written in ASCII.
+        ("https://www.google.zz/travel/flights?tfs=AA", "not_google"),
+        ("https://www.google.co.zz/travel/flights?tfs=AA", "not_google"),
+        ("https://www.google.c\u212a/travel/flights?tfs=AA", "not_google"),  # A Kelvin sign.
+        ("https://google.com.evil.example/travel/flights?tfs=AA", "not_google"),
+        # An old link is named as one, whatever path it is on.
+        ("https://www.google.com/flights/#search;f=YVR;t=CDG;d=2019-05-01", "old_format"),
+        # Text that is not text: a lone surrogate, as a raw byte in a command line becomes.
+        ("https://www.google.com/travel/flights?tfs=\udcff", "characters"),
+        ("https://www.google.com/travel/flights?tfs=%FF", "query"),
         ("https://www.google.com/travel/flights/deals", "flights_page"),
         ("https://www.google.com/travel/flights/saves?hl=en&gl=mx", "flights_page"),
         ("https://www.google.com/flights?hl=en#flt=DEN.DFW.2027-03-14", "old_format"),
@@ -359,4 +379,10 @@ def test_round_trip_requires_return_selection(flight_url):
         target["url"], lambda m: [segment.ClearField("legs") for segment in m.segments]
     )
     assert refused(search) == "no_flights"
-    assert refused(search, allow_search=True) == "search_shape"
+    assert refused(search, allow_search=True) == "search_trip"
+
+
+def test_hosts_are_googles_published_domains_only():
+    assert {"google.com", "google.de", "google.co.uk", "google.com.br"} <= GOOGLE_DOMAINS
+    assert all(host.isascii() and host.startswith("google.") for host in GOOGLE_DOMAINS)
+    assert "google.zz" not in GOOGLE_DOMAINS and "google.co.zz" not in GOOGLE_DOMAINS

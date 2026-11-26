@@ -671,3 +671,18 @@ def test_selected_details_disappearing_during_expansion_fail_with_a_safe_code(br
         PublicGoogleFlightsProvider().collect(target)
     driver.execute_script.assert_not_called()
     driver.quit.assert_called_once()
+
+
+@pytest.mark.parametrize("kind", ["itinerary", "search"])
+def test_an_address_that_no_longer_imports_is_a_changed_itinerary(flight_url, kind, caplog):
+    target = {**import_link(flight_url), "url": "https://example.com/?private=1"}
+    if kind == "search":
+        target["kind"] = "search"
+    provider = PublicGoogleFlightsProvider()
+    with (
+        caplog.at_level("WARNING", logger="fareflare.public_browser"),
+        pytest.raises(QuoteUnavailable, match="itinerary_changed"),
+    ):
+        provider.collect(target)
+    # The refusal's check is logged; the address never is.
+    assert "check=not_google" in caplog.text and "private" not in caplog.text

@@ -227,9 +227,13 @@ def main(argv: list[str] | None = None) -> None:
         from fareflare.credentials import Credentials, RateLimiter
         from fareflare.link_resolver import GoogleLinkResolver
         from fareflare.public_quotes import collection_refusal
+        from fareflare.refusals import RefusalLog
 
         service = MonitoringService(
-            service.store, link_importer=GoogleLinkResolver(), capability=collection_refusal
+            service.store,
+            link_importer=GoogleLinkResolver(),
+            capability=collection_refusal,
+            refusals=RefusalLog(service.store),
         )
         app = create_app(
             service,
