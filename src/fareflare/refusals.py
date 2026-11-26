@@ -16,6 +16,7 @@ from collections.abc import Callable
 from fareflare.limits import (
     FLIGHTS,
     ROUTE_SEARCHES,
+    a_trip,
     adults,
     cabin,
     country,
@@ -40,10 +41,10 @@ REASONS: dict[str, str] = {
     "no_flight_chosen": "This link doesn't name a flight. Choose your flights in Google "
     "Flights, then send the link.",
     "return_not_chosen": "Choose your return flight too, then send the link again.",
-    "trip_type": f"Fareflare watches {trips(FLIGHTS)} only. Search a one-way or round trip, "
-    "then send its link.",
-    "open_jaw": "Fareflare watches round trips that fly back between the same two airports. "
-    "Choose a return between them, then send the link again.",
+    "trip_type": f"Fareflare watches {trips(FLIGHTS)} only. Search {a_trip(FLIGHTS)}, then "
+    "send its link.",
+    "open_jaw": "A round trip must come back between the same two airports. "
+    + _CHANGE.format("return"),
     "connections": f"Fareflare watches {stops(FLIGHTS)} flights only. Choose a "
     f"{stops(FLIGHTS)} flight, then send its link.",
     "cabin": f"Fareflare watches {cabin(FLIGHTS)} fares only. " + _CHANGE.format("cabin"),
@@ -60,7 +61,7 @@ REASONS: dict[str, str] = {
     "search_passengers": f"Route searches need {adults(ROUTE_SEARCHES)}. "
     + _CHANGE.format("passengers"),
     "search_stops": f"Route searches need {stops(ROUTE_SEARCHES)} flights. Set Stops to "
-    "Nonstop in Google Flights and send the link again.",
+    f"{stops(ROUTE_SEARCHES).capitalize()} in Google Flights and send the link again.",
     "search_cabin": f"Route searches need {cabin(ROUTE_SEARCHES)}. Choose it in Google "
     "Flights and send the link again.",
     "search_currency": f"Route searches need prices in {currencies(ROUTE_SEARCHES)}. "

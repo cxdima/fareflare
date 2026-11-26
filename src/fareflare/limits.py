@@ -87,10 +87,17 @@ def stops(limits: Limits) -> str:
     return "nonstop" if limits.nonstop else "with any number of stops"
 
 
+_TRIPS = {ONE_WAY: "one-way", ROUND_TRIP: "round"}
+
+
 def trips(limits: Limits) -> str:
-    return " and ".join(
-        {ONE_WAY: "one-way", ROUND_TRIP: "round"}[trip] for trip in limits.trips
-    ) + (" trips")
+    """``one-way and round trips``: what the kind watches."""
+    return " and ".join(_TRIPS[trip] for trip in limits.trips) + " trips"
+
+
+def a_trip(limits: Limits) -> str:
+    """``a one-way or round trip``: what to search for instead."""
+    return "a " + either(_TRIPS[trip] for trip in limits.trips) + " trip"
 
 
 def supported(limits: Limits) -> str:

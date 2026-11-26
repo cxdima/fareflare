@@ -251,13 +251,13 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                         "Pick a supported cabin, number of passengers, currency and location.",
                         "For a round trip, choose both flights.",
                         "Copy the full link and add it to your watchlist.",
-                        "Check the monitor’s first verified observation before relying on its alerts.",
+                        "Wait for the first price before relying on alerts.",
                     ),
                 ),
                 Section(
                     "If the first check fails",
                     (
-                        f"Read the collection status. Flights Fareflare cannot check need a different choice. A temporary browser or page failure is tried again {retry} minutes later. Neither result is ever replaced with a guessed price.",
+                        f"Read the flight’s status. If Fareflare cannot check those flights, choose others. If Google or the browser failed for a moment, the check is tried again {retry} minutes later. It never shows a guessed price instead.",
                         "You can pause or stop a flight from the dashboard. Stopping it frees a place on your account; its checks go on if someone else still watches the same flights.",
                     ),
                     links=(
