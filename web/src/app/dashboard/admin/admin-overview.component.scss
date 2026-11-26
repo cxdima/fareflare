@@ -42,6 +42,9 @@
 .tile-service {
   grid-column: span 6;
 }
+.tile-refusals {
+  grid-column: 1 / -1;
+}
 .tile-lime {
   background: var(--ff-lime);
   color: var(--ff-ink);
@@ -247,6 +250,15 @@
 }
 .meter-label {
   font-weight: 650;
+}
+.refusal-sentence {
+  font-weight: 560;
+}
+.refusal-checks {
+  grid-column: 1 / -1;
+  color: var(--ff-ink-2);
+  font-family: var(--bs-font-monospace);
+  font-size: 0.78rem;
 }
 .meter {
   grid-column: 1 / -1;

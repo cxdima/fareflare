@@ -12,7 +12,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from fareflare.links import import_link
-from fareflare.service import MonitoringService, Reading
+from fareflare.service import COLLECTING, MonitoringService, Reading
 from fareflare.store import SQLiteStore
 from fareflare.worker import add_period_option
 
@@ -51,7 +51,7 @@ def demo(fixture: Path) -> dict:
             now[0] += 900
         result = {
             "simulation": True,
-            "unique_targets": len(service.store.query("targets")),
+            "unique_targets": len(service.store.query(COLLECTING)),
             "monitors": 2,
             "shared_target": target_id == second["target_id"],
             "observations": len(service.history("traveler", first["id"])),
@@ -133,18 +133,34 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "quote":
         from fareflare.public_browser import PublicGoogleFlightsProvider
-        from fareflare.public_quotes import QuoteUnavailable
+        from fareflare.public_quotes import QuoteUnavailable, collection_refusal
+        from fareflare.refusals import LinkRefused
 
         url = args.url or json.loads(Path("examples/demo.json").read_text())["url"]
         try:
+            target = import_link(url)
+            check = collection_refusal(target)
+            if check is not None:
+                raise LinkRefused(check)
+        except LinkRefused as refusal:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "link_refused",
+                        "reason": refusal.reason,
+                        "check": refusal.check,
+                        "detail": str(refusal),
+                    }
+                )
+            )
+            raise SystemExit(2) from None
+        try:
             reading = PublicGoogleFlightsProvider(args.chrome_binary, args.chromedriver).collect(
-                import_link(url)
+                target
             )
         except QuoteUnavailable as exc:
             print(json.dumps({"ok": False, "error": exc.code}))
-            raise SystemExit(2) from None
-        except ValueError:
-            print(json.dumps({"ok": False, "error": "invalid_link"}))
             raise SystemExit(2) from None
         print(json.dumps({"ok": True, "observation": asdict(reading)}))
         return
@@ -210,10 +226,10 @@ def main(argv: list[str] | None = None) -> None:
         from fareflare.api import create_app
         from fareflare.credentials import Credentials, RateLimiter
         from fareflare.link_resolver import GoogleLinkResolver
-        from fareflare.public_quotes import supported_target
+        from fareflare.public_quotes import collection_refusal
 
         service = MonitoringService(
-            service.store, link_importer=GoogleLinkResolver(), capability_check=supported_target
+            service.store, link_importer=GoogleLinkResolver(), capability=collection_refusal
         )
         app = create_app(
             service,

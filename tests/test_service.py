@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from fareflare.refusals import LinkRefused
 from fareflare.service import (
     CapacityReached,
     MonitoringService,
@@ -351,8 +352,9 @@ def test_creation_validates_interval_identity_quota_and_dates(service, flight_ur
     with pytest.raises(ValueError, match="quota"):
         service.create_monitor("alice", flight_url, "valid-request")
     clock[0] += 365 * 86400
-    with pytest.raises(ValueError, match="departed"):
+    with pytest.raises(LinkRefused) as refused:
         service.create_monitor("bob", flight_url, "valid-request")
+    assert refused.value.check == "departed"
 
 
 def test_repeated_resume_does_not_skip_an_unprocessed_drop(service, flight_url, clock):

@@ -17,7 +17,8 @@ def test_free_limits_share_targets_and_release_capacity(store, clock, flight_url
     assert len(store.get("capacity:collection").data["targets"]) == 1
     with pytest.raises(ValueError, match="interval"):
         service.create_monitor("alice", flight_url, "too-frequent", interval_seconds=300)
-    other = flight_url.replace("hl=en-US", "hl=en")
+    # A parameter of unknown meaning might change the price: another target.
+    other = flight_url + "&futureFareOption=1"
     with pytest.raises(ValueError, match="capacity"):
         service.create_monitor("bob", other, "other-monitor")
     service.set_status("alice", first["id"], "cancelled")

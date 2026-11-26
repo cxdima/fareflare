@@ -67,6 +67,12 @@ test('the overview shows people, flights, checks, protection, email and the serv
   await expect(page.locator('.signup-bars li')).toHaveCount(30);
   await expect(page.getByRole('heading', { name: 'How accounts are protected' })).toBeVisible();
   await expect(page.locator('.budget-full')).toHaveCount(1); // Notices used up this hour.
+  // Refused links in the words people were shown, with the exact checks for the operator.
+  const refusals = page.getByRole('region', { name: 'Refused links, last 30 days' });
+  await expect(refusals.getByText('4 links refused.')).toBeVisible();
+  await expect(refusals.getByText(/nonstop flights only for now/)).toBeVisible();
+  await expect(refusals.getByText('3 · 75%')).toBeVisible();
+  await expect(refusals.getByText('connections 3')).toBeVisible();
   expect(await axe(page)).toEqual([]);
   await page.getByRole('button', { name: 'See everyone' }).click();
   await expect(tabs(page).getByRole('button', { name: 'Users' })).toHaveAttribute(

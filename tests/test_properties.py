@@ -15,7 +15,7 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from fareflare.contracts import Reading, SliceTimes
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
 from fareflare.message_templates import (
     DIRECTIONAL,
     MAX_PLACEHOLDERS,
@@ -28,6 +28,7 @@ from fareflare.message_templates import (
 )
 from fareflare.preferences import Preferences, clock_time, in_quiet_hours
 from fareflare.public_quotes import slice_times
+from fareflare.refusals import LinkRefused
 from fareflare.service import MonitoringService
 from fareflare.telegram_templates import TEMPLATE_KEYS, VOCABULARY, validate_templates
 from tests.conftest import EXAMPLE
@@ -216,7 +217,7 @@ def damaged_token(draw):
 def test_a_link_is_refused_politely_or_imported_to_a_stable_itinerary(url):
     try:
         target = import_link(url)
-    except InvalidLink as error:
+    except LinkRefused as error:
         assert str(error)
         return
     # Importing the canonical link again gives the same itinerary.
@@ -228,7 +229,7 @@ def test_a_link_is_refused_politely_or_imported_to_a_stable_itinerary(url):
 def test_arbitrary_text_is_never_mistaken_for_a_link(text):
     try:
         import_link(text)
-    except InvalidLink:
+    except LinkRefused:
         return
     raise AssertionError("Random text was accepted as a Google Flights link")
 

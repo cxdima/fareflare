@@ -26,6 +26,7 @@ from fareflare.preferences import (
     quiet_hours_label,
     short_price,
 )
+from fareflare.refusals import LinkRefused
 from fareflare.service import CapacityReached, MonitoringService, NotFound, QuotaReached
 from fareflare.store import Conflict, Document, Store
 from fareflare.telegram_messages import (
@@ -303,6 +304,9 @@ class TelegramBot:
             return self._plain(
                 "Fareflare is at its current collection capacity. Try adding this flight later."
             )
+        except LinkRefused as refusal:
+            # Confirmed after its preview, the link was refused: say why.
+            return self._plain(str(refusal))
         except ValueError:
             # Provider and storage diagnostics must not become bot messages.
             return self._plain(
@@ -787,22 +791,15 @@ class TelegramBot:
 
     def _preview(self, ctx: _Context, url: str) -> TelegramMessage:
         try:
-            target = self.service.link_importer(url)
-            if self.service.capability_check:
-                self.service.capability_check(target)
-            if self.service.departure_day_elapsed(target):
-                return self._plain(
-                    "That itinerary has already departed. Choose a future flight and send its Google Flights link."
-                )
-        except ValueError:
+            target = self.service.accept_link(url)
+        except LinkRefused as refusal:
+            lines: list[Line] = [str(refusal), "Nothing has been added."]
+            if self._preferences(ctx.tenant).diagnostics:
+                lines.append(f"Diagnostic code: {refusal.check}")
             return self._message(
                 ctx,
-                "This flight link is not supported",
-                [
-                    "Open the link in Google Flights and copy the full browser address after selecting your flights.",
-                    "Fareflare currently supports a limited set of itineraries and route searches.",
-                    "Nothing has been added.",
-                ],
+                "Fareflare can't watch this link",
+                lines,
                 [
                     [
                         {

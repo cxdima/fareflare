@@ -9,8 +9,9 @@ from fastapi.testclient import TestClient
 
 from fareflare.api import create_app
 from fareflare.link_resolver import GoogleLinkResolver
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
 from fareflare.public_quotes import PageEvidence
+from fareflare.refusals import LinkRefused
 from fareflare.search_quotes import SearchPageEvidence, verified_search_reading
 from fareflare.service import MonitoringService
 
@@ -92,7 +93,8 @@ def test_search_is_disabled_by_default(store, clock):
     fixture = json.loads(
         (Path(__file__).parent / "fixtures/search_nonstop_oneway_usd.json").read_text()
     )
-    with pytest.raises(InvalidLink):
+    with pytest.raises(LinkRefused) as refused:
         MonitoringService(store, lambda: clock[0]).create_monitor(
             "alice", fixture["search"]["url"], "disabled-search"
         )
+    assert refused.value.check == "no_flights"

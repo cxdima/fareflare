@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from fareflare.cli import demo, load_local_config, main
+from fareflare.links import import_link, itinerary_link
+from fareflare.refusals import REASONS
 
 ROOT = Path(__file__).parents[1]
 
@@ -105,7 +107,18 @@ def test_quote_cli_reports_sanitized_failure(monkeypatch, flight_url, capsys):
     assert json.loads(capsys.readouterr().out) == {"ok": False, "error": "challenge"}
     with pytest.raises(SystemExit):
         main(["quote", "https://example.com/"])
-    assert json.loads(capsys.readouterr().out)["error"] == "invalid_link"
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": False,
+        "error": "link_refused",
+        "reason": "not_flights",
+        "check": "not_google",
+        "detail": REASONS["not_flights"],
+    }
+    # A link the collector cannot price is refused before a browser would open.
+    business = itinerary_link(import_link(flight_url)["segments"], cabin=3)
+    with pytest.raises(SystemExit):
+        main(["quote", business])
+    assert json.loads(capsys.readouterr().out)["check"] == "cabin"
 
 
 def test_collect_once_updates_local_monitors_but_never_delivers(

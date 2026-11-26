@@ -841,8 +841,9 @@ def test_an_oversized_rendering_falls_back_to_the_default_wording(flight_url):
         telegram_style="custom", telegram_templates={"new_low": "{link} " * 39 + "{price}"}
     )
     event = alert(flight_url)
-    # A long but valid Google Flights address, repeated by the template above.
-    event["itinerary"]["url"] += "&utm_source=" + "x" * 600
+    # A long but valid Google Flights address, repeated by the template above. Its
+    # parameter has no known meaning, so it stays in the link it is checked at.
+    event["itinerary"]["url"] += "&futureFareOption=" + "x" * 600
     message = alert_message(event, prefs)
     assert message.text.startswith("🔥 New low · $246 (was $254)")
     assert len(message.html) < 4096

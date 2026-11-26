@@ -9,8 +9,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import pytest
 
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
 from fareflare.public_quotes import PageEvidence, QuoteUnavailable
+from fareflare.refusals import LinkRefused
 from fareflare.search_links import SearchMessage, offer_matches_search
 from fareflare.search_quotes import (
     SearchPageEvidence,
@@ -41,15 +42,20 @@ def altered_url(url, mutate):
 
 def test_search_requires_opt_in_and_preserves_a_distinct_identity(evidence):
     target, search, selected, _ = evidence
-    with pytest.raises(InvalidLink, match="Select every flight"):
+    with pytest.raises(LinkRefused) as refused:
         import_link(search.url)
+    assert refused.value.check == "no_flights"
     assert target["kind"] == "search" and target["id"] != selected["id"]
     assert target["search"]["max_stops"] == 0
     assert target["segments"][0]["legs"][0]["airline"] is None
     assert import_link(target["url"], allow_search=True) == target
-    # Price sorting changes navigation, not the priced set of flights.
-    changed = altered_url(search.url, lambda m, p: p.update(tfu="EgYIABAAGAA"))
-    assert import_link(changed, allow_search=True)["id"] == target["id"]
+    # How results are shown changes navigation, not the priced set of flights.
+    for view in ("EgYIABAAGAA", "EgQIABABIgA", "EgoIAhAAGAAgAigB"):
+        changed = altered_url(search.url, lambda m, p, view=view: p.update(tfu=view))
+        assert import_link(changed, allow_search=True) == target
+    # A parameter of unknown meaning is kept: the same search without it is another target.
+    without = altered_url(search.url, lambda m, p: p.pop("gsas"))
+    assert import_link(without, allow_search=True)["id"] != target["id"]
 
 
 def test_a_search_reads_the_country_in_either_case(evidence):
@@ -59,23 +65,25 @@ def test_a_search_reads_the_country_in_either_case(evidence):
 
 
 @pytest.mark.parametrize(
-    "mutate",
+    ("mutate", "check"),
     [
-        lambda m, p: m.passengers.append(1),
-        lambda m, p: setattr(m, "cabin", 2),
-        lambda m, p: setattr(m.segments[0], "max_stops", 1),
-        lambda m, p: m.segments[0].ClearField("max_stops"),
-        lambda m, p: setattr(m.segments[0].origins[0], "kind", 2),
-        lambda m, p: setattr(m.segments[0], "date", "2027-02-30"),
-        lambda m, p: p.update(curr="JPY"),
-        lambda m, p: p.update(gsas="0"),
-        lambda m, p: p.update(tfu="unverifiedopaqueconstraint"),
+        (lambda m, p: m.passengers.append(1), "search_passengers"),
+        (lambda m, p: setattr(m, "cabin", 2), "search_cabin"),
+        (lambda m, p: setattr(m.segments[0], "max_stops", 1), "search_stops"),
+        (lambda m, p: m.segments[0].ClearField("max_stops"), "search_stops"),
+        (lambda m, p: setattr(m.segments[0].origins[0], "kind", 2), "search_places"),
+        (lambda m, p: setattr(m.segments[0].destinations[0], "code", "DEN"), "search_places"),
+        (lambda m, p: m.segments[0].destinations.add(kind=1, code="DAL"), "search_places"),
+        (lambda m, p: setattr(m.segments[0], "date", "2027-02-30"), "date"),
+        (lambda m, p: p.update(curr="JPY"), "search_currency"),
+        (lambda m, p: p.update(gl="CA"), "search_country"),
     ],
 )
-def test_unvalidated_search_variants_are_rejected(evidence, mutate):
+def test_a_search_outside_route_search_limits_names_the_limit(evidence, mutate, check):
     _, search, _, _ = evidence
-    with pytest.raises(InvalidLink):
+    with pytest.raises(LinkRefused) as refused:
         import_link(altered_url(search.url, mutate), allow_search=True)
+    assert refused.value.check == check
 
 
 def test_unknown_pricing_constraints_are_never_merged_or_lost(evidence):

@@ -230,6 +230,37 @@
         </div>
       </dl>
     </section>
+
+    <!-- Refused links: what people sent that could not be watched, in the words they were shown. -->
+    <section class="tile tile-white tile-refusals" aria-labelledby="refusals-title">
+      <h2 id="refusals-title">Refused links, last {{ overview.refusals.days }} days</h2>
+      @if (overview.refusals.reasons.length) {
+        <p class="tile-sentence">
+          {{ overview.refusals.total }}
+          {{ overview.refusals.total === 1 ? 'link' : 'links' }} refused. Each reason is the
+          sentence people were shown; the codes say exactly what was wrong.
+        </p>
+        <ul class="meters">
+          @for (item of overview.refusals.reasons; track item.reason) {
+            <li>
+              <span class="refusal-sentence">{{ item.sentence }}</span>
+              <span class="meter-value"
+                >{{ item.count }} · {{ share(item.count, overview.refusals.total) }}</span
+              >
+              <span class="meter" aria-hidden="true"
+                ><span
+                  class="meter-fill"
+                  [style.--fill]="item.count / overview.refusals.total"
+                ></span
+              ></span>
+              <span class="refusal-checks">{{ checkList(item.checks) }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="tile-quiet">No link was refused in the last {{ overview.refusals.days }} days.</p>
+      }
+    </section>
   </div>
 } @else if (action.busy()) {
   <div class="bento" aria-hidden="true">

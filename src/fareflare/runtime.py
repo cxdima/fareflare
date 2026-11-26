@@ -14,7 +14,7 @@ from fareflare.health import record_run
 from fareflare.link_resolver import GoogleLinkResolver
 from fareflare.product_telegram import InboxSink, build_telegram
 from fareflare.public_browser import PublicGoogleFlightsProvider
-from fareflare.public_quotes import supported_target
+from fareflare.public_quotes import collection_refusal
 from fareflare.service import MonitoringService
 from fareflare.store import DynamoStore
 from fareflare.webhooks import RoutedSink
@@ -25,7 +25,7 @@ def build_worker() -> Worker:
     region = os.environ.get("AWS_REGION", "us-east-1")
     store = DynamoStore(os.environ["FAREFLARE_TABLE"], region=region)
     service = MonitoringService(
-        store, link_importer=GoogleLinkResolver(), capability_check=supported_target
+        store, link_importer=GoogleLinkResolver(), capability=collection_refusal
     )
     sink = None
     mode = os.environ.get("FAREFLARE_DELIVERY", "shadow")

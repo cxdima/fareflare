@@ -97,6 +97,13 @@ export class AdminOverviewComponent implements OnInit {
     return this.format.day(seconds);
   }
 
+  /** The exact checks behind a reason, most frequent first: "leg_date 3 · token 1". */
+  checkList(checks: Record<string, number>): string {
+    return Object.entries(checks)
+      .map(([check, count]) => `${check} ${count}`)
+      .join(' · ');
+  }
+
   minutes(seconds: number): string {
     return seconds % 3600 ? `${Math.round(seconds / 60)} minutes` : `${seconds / 3600} hours`;
   }

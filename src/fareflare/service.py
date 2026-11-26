@@ -28,6 +28,7 @@ from fareflare.failures import describe_failure
 from fareflare.links import import_link
 from fareflare.outbox import DeliveryOutbox
 from fareflare.preferences import merge_preferences, stored_preferences
+from fareflare.refusals import LinkRefused, record_refusal
 from fareflare.store import Conflict, Document, Store
 from fareflare.webhooks import WebhookRegistry, WebhookTransport
 
@@ -40,6 +41,10 @@ _MAX_NOTICES = 50
 _CLOCK = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
 # How long one check may hold a flight before its result is no longer accepted.
 LEASE_SECONDS = 120
+# Where a target lives. Only collecting targets are checked: idle ones have no active
+# watcher, blocked ones wait for Retry collection and expired ones have departed.
+COLLECTING, IDLE, BLOCKED, EXPIRED = "targets", "targets_idle", "targets_blocked", "targets_expired"
+TARGET_PARTITIONS = (COLLECTING, IDLE, BLOCKED, EXPIRED)
 
 
 class NotFound(LookupError):
@@ -78,7 +83,7 @@ class MonitoringService:
         store: Store,
         clock: Callable[[], float] = time.time,
         link_importer: Callable[[str], dict] = import_link,
-        capability_check: Callable[[dict], None] | None = None,
+        capability: Callable[[dict], str | None] | None = None,
         *,
         webhook_transport: WebhookTransport | None = None,
         monitor_limit: int = 100,
@@ -88,7 +93,10 @@ class MonitoringService:
         self.store, self.clock = store, clock
         self.outbox = DeliveryOutbox(self)
         self.webhooks = WebhookRegistry(self, webhook_transport)
-        self.link_importer, self.capability_check = link_importer, capability_check
+        self.link_importer, self.capability = link_importer, capability
+        # Refusal counts are diagnostics outside any request's transaction, so they
+        # are written to this store even when a caller fences the service's own.
+        self.refusal_store = store
         if (
             not 1 <= monitor_limit <= 100
             or not 300 <= min_interval_seconds <= 86400
@@ -105,6 +113,23 @@ class MonitoringService:
     def default_interval_seconds(self) -> int:
         """The interval of a flight whose request names none."""
         return max(CHECK_INTERVAL_SECONDS, self.min_interval_seconds)
+
+    def accept_link(self, url: str) -> dict:
+        """The target a link names, if Fareflare can watch it; otherwise LinkRefused.
+
+        Every refusal is counted by its check, never with the link.
+        """
+        try:
+            target = self.link_importer(url)
+            check = self.capability(target) if self.capability else None
+            if check is None and self.departure_day_elapsed(target):
+                check = "departed"
+            if check is not None:
+                raise LinkRefused(check)
+        except LinkRefused as refusal:
+            record_refusal(self.refusal_store, self._now(), refusal.check)
+            raise
+        return target
 
     def departure_day_elapsed(self, target: dict) -> bool:
         # The imported link has airport-local dates but no departure timezone.
@@ -138,11 +163,7 @@ class MonitoringService:
             or not self.min_interval_seconds <= interval_seconds <= 86400
         ):
             raise ValueError(f"Check interval must be {self.min_interval_seconds}–86400 seconds")
-        target = self.link_importer(url)
-        if self.capability_check:
-            self.capability_check(target)
-        if self.departure_day_elapsed(target):
-            raise ValueError("The selected itinerary has already departed")
+        target = self.accept_link(url)
         policy = policy or AlertPolicy()
         # Preserve the v1 request fingerprint layout for retries across releases.
         request_payload = [target["id"], asdict(policy), interval_seconds, None, False]
@@ -169,7 +190,7 @@ class MonitoringService:
             monitor_id = uuid.uuid4().hex
             target_doc = self.store.get("target:" + target["id"])
             current = target_doc.data if target_doc else {"spec": target, "sequence": 0}
-            target_doc = target_doc or Document("target:" + target["id"], "targets", current)
+            target_doc = target_doc or Document("target:" + target["id"], COLLECTING, current)
             subscribers = current.get("subscribers", [])
             tenant_doc = self.store.get("tenant:" + tenant) or Document(
                 "tenant:" + tenant, "tenants", {"monitors": 0}
@@ -197,7 +218,7 @@ class MonitoringService:
             }
             writes = [
                 target_doc.update(
-                    current, partition="targets", due=min(target_doc.due, self._now())
+                    current, partition=COLLECTING, due=min(target_doc.due, self._now())
                 ),
                 Document("monitor:" + monitor_id, "monitors:" + tenant, monitor),
                 tenant_doc.update({**tenant_doc.data, "monitors": tenant_doc.data["monitors"] + 1}),
@@ -219,7 +240,7 @@ class MonitoringService:
                     # Seed from existing live targets when the product is first enabled.
                     reserved = [
                         d.data["spec"]["id"]
-                        for d in self.store.query("targets")
+                        for d in self.store.query(COLLECTING)
                         if d.data.get("subscribers")
                     ]
                     capacity = Document(
@@ -259,11 +280,9 @@ class MonitoringService:
             "low_minor": monitor.get("rule_state", {}).get("low_minor"),
             "last_error": target.data.get("last_error"),
             "collection_failures": target.data.get("failures", 0),
-            "next_check_at": None
-            if target.partition in ("targets_blocked", "targets_expired")
-            else target.due,
+            "next_check_at": None if target.partition in (BLOCKED, EXPIRED) else target.due,
             "collection_status": "blocked"
-            if target.partition == "targets_blocked"
+            if target.partition == BLOCKED
             else "retrying"
             if target.data.get("last_error")
             else "ready",
@@ -318,7 +337,7 @@ class MonitoringService:
             target = self.store.get("target:" + data["target_id"])
             assert target is not None
             data.update(last_sequence=target.data["sequence"], status="pending")
-            writes.append(target.update(target.data, partition="targets", due=self._now()))
+            writes.append(target.update(target.data, partition=COLLECTING, due=self._now()))
         if status in ("cancelled", "expired") and not monitor.data.get("quota_released", False):
             target = self.store.get("target:" + data["target_id"])
             tenant_doc = self.store.get("tenant:" + tenant)
@@ -671,13 +690,13 @@ class MonitoringService:
         due_by = started + early_seconds
         # Discover one bounded page. Re-querying its head after each collection
         # can return the same stale GSI row and starve other due targets.
-        for candidate in self.store.page("targets", due_by, limit=limit).items:
+        for candidate in self.store.page(COLLECTING, due_by, limit=limit).items:
             if should_continue is not None and not should_continue():
                 break
             target = self.store.get(candidate.key)
             if (
                 target is None
-                or target.partition != "targets"
+                or target.partition != COLLECTING
                 or target.due > due_by
                 or target.data.get("lease_until", 0) > self._now()
             ):
@@ -687,7 +706,7 @@ class MonitoringService:
             if not subscribers:
                 # Do not remove customer intent. A future reactivation requeues it.
                 self.store.commit(
-                    [target.update(target.data, partition="targets_idle", due=self._now() + 3600)]
+                    [target.update(target.data, partition=IDLE, due=self._now() + 3600)]
                 )
                 counts["skipped"] += 1
                 continue
@@ -708,9 +727,7 @@ class MonitoringService:
                 if current and not current.data.get("subscribers"):
                     # On a conflict, a later tick finishes the state transition.
                     with suppress(Conflict):
-                        self.store.commit(
-                            [current.update(current.data, partition="targets_expired")]
-                        )
+                        self.store.commit([current.update(current.data, partition=EXPIRED)])
                 continue
             token = uuid.uuid4().hex
             leased = {
@@ -768,7 +785,7 @@ class MonitoringService:
                             [
                                 current.update(
                                     data,
-                                    partition="targets" if failure.retryable else "targets_blocked",
+                                    partition=COLLECTING if failure.retryable else BLOCKED,
                                     due=started + RETRY_SECONDS,
                                 ),
                                 *notices,
@@ -944,13 +961,13 @@ class MonitoringService:
         monitor = self._monitor(tenant, monitor_id)
         target = self.store.get("target:" + monitor.data["target_id"])
         assert target is not None
-        if target.partition != "targets_blocked":
+        if target.partition != BLOCKED:
             raise ValueError("Only blocked collection can be retried")
         self.store.commit(
             [
                 target.update(
                     {**target.data, "last_error": None, "failures": 0},
-                    partition="targets",
+                    partition=COLLECTING,
                     due=self._now(),
                 )
             ]

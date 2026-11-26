@@ -10,7 +10,8 @@ import pytest
 from fareflare import failures
 from fareflare.contracts import CollectionFailure
 from fareflare.failures import describe_failure
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
+from fareflare.refusals import LinkRefused
 from fareflare.service import MonitoringService
 from fareflare.worker import Worker
 from tests.test_service import observe
@@ -31,10 +32,12 @@ def test_an_error_raised_outside_the_package_is_named_by_type_only():
 
 
 def test_an_error_raised_inside_the_package_names_the_code_that_raised_it():
-    with pytest.raises(InvalidLink) as caught:
+    with pytest.raises(LinkRefused) as caught:
         import_link("https://example.com/" + SECRET)
     described = describe_failure(caught.value)
-    assert re.fullmatch(r"InvalidLink at links\.py:\d+ import_link", described)
+    assert re.fullmatch(
+        r"LinkRefused at links\.py:\d+ _address < links\.py:\d+ import_link", described
+    )
     assert SECRET not in described
 
 

@@ -29,16 +29,27 @@ class PageEvidence:
     departure_dates: list[str]
 
 
-def supported_target(target: dict) -> None:
-    if (
-        target["adults"] not in (1, 2)
-        or target["cabin"] != 1
-        or target["currency"] not in ("USD", "JPY")
-        or target["market"] != "US"
-        or target["provider_query"].get("hl", "en-US") not in ("en", "en-US")
-        or len(target["segments"]) not in (1, 2)
-        or any(len(segment["legs"]) != 1 for segment in target["segments"])
+def collection_refusal(target: dict) -> str | None:
+    """Why this collector cannot price a target (a refusal check), or None if it can.
+
+    The page is always read in US English, so the link's language never matters.
+    """
+    for unsupported, check in (
+        (len(target["segments"]) not in (1, 2), "multi_city"),
+        (any(len(segment["legs"]) != 1 for segment in target["segments"]), "connections"),
+        (target["cabin"] != 1, "cabin"),
+        (target["adults"] not in (1, 2), "adults"),
+        (target["currency"] not in ("USD", "JPY"), "currency"),
+        (target["market"] != "US", "country"),
     ):
+        if unsupported:
+            return check
+    return None
+
+
+def supported_target(target: dict) -> None:
+    """Stop a collection the page reader cannot verify, before it opens a browser."""
+    if collection_refusal(target):
         raise QuoteUnavailable("unsupported_itinerary")
 
 

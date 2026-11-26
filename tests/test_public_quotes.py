@@ -8,6 +8,7 @@ from fareflare.links import import_link
 from fareflare.public_quotes import (
     PageEvidence,
     QuoteUnavailable,
+    collection_refusal,
     supported_target,
     verified_reading,
 )
@@ -94,19 +95,25 @@ def test_query_change_and_duplicate_eligible_fares_fail_closed(evidence):
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    "field,value,check",
     [
-        ("adults", 3),
-        ("cabin", 2),
-        ("currency", "CAD"),
-        ("market", "CA"),
-        ("segments", []),
-        ("provider_query", {"hl": "fr"}),
+        ("adults", 3, "adults"),
+        ("cabin", 2, "cabin"),
+        ("currency", "CAD", "currency"),
+        ("market", "CA", "country"),
+        ("segments", [], "multi_city"),
     ],
 )
-def test_unvalidated_itineraries_are_explicitly_unsupported(evidence, field, value):
+def test_unvalidated_itineraries_are_explicitly_unsupported(evidence, field, value, check):
+    target = {**import_link(evidence.url), field: value}
+    assert collection_refusal(target) == check
     with pytest.raises(QuoteUnavailable, match="unsupported_itinerary"):
-        supported_target({**import_link(evidence.url), field: value})
+        supported_target(target)
+
+
+def test_the_page_language_never_decides_support(evidence):
+    target = import_link(evidence.url)
+    assert collection_refusal({**target, "provider_query": {"hl": "fr"}}) is None
 
 
 def test_captured_price_flows_through_durable_monitoring(service, clock, evidence):

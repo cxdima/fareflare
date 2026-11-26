@@ -11,6 +11,7 @@ from fareflare.accounts import Accounts
 from fareflare.mailer import MemoryMailer
 from fareflare.portal import create_portal
 from fareflare.product_config import ProductConfig
+from fareflare.refusals import REASONS
 from fareflare.service import MonitoringService
 from fareflare.store import SQLiteStore
 
@@ -212,6 +213,16 @@ def test_admins_see_every_user_their_flights_and_the_service_but_no_secrets(env)
     traveller(env, "bob@example.com")
     env.service.create_monitor(tenant, env.flight_url, "alice-monitor-1")
     key = client.post("/v1/api-keys", headers=csrf, json={"name": "Spreadsheet sync"}).json()
+    explore = env.flight_url.replace("/travel/flights", "/travel/explore")
+    refused = client.post(
+        "/v1/monitors", headers={**csrf, "Idempotency-Key": "refused-link"}, json={"url": explore}
+    )
+    assert refused.status_code == 422
+    assert refused.json() == {
+        "detail": REASONS["not_flights"],
+        "reason": "not_flights",
+        "check": "not_flights_page",
+    }
 
     users = admin.get("/v1/admin/users").json()
     assert users["total"] == 3 and users["truncated"] is False
@@ -247,6 +258,9 @@ def test_admins_see_every_user_their_flights_and_the_service_but_no_secrets(env)
     assert set(overview["email"]) == {"confirm", "reset", "notice"}
     assert overview["config"]["global_target_limit"] == 20
     assert len(overview["collection"]["hours"]) == 24
+    assert overview["refusals"]["total"] == 1
+    assert overview["refusals"]["reasons"][0]["checks"] == {"not_flights_page": 1}
+    assert "explore" not in json.dumps(overview)  # Counted by reason, never with the link.
     assert admin.get("/v1/admin/users/acct_" + "0" * 32).status_code == 404
 
 

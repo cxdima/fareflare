@@ -291,6 +291,12 @@ export type AdminUser = {
   audit: AuditEntry[];
 };
 export type Budget = { used: number; limit: number };
+/** Links Fareflare would not watch: each reason with the sentence people were shown. */
+export type RefusalReport = {
+  days: number;
+  total: number;
+  reasons: { reason: string; sentence: string; count: number; checks: Record<string, number> }[];
+};
 export type AdminOverview = {
   generated_at: number;
   users: {
@@ -319,6 +325,7 @@ export type AdminOverview = {
     capacity: { used: number; limit: number | null };
   };
   collection: StatusReport;
+  refusals: RefusalReport;
   email: Record<'confirm' | 'reset' | 'notice', { hour: Budget; day: Budget }>;
   switches: AdminSwitches;
   config: {

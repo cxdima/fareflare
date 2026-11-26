@@ -609,6 +609,26 @@ export async function mockAdmin(
           ],
           hours,
         },
+        refusals: {
+          days: 30,
+          total: 4,
+          reasons: [
+            {
+              reason: 'connections',
+              sentence:
+                'Fareflare watches nonstop flights only for now. Choose a nonstop flight and send its link.',
+              count: 3,
+              checks: { connections: 3 },
+            },
+            {
+              reason: 'incomplete',
+              sentence:
+                'This Google Flights link is incomplete. Copy it again and send the whole link.',
+              count: 1,
+              checks: { token: 1 },
+            },
+          ],
+        },
         email: {
           confirm: { hour: { used: 2, limit: 60 }, day: { used: 9, limit: 300 } },
           reset: { hour: { used: 0, limit: 60 }, day: { used: 1, limit: 300 } },

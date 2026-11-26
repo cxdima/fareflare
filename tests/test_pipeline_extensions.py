@@ -11,8 +11,9 @@ from fareflare.credentials import Credentials, RateLimited, RateLimiter
 from fareflare.delivery import TelegramSink
 from fareflare.domain import AlertPolicy, evaluate
 from fareflare.link_resolver import GoogleLinkResolver
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
 from fareflare.preferences import Preferences
+from fareflare.refusals import LinkRefused
 from fareflare.service import Reading
 from fareflare.store import Document
 from fareflare.worker import Worker
@@ -51,7 +52,7 @@ def test_share_redirect_cannot_escape_allowlist(destination):
         calls.append(request)
         return httpx.Response(302, headers={"Location": destination})
 
-    with pytest.raises(InvalidLink):
+    with pytest.raises(LinkRefused):
         GoogleLinkResolver(httpx.MockTransport(route))(SHARE)
     assert len(calls) == 1
 
@@ -63,8 +64,9 @@ def test_share_redirect_loop_is_bounded():
         calls.append(request)
         return httpx.Response(302, headers={"Location": SHARE})
 
-    with pytest.raises(InvalidLink, match="Too many"):
+    with pytest.raises(LinkRefused) as refused:
         GoogleLinkResolver(httpx.MockTransport(route))(SHARE)
+    assert refused.value.check == "short_link_redirects"
     assert len(calls) == 3
 
 

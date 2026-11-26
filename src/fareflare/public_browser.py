@@ -19,6 +19,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
+from fareflare.links import LANGUAGE, import_link
 from fareflare.public_quotes import (
     PageEvidence,
     QuoteUnavailable,
@@ -167,7 +168,7 @@ def anonymous_browser(chrome_binary: str | None = None, chromedriver: str | None
             "--disable-sync",
             "--disable-extensions",
             "--no-first-run",
-            "--lang=en-US",
+            f"--lang={LANGUAGE}",
             "--window-size=1280,1000",
             f"--user-data-dir={profile}",
         ):
@@ -331,8 +332,6 @@ class PublicGoogleFlightsProvider:
         supported_target(target)  # Unsupported targets never launch Chrome.
         # Revalidate the navigation URL before a browser sees it, even if callers
         # constructed a target themselves instead of using the importer.
-        from fareflare.links import import_link
-
         checked = import_link(target["url"])
         if checked != target:
             raise QuoteUnavailable("itinerary_changed")
@@ -423,7 +422,6 @@ class PublicGoogleFlightsProvider:
             raise QuoteUnavailable("browser_failed") from None
 
     def _collect_search(self, target: dict, batch: _BrowserBatch) -> Reading:
-        from fareflare.links import import_link
         from fareflare.search_quotes import (
             SearchPageEvidence,
             verified_search_minimum,
@@ -631,13 +629,7 @@ class _BrowserBatch:
             raise
 
     def browser_for(self, target: dict):
-        scope = (
-            target["market"],
-            target["currency"],
-            target["adults"],
-            target["cabin"],
-            target["provider_query"].get("hl", "en-US"),
-        )
+        scope = (target["market"], target["currency"], target["adults"], target["cabin"])
         if self._driver is not None and scope != self._scope:
             self._discard_browser()
         if self._driver is None:

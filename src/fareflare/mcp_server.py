@@ -11,6 +11,19 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from fareflare.preferences import Preferences
+from fareflare.refusals import REASONS
+
+
+def _refusal_reason(response: httpx.Response) -> str | None:
+    """The reason a link was refused, when the API says so in a known code."""
+    if response.status_code != 422:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    reason = body.get("reason") if isinstance(body, dict) else None
+    return reason if isinstance(reason, str) and reason in REASONS else None
 
 
 def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
@@ -55,6 +68,10 @@ def make_server(api_url: str, api_key: str, transport=None) -> MCPServer:
                 "Monitoring API unavailable; retry using the same request key."
             ) from None
         if not response.is_success:
+            reason = _refusal_reason(response)
+            if reason is not None:
+                # The service's own sentence, looked up by code: never the response's text.
+                raise ToolError(f"{REASONS[reason]} (reason: {reason})")
             raise ToolError(f"Monitoring API rejected the request (HTTP {response.status_code})")
         return response.json()
 

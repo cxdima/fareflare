@@ -7,7 +7,8 @@ from urllib.parse import urljoin
 
 import httpx
 
-from fareflare.links import InvalidLink, import_link
+from fareflare.links import import_link
+from fareflare.refusals import LinkRefused
 
 _SHARED = re.compile(r"https://(?:www\.)?google\.com/travel/flights/s/[A-Za-z0-9_-]{1,128}\Z")
 
@@ -36,18 +37,14 @@ class GoogleLinkResolver:
                         },
                     ) as response:
                         if response.status_code not in (301, 302, 303, 307, 308):
-                            raise InvalidLink(
-                                "Shared link did not resolve to a selected itinerary."
-                            )
+                            raise LinkRefused("short_link_unreachable")
                         location = response.headers.get("location", "")
                         if not location or len(location) > 8192:
-                            raise InvalidLink("Invalid shared-link redirect.")
+                            raise LinkRefused("short_link_redirect")
                         resolved = urljoin(url, location)
                         if not _SHARED.fullmatch(resolved):
                             return import_link(resolved, allow_search=self.allow_search)
                         url = resolved
                 except httpx.HTTPError:
-                    raise InvalidLink(
-                        "Shared link resolution failed; retry or paste the full link."
-                    ) from None
-        raise InvalidLink("Too many shared-link redirects.")
+                    raise LinkRefused("short_link_unreachable") from None
+        raise LinkRefused("short_link_redirects")

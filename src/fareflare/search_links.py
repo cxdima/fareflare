@@ -5,15 +5,14 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import re
 from dataclasses import asdict, dataclass
-from datetime import date
 from typing import Any
 from urllib.parse import urlencode
 
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 
-from fareflare.links import AIRPORT_KIND, InvalidLink, ItineraryMessage
+from fareflare.links import AIRPORT, AIRPORT_KIND, ItineraryMessage, parse_day
+from fareflare.refusals import LinkRefused
 
 
 @dataclass(frozen=True)
@@ -52,49 +51,33 @@ def _without_selection(token: str) -> str:
     )
 
 
-def import_search_target(message, params: dict[str, str]) -> dict:
-    """Called only after the common importer validates the URL and protobuf
-    and sets the canonical currency and market in ``params``."""
+def import_search_target(message: Any, query: dict[str, str]) -> dict:
+    """A route search. Called only by the common importer, after it has read the
+    link's facts and built the parameters the search is checked with."""
     decoded = SearchMessage()
     decoded.ParseFromString(message.SerializeToString())
     segment = decoded.segments[0]
-    currency, market = params["curr"], params["gl"]
-    if (
-        len(message.passengers) != 1
-        or message.cabin != 1
-        or currency != "USD"
-        or market != "US"
-        or params.get("hl", "en-US") not in ("en", "en-US")
-        or params.get("gsas") != "1"
-        or not segment.HasField("max_stops")
-        or segment.max_stops != 0
-        or len(segment.origins) != 1
-        or len(segment.destinations) != 1
-        or segment.origins[0].kind != AIRPORT_KIND
-        or segment.destinations[0].kind != AIRPORT_KIND
-        or not re.fullmatch(r"[A-Z]{3}", segment.origins[0].code)
-        or not re.fullmatch(r"[A-Z]{3}", segment.destinations[0].code)
-        or segment.origins[0].code == segment.destinations[0].code
-        or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", segment.date)
+    places = (*segment.origins, *segment.destinations)
+    for unsupported, check in (
+        (len(message.passengers) != 1, "search_passengers"),
+        (message.cabin != 1, "search_cabin"),
+        (query["curr"] != "USD", "search_currency"),
+        (query["gl"] != "US", "search_country"),
+        (not segment.HasField("max_stops") or segment.max_stops != 0, "search_stops"),
+        (
+            len(segment.origins) != 1
+            or len(segment.destinations) != 1
+            or any(
+                place.kind != AIRPORT_KIND or not AIRPORT.fullmatch(place.code) for place in places
+            )
+            or segment.origins[0].code == segment.destinations[0].code,
+            "search_places",
+        ),
     ):
-        raise InvalidLink(
-            "Route searches currently require one adult, one-way nonstop, Economy excluding Basic, USD, US English, and exact airports and date."
-        )
-    try:
-        date.fromisoformat(segment.date)
-    except ValueError:
-        raise InvalidLink("The search contains an invalid departure date.") from None
-    # Observed tfu variants contain only result sorting/navigation. Reject any
-    # unrecognized variant rather than silently dropping a pricing constraint.
-    if params.get("tfu", "") not in ("", "EgYIABAAGAA", "EgYIAhAAGAA"):
-        raise InvalidLink("Copy a direct search-results link without a selected flight.")
-    query = {key: value for key, value in params.items() if key not in ("authuser", "tfu")}
-    query["hl"] = "en-US"
-    query["tfs"] = (
-        base64.urlsafe_b64encode(message.SerializeToString(deterministic=True)).decode().rstrip("=")
-    )
-    constraints = {key: value for key, value in query.items() if not key.startswith("utm_")}
-    digest = hashlib.sha256(json.dumps(constraints, sort_keys=True).encode()).hexdigest()
+        if unsupported:
+            raise LinkRefused(check)
+    parse_day(segment.date, "date")
+    digest = hashlib.sha256(json.dumps(query, sort_keys=True).encode()).hexdigest()
     criteria = SearchTarget(
         segment.origins[0].code, segment.destinations[0].code, segment.date, 0, digest
     )
@@ -120,10 +103,10 @@ def import_search_target(message, params: dict[str, str]) -> dict:
         ],
         "adults": 1,
         "cabin": 1,
-        "currency": currency,
-        "market": market,
-        "provider_query": dict(sorted(query.items())),
-        "url": "https://www.google.com/travel/flights/search?" + urlencode(sorted(query.items())),
+        "currency": query["curr"],
+        "market": query["gl"],
+        "provider_query": query,
+        "url": "https://www.google.com/travel/flights/search?" + urlencode(query),
     }
 
 
@@ -138,7 +121,6 @@ def offer_matches_search(target: dict, selected: dict) -> bool:
     criteria = target["search"]
     if any(leg[key] != criteria[key] for key in ("origin", "destination", "date")):
         return False
-    ignored = {"tfs", "tfu", "authuser"}
     return _without_selection(actual["tfs"]) == _without_selection(expected["tfs"]) and {
-        k: v for k, v in actual.items() if k not in ignored
-    } == {k: v for k, v in expected.items() if k not in ignored}
+        k: v for k, v in actual.items() if k != "tfs"
+    } == {k: v for k, v in expected.items() if k != "tfs"}

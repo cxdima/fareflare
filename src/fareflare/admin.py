@@ -1,7 +1,7 @@
 """The admin panel's view of the whole service, and the actions it may take.
 
-Read access covers every account and watched flight, collection health and the
-email budgets. Actions are the ones support and abuse handling need. Every action
+Read access covers every account and watched flight, collection health, the links
+Fareflare refused (by reason, never the link) and the email budgets. Actions are the ones support and abuse handling need. Every action
 is written to an audit log that admins can read and nobody can edit from the
 panel. Nothing here grants or removes the admin role: only the command line
 (``fareflare.admin_cli``), run with the database's own credentials, can do that.
@@ -20,7 +20,8 @@ from collections.abc import Callable
 
 from fareflare.accounts import Accounts
 from fareflare.health import status_report
-from fareflare.service import MonitoringService, NotFound
+from fareflare.refusals import refusal_report
+from fareflare.service import BLOCKED, COLLECTING, EXPIRED, IDLE, MonitoringService, NotFound
 from fareflare.store import Conflict, Document, Store
 
 ADMIN_SESSION_SECONDS = 12 * 3600
@@ -236,6 +237,7 @@ class Admin:
             "signups": [{"day": day, "count": count} for day, count in signups.items()],
             "flights": self._flight_summary(),
             "collection": status_report(self.store, now),
+            "refusals": refusal_report(self.store, now),
             "email": self.accounts.email_usage(),
             "switches": self.accounts.switches(),
             "config": self._config(),
@@ -259,7 +261,7 @@ class Admin:
             "limit": self.service.global_target_limit,
         }
 
-    _STATES = (("targets", "collecting"), ("targets_blocked", "blocked"), ("targets_idle", "idle"))
+    _STATES = ((COLLECTING, "collecting"), (BLOCKED, "blocked"), (IDLE, "idle"))
 
     def _flight_summary(self) -> dict:
         targets: dict[str, int] = {}
@@ -324,7 +326,7 @@ class Admin:
                 )
         order = {"collecting": 0, "blocked": 1, "idle": 2}
         items.sort(key=lambda item: (order[item["state"]], item["next_check_at"] or 0))
-        expired, _ = self._scan("targets_expired")
+        expired, _ = self._scan(EXPIRED)
         return {"items": items, "capacity": self._capacity(), "expired": len(expired)}
 
     def user(self, tenant: str) -> dict:

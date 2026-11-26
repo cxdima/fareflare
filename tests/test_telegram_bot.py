@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
@@ -13,11 +14,13 @@ from fareflare.accounts import Accounts
 from fareflare.contracts import QuoteEvidence, Reading, SliceTimes
 from fareflare.links import ItineraryMessage
 from fareflare.product_config import ProductConfig
+from fareflare.refusals import REASONS, refusal_report
 from fareflare.store import Document
 from fareflare.telegram_bot import TelegramBot
 from fareflare.telegram_rules import parse_amount
 
 PASSWORD = "private native bot test password"
+SAFARI_CITY = Path(__file__).parent / "fixtures/selected_city_safari.json"
 
 
 @pytest.fixture
@@ -166,14 +169,26 @@ def test_inline_cancel_uses_a_revision_fence_when_a_new_draft_arrives(
     assert service.monitors_page(tenant)["active_count"] == 0
 
 
-def test_unsupported_and_departed_links_do_not_create_monitors(
-    native_bot, service, flight_url, clock
-):
-    assert "not supported" in _call(native_bot, "https://example.com/?token=private").text
-    assert "private" not in _call(native_bot, "https://example.com/?token=private").text
+def test_a_refused_link_says_why_and_adds_nothing(native_bot, service, store, flight_url, clock):
+    message = _call(native_bot, "https://example.com/?token=private")
+    assert message.text.startswith("Fareflare can't watch this link")
+    assert REASONS["not_flights"] in message.text and "Nothing has been added." in message.text
+    assert "private" not in message.text and "Diagnostic code" not in message.text
+    # The exact fault is for accounts that asked for technical detail.
+    service.set_preferences(native_bot[1], diagnostics=True)
+    refused = _call(native_bot, "https://example.com/?token=private").text
+    assert "Diagnostic code: not_google" in refused
+    assert refusal_report(store, clock[0])["reasons"][0]["checks"] == {"not_google": 2}
     clock[0] += 86400 * 500
-    assert "already departed" in _call(native_bot, flight_url).text
+    assert REASONS["departed"] in _call(native_bot, flight_url).text
     assert service.monitors_page(native_bot[1])["active_count"] == 0
+    assert refusal_report(store, clock[0])["reasons"][0]["checks"] == {"departed": 1}
+
+
+def test_a_link_shared_from_safari_after_a_city_search_is_offered(native_bot):
+    message = _call(native_bot, json.loads(SAFARI_CITY.read_text())["url"])
+    assert message.text.startswith("Watch ")
+    assert "Start watching" in _labels(message)
 
 
 def test_quota_error_is_useful_and_retains_the_confirmation(native_bot, service, flight_url):

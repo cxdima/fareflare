@@ -17,6 +17,7 @@ from fareflare.domain import AlertPolicy
 from fareflare.health import status_report
 from fareflare.preferences import Preferences as PreferencesInput
 from fareflare.preferences import merge_preferences, sends_silently
+from fareflare.refusals import LinkRefused
 from fareflare.service import MonitoringService, NotFound
 from fareflare.store import Conflict
 from fareflare.telegram_messages import (
@@ -285,6 +286,13 @@ def create_app(
     @app.exception_handler(Conflict)
     async def conflict(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=409)
+
+    @app.exception_handler(LinkRefused)
+    async def refused(request, exc):
+        # The sentence for people, and the codes for programs and diagnostics.
+        return JSONResponse(
+            {"detail": str(exc), "reason": exc.reason, "check": exc.check}, status_code=422
+        )
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
