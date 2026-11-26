@@ -120,24 +120,19 @@ _AIRLINE = re.compile(r"[A-Z0-9]{2,3}\Z")
 _NUMBER = re.compile(r"[0-9]{1,5}[A-Z]?\Z")
 _HOSTS = {"google.com", "www.google.com"}
 _PATHS = {"/travel/flights", "/travel/flights/search", "/travel/flights/booking"}
-# A search endpoint is an airport (by its code) or a city (by its Knowledge Graph id).
-AIRPORT_KIND, CITY_KIND = 1, 2
-_LOCATION_CODES = {AIRPORT_KIND: _AIRPORT, CITY_KIND: re.compile(r"/[mg]/[0-9a-z_]{1,32}\Z")}
+# A searched place of kind 1 is an airport, by its code. Google marks cities and
+# wider areas with kinds 2 and 3, and the same place appears with either.
+AIRPORT_KIND = 1
 
 
 def _search_admits(locations: Any, airport: str) -> bool:
     """Whether a search endpoint can hold the selected flight's airport.
 
-    The endpoint is what the person searched for: one airport, several, or a city.
-    The selected flights decide the trip. A city's airports are not known offline,
+    The endpoint is what the person searched for: airports, places, or both.
+    The selected flights decide the trip. A place's airports are not known offline,
     so the airport is checked only against an endpoint made of airports alone.
     """
-    if not locations or not all(
-        location.kind in _LOCATION_CODES and _LOCATION_CODES[location.kind].fullmatch(location.code)
-        for location in locations
-    ):
-        return False
-    return any(location.kind == CITY_KIND or location.code == airport for location in locations)
+    return any(location.kind != AIRPORT_KIND or location.code == airport for location in locations)
 
 
 def import_link(url: str, *, allow_search: bool = False) -> dict:

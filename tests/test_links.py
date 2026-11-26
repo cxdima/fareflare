@@ -42,7 +42,11 @@ def test_real_user_link_decodes_without_explicit_trip_type(flight_url):
 
 
 def test_a_flight_found_by_searching_a_city_in_safari_is_watchable():
-    target = import_link(json.loads(SAFARI_CITY.read_text())["url"])
+    url = json.loads(SAFARI_CITY.read_text())["url"]
+    target = import_link(url)
+    # Google also writes the same city as a place of kind 3: still these flights.
+    as_area = change_token(url, lambda m: setattr(m.segments[0].destinations[0], "kind", 3))
+    assert import_link(as_area)["segments"] == target["segments"]
     assert target["segments"] == [
         {
             "date": "2027-01-10",
@@ -76,7 +80,9 @@ def _searched(origins, destinations):
         for field, places in (("origins", origins), ("destinations", destinations)):
             segment.ClearField(field)
             for kind, code in places:
-                getattr(segment, field).add(kind=kind, code=code)
+                place = getattr(segment, field).add(code=code)
+                if kind is not None:
+                    place.kind = kind
 
     return change
 
@@ -85,12 +91,16 @@ def _searched(origins, destinations):
     ("origins", "destinations"),
     [
         ([(1, "DEN")], [(2, "/m/0f2rq")]),  # Dallas, the city
+        ([(1, "DEN")], [(3, "/m/0f2rq")]),  # Dallas again: Google writes a place either way
         ([(2, "/m/02cl1")], [(1, "DFW")]),  # Denver, the city
         ([(1, "BOS"), (1, "DEN")], [(1, "DAL"), (1, "DFW")]),  # several airports
         ([(1, "BOS"), (2, "/g/11b6gq9ggb")], [(1, "DFW")]),  # airports and a city
+        ([(None, "DEN")], [(1, "DFW")]),  # a place written without a kind
     ],
 )
-def test_the_search_may_name_cities_or_several_airports(flight_url, origins, destinations):
+def test_the_search_may_name_places_of_any_kind_or_several_airports(
+    flight_url, origins, destinations
+):
     target = import_link(change_token(flight_url, _searched(origins, destinations)))
     airports = import_link(flight_url)
     assert target["segments"] == airports["segments"]
@@ -103,12 +113,8 @@ def test_the_search_may_name_cities_or_several_airports(flight_url, origins, des
     [
         ([(1, "BOS")], [(1, "DFW")]),  # airports only, none of them the flight's
         ([(1, "DEN")], [(1, "DAL"), (1, "IAH")]),
-        ([], [(1, "DFW")]),
-        ([(2, "DEN")], [(1, "DFW")]),  # a city needs its Knowledge Graph id
-        ([(1, "/m/02cl1")], [(1, "DFW")]),
-        ([(2, "/m/02CL1")], [(1, "DFW")]),
-        ([(3, "DEN")], [(1, "DFW")]),  # an unknown kind of place
-        ([(0, "DEN")], [(1, "DFW")]),
+        ([(1, "/m/02cl1")], [(1, "DFW")]),  # an airport code that is not the flight's
+        ([], [(1, "DFW")]),  # nothing searched at all
     ],
 )
 def test_a_search_that_cannot_hold_the_flight_is_refused(flight_url, origins, destinations):

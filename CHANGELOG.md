@@ -9,10 +9,12 @@ Notable changes to Fareflare. The format follows
 ### Fixed
 
 - **Flights found by searching a city can be watched.** A selected flight whose
-  Google Flights search named a city ("Denver to Dallas") or several airports was
-  refused as an unsupported link, because only a search for the flight's exact
-  airports was accepted. The selected flights decide the trip; a search made of
-  airports alone must still include the flight's airport.
+  Google Flights search named a city ("Denver to Dallas"), a wider area or several
+  airports was refused as an unsupported link, because only a search for the flight's
+  exact airports was accepted. Google writes a searched place in more than one way
+  (the same city appears as either kind); none of them changes the price. The
+  selected flights decide the trip; a search made of airports alone must still
+  include the flight's airport.
 - **Links shared from Safari are accepted.** Safari writes the country in lower case
   (`gl=us`), which was refused. Route searches read it the same way.
 
