@@ -74,6 +74,24 @@ def snapshot(store, keys):
     return {key: (doc.partition, doc.data) if (doc := store.get(key)) else None for key in keys}
 
 
+def twins(before, store, clock, flight_url, prices=((30000, 29000), (30000,))):
+    """Two stored links to one flight, as an older release kept them, and the keys of
+    every document a run that makes them one writes."""
+    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request", prices[0])
+    second = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request", prices[1])
+    keys = [
+        "target:" + first["target_id"],
+        "target:" + second["target_id"],
+        "target:" + import_link(flight_url)["id"],
+        "monitor:" + first["id"],
+        "monitor:" + second["id"],
+        "capacity:collection",
+        *(doc.key for doc in store.page("history:" + first["target_id"], limit=10).items),
+        *(doc.key for doc in store.page("history:" + second["target_id"], limit=10).items),
+    ]
+    return first, second, keys
+
+
 def run(store, clock, tmp_path, name="before.jsonl"):
     changes = []
     apply(store, plan_changes(store, clock[0]), tmp_path / name, changes.append)
@@ -198,17 +216,7 @@ def test_a_twin_blocked_as_unreadable_is_checked_again_once_its_link_reads(
 
 
 def test_a_run_is_undone_exactly_from_what_it_saved(before, store, clock, flight_url, tmp_path):
-    first = watched(before, clock, "alice", flight_url + "&sa=X", "alice-request", (30000, 29000))
-    second = watched(before, clock, "bob", flight_url + "&sa=Y", "bob-request")
-    keys = [
-        "target:" + first["target_id"],
-        "target:" + second["target_id"],
-        "target:" + import_link(flight_url)["id"],
-        "monitor:" + first["id"],
-        "monitor:" + second["id"],
-        "capacity:collection",
-        *(doc.key for doc in store.page("history:" + first["target_id"], limit=10).items),
-    ]
+    first, _, keys = twins(before, store, clock, flight_url)
     original = snapshot(store, keys)
     history = [doc.key for doc in store.page("history:" + first["target_id"], limit=10).items]
     pause(store)
@@ -565,3 +573,52 @@ def test_a_document_someone_wrote_after_the_run_is_never_reverted(
     restored, skipped = restore(store, tmp_path / "before.jsonl")
     assert restored == 0 and Skipped("monitor:" + monitor["id"], "changed since the run") in skipped
     assert service.get_monitor("alice", monitor["id"])["policy"]["threshold_minor"] == 5
+
+
+@pytest.mark.parametrize(
+    "prices", [((30000, 29000), (30000,)), ((30000,), (30000, 29000))], ids=["first", "second"]
+)
+def test_a_restore_run_again_after_a_merge_finds_it_done(
+    before, store, clock, flight_url, tmp_path, prices
+):
+    _, _, keys = twins(before, store, clock, flight_url, prices)
+    original = snapshot(store, keys)
+    pause(store)
+    assert sorted(c.outcome for c in run(store, clock, tmp_path)) == ["merged", "moved"]
+    assert restore(store, tmp_path / "before.jsonl") == (2, [])
+    # The merged target did not exist before the run and each monitor holds what it held
+    # then: everything is as it was, so a restore run again finds nothing left to undo.
+    assert restore(store, tmp_path / "before.jsonl") == (0, [])
+    assert snapshot(store, keys) == original
+
+
+class _Refusing:
+    """A store whose every commit fails, as if each target changed underneath the run."""
+
+    def __init__(self, store):
+        self.store = store
+
+    def __getattr__(self, name):
+        return getattr(self.store, name)
+
+    def commit(self, documents):
+        raise Conflict("changed underneath")
+
+
+@pytest.mark.parametrize(
+    "prices", [((30000, 29000), (30000,)), ((30000,), (30000, 29000))], ids=["first", "second"]
+)
+def test_a_run_whose_every_write_conflicted_leaves_nothing_to_restore(
+    before, store, clock, flight_url, tmp_path, prices
+):
+    _, _, keys = twins(before, store, clock, flight_url, prices)
+    original = snapshot(store, keys)
+    pause(store)
+    changes = []
+    apply(
+        _Refusing(store), plan_changes(store, clock[0]), tmp_path / "before.jsonl", changes.append
+    )
+    assert [c.outcome for c in changes] == ["conflict", "conflict"]
+    # Nothing was written, so nothing changed since the run either.
+    assert restore(store, tmp_path / "before.jsonl") == (0, [])
+    assert snapshot(store, keys) == original

@@ -410,6 +410,11 @@ def _content(partition: str, data: dict) -> str:
     ).hexdigest()
 
 
+def _image(snapshot: dict | None) -> str | None:
+    """A saved snapshot's content hash; None for a document that did not exist."""
+    return _content(snapshot["partition"], snapshot["data"]) if snapshot else None
+
+
 def _swap(store: Store, old: str, new: str) -> list[Document]:
     """The capacity record with ``old``'s reservation moved to ``new``, as it is now."""
     capacity = store.get(CAPACITY)
@@ -514,17 +519,25 @@ class Skipped:
 def restore(store: _Removable, before: Path) -> tuple[int, list[Skipped]]:
     """Undo each target the run wrote, where its documents still hold what it wrote.
 
-    A document already back as it was counts as done, so a restore can run again after
-    a full or an interrupted one. A document someone changed since, even to the same
-    revision, is never reverted: its target is left alone and its keys are listed.
+    A document as it was before this target or before the whole run (absent, if the
+    run created it) counts as done, so a restore can run again after a full or an
+    interrupted one, or after a run whose writes all failed. A document someone
+    changed since, even to the same revision, is never reverted: its target is left
+    alone and its keys are listed.
     Returns how many targets were undone and what was left.
     """
     _require_paused(store)
     lines = _read_saved(before)
     after: dict[str, dict[str, str]] = {}
+    # Each document as it was before the run: the first plan to write it read it from
+    # the table, while a later one (a merge into a target the run made) saved what the
+    # earlier plan would leave.
+    original: dict[str, str | None] = {}
     for line in lines:
         if "after" in line:
             after.setdefault(line["target"], {}).update(line["after"])
+        elif "key" in line:
+            original.setdefault(line["key"], _image(line["before"]))
     restored, skipped = 0, []
     for target in reversed(list(after)):
         written = after[target]
@@ -542,8 +555,8 @@ def restore(store: _Removable, before: Path) -> tuple[int, list[Skipped]]:
             key, prior = line["key"], line["before"]
             current = store.get(key)
             content = _content(current.partition, current.data) if current else None
-            if content == (_content(prior["partition"], prior["data"]) if prior else None):
-                continue  # Already as it was.
+            if content in (_image(prior), original[key]):
+                continue  # As it was before this target, or before the whole run.
             if current is None or content != written.get(key):
                 changed.append(Skipped(key, "changed since the run"))
             elif prior is None:
