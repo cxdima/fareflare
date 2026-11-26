@@ -8,10 +8,11 @@ The [hosted service](https://fareflare.dev)
 is free with open registration, with billing disabled and route searches enabled. Current
 collection supports:
 
-- **Selected itineraries:** US-English economy, one or two adults, USD/JPY, and
-  nonstop one-way or fully selected round trips.
+- **Selected itineraries:** economy, one or two adults, US prices in USD/JPY, and
+  nonstop one-way or fully selected round trips, whatever the page language and
+  however the flight was searched.
 - **Route searches:** exact departure and arrival airports, an exact date, one way,
-  nonstop, one adult, USD, US-English, and economy excluding Basic. The collector
+  nonstop, one adult, USD, and economy excluding Basic. The collector
   compares eligible offers returned for that search; flexible dates, nearby-airport
   searches, and unrestricted market-wide comparisons are unsupported.
 

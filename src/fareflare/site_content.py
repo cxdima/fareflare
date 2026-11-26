@@ -229,14 +229,14 @@ def public_pages(config: ProductConfig) -> tuple[Page, ...]:
                     "Watch a selected itinerary when the flight matters",
                     (
                         "Choose the flights you want in Google Flights, then copy the resulting link. A selected-itinerary monitor is useful when the departure time, airline, or return flight is part of your decision.",
-                        "Current selected-itinerary collection supports US-English economy, one or two adults, USD or JPY, and nonstop one-way trips or fully selected round trips. For a round trip, choose both the outbound and return flight before copying the link. An incomplete selection is not the same itinerary.",
+                        "Current selected-itinerary collection supports economy, one or two adults, US prices in USD or JPY, and nonstop one-way trips or fully selected round trips, whatever the page language and however you searched: by airport, city or several airports. For a round trip, choose both the outbound and return flight before copying the link. An incomplete selection is not the same itinerary.",
                     ),
                 ),
                 Section(
                     "Watch a route when several flights would work",
                     (
                         "A route-search monitor compares the eligible results for a supported search and keeps the actual matching flight with each observation. The cheapest matching result may be a different flight on the next successful check.",
-                        "Supported route searches use exact departure and arrival airports, an exact date, one way, nonstop, one adult, USD, US-English, and economy excluding Basic. Flexible dates, nearby-airport searches, and unrestricted combinations are not supported.",
+                        "Supported route searches use exact departure and arrival airports, an exact date, one way, nonstop, one adult, USD, and economy excluding Basic. Flexible dates, nearby-airport searches, and unrestricted combinations are not supported.",
                         route_status,
                     ),
                 ),

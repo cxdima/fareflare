@@ -16,6 +16,25 @@ Notable changes to Fareflare. The format follows
   `scripts/decode_link.py` shows every field of a Google Flights link and what Fareflare
   makes of it. Claude Code gets `release` and `link-report` skills, two reviewer agents
   and a hook that formats each Python file it edits.
+- **Every refused link says why.** The bot, the dashboard, the API, MCP and the
+  command line give one plain sentence per reason (a connection, a cabin, the
+  passengers, the currency or country, a search instead of a flight, a damaged
+  link) and what to do. The API adds the `reason` and the exact `check`; accounts
+  with diagnostics on see the check in Telegram.
+- **Refused links in the admin panel**, by reason and check, for 30 days. Only
+  counts are kept, never the link.
+- **`python -m fareflare.reidentify`** brings stored flights in line with how links
+  are read now, moving each one's watchers, price history and capacity to its new
+  identity. It only plans unless given `--apply`.
+
+### Changed
+
+- **A flight has one identity however its link was found.** What never changes a
+  price no longer splits a flight in two or follows it into the link it is
+  checked at: the places searched for, the page language (every page is read in
+  US English), Google's view and session state (`tfu`), the browser and click
+  tracking. Unknown parameters and fields still count, so two links are never
+  merged on a guess.
 
 ### Fixed
 
@@ -28,6 +47,11 @@ Notable changes to Fareflare. The format follows
   include the flight's airport.
 - **Links shared from Safari are accepted.** Safari writes the country in lower case
   (`gl=us`), which was refused. Route searches read it the same way.
+- **More real links are accepted**, from 98 that people shared in public: places
+  Google marks as areas (kind 3), Google's country domains with a stated location,
+  a lower-case currency, links that leave out the default passenger and cabin, and
+  connections that change airports within a city. Route-search links no longer
+  need `gsas` or a particular result order.
 
 ## 2.1.0 — 2026-11-23
 

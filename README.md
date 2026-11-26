@@ -110,8 +110,8 @@ an opt-in for developers.
 
 | Input | Current coverage |
 |---|---|
-| Selected itinerary | US-English economy, one or two adults, USD or JPY, nonstop one-way or a fully selected round trip |
-| Route search | Exact airports and date, one way, nonstop, one adult, USD, US-English economy excluding Basic |
+| Selected itinerary | Economy, one or two adults, US prices in USD or JPY, nonstop one-way or a fully selected round trip; any page language, found by any search |
+| Route search | Exact airports and date, one way, nonstop, one adult, USD, economy excluding Basic |
 
 Route searches are on at fareflare.dev and opt-in when self-hosting. Connections,
 flexible dates, nearby airports, other passenger types, cabins and markets need
