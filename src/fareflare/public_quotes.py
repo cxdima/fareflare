@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from fareflare.contracts import CollectionFailure, QuoteEvidence, Reading, SliceTimes
-from fareflare.limits import CURRENCIES, FLIGHTS
+from fareflare.contracts import CURRENCIES, CollectionFailure, QuoteEvidence, Reading, SliceTimes
+from fareflare.limits import FLIGHTS
 from fareflare.links import import_link
 from fareflare.refusals import LinkRefused
 
@@ -100,14 +100,14 @@ def slice_times(section: str, origin: str, destination: str) -> SliceTimes | Non
 
 def _money(label: str, currency: str) -> int:
     # Accessible labels identify the currency; a dollar sign alone is ambiguous.
-    name = CURRENCIES[currency]
-    decimals = r"(\.\d{2})?" if currency == "USD" else r"()"
-    match = re.fullmatch(r"([1-9]\d{0,7}|[1-9]\d{0,2}(?:,\d{3})+)" + decimals + " " + name, label)
+    unit = CURRENCIES[currency]
+    decimals = rf"(\.\d{{{unit.exponent}}})?" if unit.exponent else r"()"
+    match = re.fullmatch(
+        r"([1-9]\d{0,7}|[1-9]\d{0,2}(?:,\d{3})+)" + decimals + " " + unit.name, label
+    )
     if not match:
         raise QuoteUnavailable("unrecognized_price")
-    amount = int(
-        Decimal(match[1].replace(",", "") + (match[2] or "")) * (100 if currency == "USD" else 1)
-    )
+    amount = int(Decimal(match[1].replace(",", "") + (match[2] or "")) * 10**unit.exponent)
     if not 0 < amount <= 100_000_000:
         raise QuoteUnavailable("unrecognized_price")
     return amount

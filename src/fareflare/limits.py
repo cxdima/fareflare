@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from fareflare.contracts import CURRENCIES
+
 # Google's codes for a cabin, a trip type and an adult traveler.
 ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST = 1, 2, 3, 4
 CABINS = {
@@ -22,7 +24,6 @@ ROUND_TRIP, ONE_WAY, MULTI_CITY = 1, 2, 3
 DIRECTIONS = {ONE_WAY: 1, ROUND_TRIP: 2}
 ADULT = 1
 
-CURRENCIES = {"USD": "US dollars", "JPY": "Japanese yen"}
 COUNTRIES = {"US": "the United States"}
 
 
@@ -71,7 +72,7 @@ def adults(limits: Limits) -> str:
 
 
 def currencies(limits: Limits) -> str:
-    return either(CURRENCIES[code] for code in limits.currencies)
+    return either(CURRENCIES[code].name for code in limits.currencies)
 
 
 def country(limits: Limits) -> str:

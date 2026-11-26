@@ -39,14 +39,21 @@ class Offer:
     constraints_digest: str  # Includes unknown provider pricing constraints.
 
 
-#: Every currency an amount may be written in: its minor-unit digits and its symbol.
-CURRENCIES: dict[str, tuple[int, str]] = {
-    "USD": (2, "$"),
-    "CAD": (2, "CA$"),
-    "EUR": (2, "€"),
-    "GBP": (2, "£"),
-    "AUD": (2, "A$"),
-    "JPY": (0, "¥"),
+@dataclass(frozen=True)
+class Currency:
+    name: str  # As Google's accessible labels and Fareflare's sentences write it.
+    exponent: int  # Digits after the decimal point.
+    symbol: str
+
+
+#: Every currency an amount may be written in: the one definition of each.
+CURRENCIES: dict[str, Currency] = {
+    "USD": Currency("US dollars", 2, "$"),
+    "CAD": Currency("Canadian dollars", 2, "CA$"),
+    "EUR": Currency("euros", 2, "€"),
+    "GBP": Currency("British pounds", 2, "£"),
+    "AUD": Currency("Australian dollars", 2, "A$"),
+    "JPY": Currency("Japanese yen", 0, "¥"),
 }
 
 
@@ -58,14 +65,14 @@ class Money:
     @property
     def exponent(self) -> int:
         """Digits after the decimal point. Only a listed currency may be formatted."""
-        return self._currency[0]
+        return self._currency.exponent
 
     @property
     def symbol(self) -> str:
-        return self._currency[1]
+        return self._currency.symbol
 
     @property
-    def _currency(self) -> tuple[int, str]:
+    def _currency(self) -> Currency:
         try:
             return CURRENCIES[self.currency]
         except KeyError:

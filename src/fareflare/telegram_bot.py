@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from fareflare.accounts import Accounts, AuthenticationFailed
+from fareflare.contracts import CURRENCIES
 from fareflare.domain import AlertPolicy
 from fareflare.message_templates import Run, plain_text, telegram_html
 from fareflare.preferences import (
@@ -974,8 +975,8 @@ class TelegramBot:
                 "Currency: " + currency,
                 "Send the amount, for example " + price_example(currency, prefs.locale) + ".",
                 "Do not include currency symbols or thousands separators.",
-                "Use whole yen."
-                if currency == "JPY"
+                f"Use whole {CURRENCIES[currency].name}."
+                if CURRENCIES[currency].exponent == 0
                 else "Use the decimal separator from your regional settings.",
                 "Zero disables the minimum drop."
                 if field_name == "drop"
