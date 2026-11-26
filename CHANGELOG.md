@@ -11,8 +11,7 @@ Notable changes to Fareflare. The format follows
 - **Release and link tooling for maintainers.** The production release runs from
   versioned scripts in `scripts/release/`: build, image check, push (skipping images
   production already runs, writing the deployment's image values only after every push
-  is verified), smoke test, a watch for fresh prices, a record of each release, and a
-  check that every stored flight still imports to the same target.
+  is verified), smoke test, a watch for fresh prices and a record of each release.
   `scripts/decode_link.py` shows every field of a Google Flights link and what Fareflare
   makes of it. Claude Code gets `release` and `link-report` skills, two reviewer agents
   and a hook that formats each Python file it edits.
@@ -31,19 +30,19 @@ Notable changes to Fareflare. The format follows
 
 ### Changed
 
-- **A flight has one identity however its link was found.** These no longer split one
-  flight into two or follow it into the address it is checked at: where the link
-  was made (the Flights site, a share, Search or Deals), the places you searched for
-  once flights are chosen, the page language, how Google was showing the page, the
-  browser and click tracking. Parameters Fareflare does not know still count, so two
-  links are never merged on a guess. Route searches follow the same rules.
+- **A flight has one identity and one address however its link was found.** For chosen
+  flights, Fareflare keeps what decides the price (the flights, passengers, cabin,
+  bags, Basic fares, currency and location) and opens Google Flights from those alone.
+  Where the link was made, what was searched for (places, stops, airlines, times, a
+  price cap), the page language, Google's display and session state, the browser and
+  click tracking are left out, so one person's search or session is never passed to
+  the next person who watches the same flights. Settings Fareflare does not know still
+  count, so two links are never merged on a guess. A route search keeps its search:
+  that is what it watches.
 - **Alert links open Google Flights in US English**, the language every check reads.
 - **Route searches that include Basic fares are refused**, with the setting to
   choose: Economy (exclude Basic). Route-search prices are only read for fares without
   Basic, so such links used to be accepted and then fail every check.
-- **One table of what can be watched** (`src/fareflare/limits.py`) writes the checks,
-  the refusal sentences, the guide and the dashboard's description, so they cannot
-  disagree.
 
 ### Fixed
 
@@ -64,14 +63,15 @@ Notable changes to Fareflare. The format follows
   broken link. Links in Google Flights' format from before 2020 get their own
   sentence.
 
-### Operators
+### Upgrade notes
 
 - **Stored flights move to their new identity once, during the release.** Take a
   table backup, pause price checks, deploy, run
   `python -m fareflare.reidentify --apply <file>` (it saves what it replaces to that
-  file first, and `--restore <file>` undoes it), repeat the plan until every flight
-  is unchanged, then resume price checks. Until the move, every check of a moved
-  flight fails as a changed itinerary. Steps are in
+  file first, and `--restore <file>` undoes it), repeat the plan until it exits 0
+  with nothing left to move, then resume price checks. Until the move, every check of
+  a moved flight fails as a changed itinerary. A stored link the new rules refuse is
+  blocked, as a flight that cannot be read is. Steps are in
   [operations](docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
 
 ## 2.1.0 — 2026-11-23

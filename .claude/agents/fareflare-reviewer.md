@@ -33,7 +33,8 @@ Check, in this order:
    `failures.describe_failure` reports an unexpected error without its text.
 7. **Tenant isolation.** Every read and write is scoped to the caller's tenant.
 8. **Identity.** A change to how links are read keeps existing target ids, or ships a
-   migration. `scripts/release/reimport.py` proves it against production (read-only).
+   migration. `python -m fareflare.reidentify --table gfpt-next-production` (a read-only
+   plan) proves it: every flight `unchanged`.
 9. **Tests.** Named after behavior, run against both stores when storage is involved,
    failing on the old code. Anything Google produces is tested with a real captured fixture
    from `tests/fixtures/`.

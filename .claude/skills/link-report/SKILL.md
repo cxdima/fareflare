@@ -18,15 +18,16 @@ description: Triage a Google Flights link that Fareflare refused or misread — 
 
    It prints the parameters and every field of `tfs` and `tfu` (fields Fareflare does not
    read are marked), then what the importer and the collector say: the sentence people
-   see, and its precise `check` and plain `reason` (the refusal vocabulary in `src/fareflare`
-   maps each check to one reason).
+   see, and its precise `check` and plain `reason`. `src/fareflare/refusals.py` maps each
+   check to one reason and its sentence; `src/fareflare/limits.py` is the one table of what
+   can be watched, from which the checks, the sentences and the guide are written.
 3. **Classify the refusal.**
    - **Wrong rule:** the link prices a flight the collector can read, but a check refuses
      something that cannot change the price: what was searched (a city, several
      airports), letter case, browser or tracking parameters. Fix the rule, never the link:
      no special case for one shape. Audit the neighbouring checks for the same mistake.
-   - **Real limit:** connections, cabin, passengers, currency, country, trip type. The
-     refusal must name it plainly. Supporting it is collector work and needs captured
+   - **Real limit:** connections, cabin, passengers, currency, country, trip type: a value
+     in `limits.py`. The refusal names it. Supporting more is collector work and needs captured
      pages, not a looser check.
    - **Broken link:** truncated or mistyped, a short link that did not open, a search with
      no flight chosen. The refusal tells the person what to copy instead.
@@ -49,7 +50,8 @@ description: Triage a Google Flights link that Fareflare refused or misread — 
    `import_link(target["url"]) == target`. Run the new tests against the old source
    (`git stash push -- <changed src files>`, run, `git stash pop`): they must fail there.
 6. **Existing flights keep their identity.**
-   `PYTHONPATH=src .venv/bin/python scripts/release/reimport.py` (read-only, production)
-   must print `changed=0`; otherwise the change needs a migration of the listed targets.
+   `PYTHONPATH=src .venv/bin/python -m fareflare.reidentify --table gfpt-next-production`
+   (a read-only plan) must report every flight `unchanged` and exit 0. Otherwise the release
+   changes identities: it follows the runbook in [operations](../../../docs/OPERATIONS.md#a-release-that-changes-how-links-are-read).
 7. `make check`, a CHANGELOG entry, push to `main`. Release with the `release` skill once
    the maintainer says to deploy, then ask the reporter to send the link again.

@@ -33,10 +33,10 @@ tail -1 $R/api-verify.log                                 # must be FAILURES: no
 
 Before pushing, as the change requires:
 
-- **How links are read** (`links.py`, `search_links.py`, the refusal vocabulary):
-  `PYTHONPATH=src .venv/bin/python scripts/release/reimport.py` must print `changed=0`,
-  or the release carries a migration of the targets it lists (a dry run first, then the
-  maintainer's go-ahead).
+- **How links are read** (`links.py`, `search_links.py`, `limits.py`, `refusals.py`):
+  `PYTHONPATH=src .venv/bin/python -m fareflare.reidentify --table gfpt-next-production`
+  (a read-only plan) must report every flight `unchanged` and exit 0. If it plans moves or
+  merges, this is an identity-changing release: see below.
 - **Collection** (`public_browser.py`, `public_quotes.py`, Selenium, the browser base,
   `awslambdaric`): one live quote in the new worker image (CONTRIBUTING.md). A refusal
   from Google (`provider_error`, a challenge) is about Google, not the image: run the same
@@ -76,6 +76,15 @@ PYTHONPATH=src .venv/bin/python scripts/release/watch.py --since "$(cat $R/appli
 
 Report to the maintainer: what went out, the smoke and watch lines, and the rollback.
 
+## Identity-changing release
+
+When the plan above moves or merges flights, the release follows
+[A release that changes how links are read](../../../docs/OPERATIONS.md#a-release-that-changes-how-links-are-read) instead of applying
+straight away: a table backup, `admin_cli pause-checks`, the deploy below, `reidentify
+--apply`, a plan that is all `unchanged`, then `admin_cli resume-checks`. Show the
+maintainer the plan (every move and merge) and get the go-ahead for it as well as for
+the deploy. Keep the `--apply` file in `$R`: `--restore` undoes the run from it.
+
 ## Rollback
 
 ```bash
@@ -86,4 +95,5 @@ terraform -chdir=infra apply -no-color "$PWD/$R/rollback.tfplan"       # with th
 ```
 
 Each image repository keeps its newest ten images, so a rollback can reach ten releases
-back. Rolling back images does not undo a data migration.
+back. Rolling back images does not undo a data migration: after an identity-changing
+release, pause checks and run `reidentify --restore` with the release's file first.

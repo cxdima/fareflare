@@ -1,6 +1,6 @@
 ---
 name: link-intake-reviewer
-description: Reviews changes to how Fareflare reads Google Flights links (links.py, search_links.py, link_resolver.py, the refusal vocabulary, public_quotes.supported_target) for hostile input, identity stability and honest refusals. Use for any change that touches link import or the checks on it.
+description: Reviews changes to how Fareflare reads Google Flights links (links.py, search_links.py, link_resolver.py, limits.py, refusals.py, public_quotes.collection_refusal, reidentify.py) for hostile input, identity stability and honest refusals. Use for any change that touches link import or the checks on it.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -21,13 +21,16 @@ Prove or refute each point with the code and, where it helps, a short script:
 2. **No wrong refusals.** A link for a flight the collector can price is accepted whatever
    was searched, whatever letter case and whatever browser or tracking parameters came
    with it. If the change still refuses such a link, show its shape.
-3. **Honest refusals.** Each refusal has one finite reason with one plain sentence, the
-   same on every surface (bot, API and dashboard, MCP, command line). The precise check
-   is for diagnostics and counting only. No surface logs or stores the link.
+3. **Honest refusals.** Each refusal is a `LinkRefused` with a check from
+   `refusals.CHECKS`, which belongs to one reason with one plain sentence, the same on
+   every surface (bot, API and dashboard, MCP, command line). Limits and their sentences
+   come from `limits.py` only. The precise check is for diagnostics and counting only. No
+   surface logs or stores the link.
 4. **Identity.** `import_link(target["url"]) == target`, and the page address the worker
    reads back imports to the same id. What can change the price is in the id; what cannot
-   is not. Existing ids change only with a migration: `scripts/release/reimport.py`
-   (read-only, production) prints `changed=0` otherwise.
+   is not. Existing ids change only with a migration: `python -m fareflare.reidentify
+   --table gfpt-next-production` (a read-only plan) reports every flight `unchanged`
+   otherwise, and an identity-changing release follows the runbook in OPERATIONS.md.
 5. **Conservative with the unknown.** Unknown protobuf fields and unknown parameters are
    kept, not dropped. Missing a deduplication is acceptable; merging two differently
    priced products is not.

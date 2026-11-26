@@ -21,9 +21,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 
-from fareflare.links import import_link
-from fareflare.public_quotes import supported_target
-from fareflare.search_links import SearchMessage
+from fareflare.links import ItineraryMessage, import_link, parameter_kind
+from fareflare.public_quotes import collection_refusal
+from fareflare.refusals import LinkRefused
 
 Field = tuple[int, int, int | bytes]
 
@@ -113,14 +113,9 @@ def token(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def refusal(exc: ValueError) -> str:
-    """The refusal as people see it, plus its finer cause where the exception names one."""
-    named = [
-        f"{name}={getattr(exc, name)}"
-        for name in ("reason", "check", "code")
-        if getattr(exc, name, None)
-    ]
-    return f"{type(exc).__name__}: {exc}" + (f" [{', '.join(named)}]" if named else "")
+def refusal(exc: LinkRefused) -> str:
+    """The refusal as people see it, with its reason and its precise check."""
+    return f"{exc} [reason={exc.reason}, check={exc.check}]"
 
 
 def main(argument: str) -> int:
@@ -133,17 +128,18 @@ def main(argument: str) -> int:
     print(f"{parts.scheme}://{parts.netloc}{parts.path}")
     params = parse_qsl(parts.query, keep_blank_values=True)
     for name, value in params:
-        print(f"  {name} = {value if name not in ('tfs', 'tfu') else f'<{len(value)} chars>'}")
+        shown = value if name not in ("tfs", "tfu") else f"<{len(value)} chars>"
+        print(f"  {name} = {shown}  ({parameter_kind(name) or 'unknown: kept'})")
     for name, value in params:
         if name in ("tfs", "tfu"):
             print(f"{name}:")
             try:
-                show(token(value), SearchMessage.DESCRIPTOR if name == "tfs" else None)
+                show(token(value), ItineraryMessage.DESCRIPTOR if name == "tfs" else None)
             except (ValueError, binascii.Error) as exc:
                 print(f"  cannot decode: {exc}")
     try:
         target = import_link(url, allow_search=True)
-    except ValueError as exc:
+    except LinkRefused as exc:
         print("importer: refused,", refusal(exc))
         return 1
     flights = " / ".join(
@@ -160,10 +156,10 @@ def main(argument: str) -> int:
         f"  adults={target['adults']} cabin={target['cabin']} currency={target['currency']} "
         f"market={target['market']} url params={sorted(target['provider_query'])}"
     )
-    try:
-        supported_target(target)
-    except ValueError as exc:
-        print("collector: cannot price it,", refusal(exc))
+    print(f"  checked at: {target['url']}")
+    check = collection_refusal(target) if target.get("kind") != "search" else None
+    if check is not None:
+        print("collector: cannot price it,", refusal(LinkRefused(check)))
         return 1
     print("collector: can price it")
     return 0
