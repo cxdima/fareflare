@@ -16,6 +16,7 @@ in the same audit log with who changed it and why.
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import secrets
@@ -116,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
                 accounts.admin_named(args.admin),
                 {"collection_paused": args.command == "pause-checks"},
                 reason=args.reason.strip(),
+                context={"via": "command line", "os_user": getpass.getuser()},
             )
             print(
                 "Price checks are " + ("paused." if switches["collection_paused"] else "running.")

@@ -1,5 +1,6 @@
 """The admin panel: who may open it, what it shows, what it may do, and its record."""
 
+import getpass
 import json
 from types import SimpleNamespace
 
@@ -468,7 +469,12 @@ def test_price_checks_are_paused_from_the_command_line_with_who_and_why(tmp_path
     assert [(entry.data["action"], entry.data["admin"]) for entry in audit] == [
         ("switches", "root@example.com")
     ]
-    assert audit[0].data["detail"] == {"collection_paused": True, "reason": "Release: reidentify"}
+    assert audit[0].data["detail"] == {
+        "collection_paused": True,
+        "reason": "Release: reidentify",
+        "via": "command line",
+        "os_user": getpass.getuser(),
+    }
     resume = [*run, "resume-checks", "--as", "root@example.com", "--reason", "Done"]
     assert admin_cli.main(resume) == 0
     assert accounts.switches()["collection_paused"] is False

@@ -141,7 +141,8 @@ class CollectionFailure(ValueError):
 
     # Only an itinerary the collector cannot read stops its checks until someone
     # chooses Retry collection: checking again cannot change that answer.
-    BLOCKING = frozenset({"unsupported_itinerary"})
+    UNREADABLE = "unsupported_itinerary"
+    BLOCKING = frozenset({UNREADABLE})
     # Google turned the anonymous browser away: its robot check, its error page (the
     # booking options answered with an internal error while a normal browser gets
     # fares), a consent page or a sign-in page. Nobody can clear these for the worker's

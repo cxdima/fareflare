@@ -26,6 +26,7 @@ from fareflare.credentials import Credentials, RateLimiter
 from fareflare.passkeys import Passkeys
 from fareflare.product_config import ProductConfig
 from fareflare.store import Conflict, Document, Store
+from fareflare.switches import switches
 
 _SESSION_LIFETIME = 7 * 86400
 _MAX_SESSIONS = 10
@@ -353,12 +354,7 @@ class Accounts:
 
     def switches(self) -> dict:
         """Service-wide switches an admin can flip during an incident."""
-        document = self.store.get("configuration:admin")
-        data = document.data if document else {}
-        return {
-            "registration_paused": bool(data.get("registration_paused")),
-            "collection_paused": bool(data.get("collection_paused")),
-        }
+        return switches(self.store)
 
     # Sign-up and sign-in.
 

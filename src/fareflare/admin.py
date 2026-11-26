@@ -23,13 +23,14 @@ from fareflare.health import status_report
 from fareflare.refusals import refusal_report
 from fareflare.service import BLOCKED, COLLECTING, EXPIRED, IDLE, MonitoringService, NotFound
 from fareflare.store import Conflict, Document, Store
+from fareflare.switches import KEY as SWITCHES_KEY
+from fareflare.switches import NAMES as SWITCH_NAMES
 
 ADMIN_SESSION_SECONDS = 12 * 3600
 SCAN_LIMIT = 10_000
 WATCHERS_SHOWN = 100
 AUDIT_DAYS = 400
 DAY = 86400
-SWITCHES = ("registration_paused", "collection_paused")
 ACTIONS = ("suspend", "reactivate", "sign-out", "reset-two-factor", "temporary-password")
 FLIGHT_ACTIONS = {"paused": "pause-flight", "active": "resume-flight", "cancelled": "stop-flight"}
 
@@ -516,14 +517,16 @@ class Admin:
         self._record(admin, FLIGHT_ACTIONS[status], account.data, detail)
         return result
 
-    def set_switches(self, admin: dict, changes: dict, reason: str = "") -> dict:
-        changes = {key: bool(value) for key, value in changes.items() if key in SWITCHES}
+    def set_switches(
+        self, admin: dict, changes: dict, reason: str = "", context: dict | None = None
+    ) -> dict:
+        """Flip service-wide switches, recording who, why and, from the command line,
+        where the change was made."""
+        changes = {key: bool(value) for key, value in changes.items() if key in SWITCH_NAMES}
         if not changes:
             raise ValueError("Nothing to change")
         for _ in range(5):
-            current = self.store.get("configuration:admin") or Document(
-                "configuration:admin", "configuration", {}
-            )
+            current = self.store.get(SWITCHES_KEY) or Document(SWITCHES_KEY, "configuration", {})
             data = {**current.data, **changes, "updated_at": self._now(), "updated_by": admin["id"]}
             try:
                 self.store.commit([current.update(data)])
@@ -532,5 +535,6 @@ class Admin:
                 continue
         else:
             raise Conflict("The switches changed in another window; try again")
-        self._record(admin, "switches", None, {**changes, **({"reason": reason} if reason else {})})
+        detail = {**changes, **({"reason": reason} if reason else {}), **(context or {})}
+        self._record(admin, "switches", None, detail)
         return self.accounts.switches()

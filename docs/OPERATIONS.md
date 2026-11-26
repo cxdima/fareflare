@@ -112,18 +112,25 @@ python -m fareflare.admin_cli --table "$TABLE" pause-checks --as "$ADMIN" --reas
 python -m fareflare.reidentify --table "$TABLE"
 # 4. Move the flights. What each write replaces is saved first.
 python -m fareflare.reidentify --table "$TABLE" --apply ".fareflare/reidentify-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
-# 5. Run the plan again until every flight is "unchanged" (it exits 0).
+# 5. Run the plan again until it exits 0 with nothing left to move.
 python -m fareflare.reidentify --table "$TABLE"
 # 6. Start price checks again.
 python -m fareflare.admin_cli --table "$TABLE" resume-checks --as "$ADMIN" --reason "Release: reidentify done"
 ```
 
-`--apply` refuses while price checks run. A flight a check still holds, or one whose
-watcher has an alert waiting, is reported as busy and moved by a later run; any
-busy, unreadable, too large or conflicting flight makes the command exit with
-status 1. To undo a run, keep checks paused and pass its saved file to `--restore`:
-it puts back every document the run changed and removes the ones it created. A
-request to create a flight retried with its old idempotency key after the move is
+`--apply` and `--restore` refuse while price checks run. The saved file is created
+with mode 0600, in a directory only you can open. A flight a check still holds, or
+one whose watcher has an alert waiting, is reported as busy and moved by a later
+run; a busy, too large, conflicting or failed flight, or one whose watcher cannot be
+read, makes the command exit with status 1. A stored link the new rules refuse is
+blocked as `unsupported_itinerary`, as the collector blocks a flight it cannot
+read: its watchers see that, and later runs leave it be.
+
+To undo a run, keep checks paused and pass its saved file to `--restore`. It puts
+back each flight whose documents are still as the run left them and removes what the
+run created, moving collection reservations back on the record as it is now; a
+flight changed since (a new watcher, say) is listed and left alone, with status 1.
+A request to create a flight retried with its old idempotency key after the move is
 recognized only when the flight's alert rule has not changed since; the run lists
 the records it could not rebuild.
 
